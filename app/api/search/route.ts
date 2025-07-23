@@ -19,7 +19,7 @@ import {
   generateObject,
 } from 'ai';
 import {
-  scira,
+  oncobot,
   getMaxOutputTokens,
   requiresAuthentication,
   requiresProSubscription,
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
   let customInstructions: CustomInstructions | null = null;
 
   // Check if model requires authentication (fast check)
-  const authRequiredModels = ['scira-anthropic', 'scira-google'];
+  const authRequiredModels = ['oncobot-anthropic', 'oncobot-google'];
   if (authRequiredModels.includes(model) && !user) {
     return new ChatSDKError('unauthorized:model', `Authentication required to access ${model}`).toResponse();
   }
@@ -319,16 +319,16 @@ export async function POST(req: Request) {
       console.log('--------------------------------');
 
       const result = streamText({
-        model: scira.languageModel(model),
+        model: oncobot.languageModel(model),
         messages: convertToCoreMessages(messages),
-        ...(model.includes('scira-qwen-32b')
+        ...(model.includes('oncobot-qwen-32b')
           ? {
               temperature: 0.6,
               topP: 0.95,
               topK: 20,
               minP: 0,
             }
-          : model.includes('scira-deepseek-v3') || model.includes('scira-qwen-30b')
+          : model.includes('oncobot-deepseek-v3') || model.includes('oncobot-qwen-30b')
             ? {
                 temperature: 0.6,
                 topP: 1,
@@ -349,14 +349,14 @@ export async function POST(req: Request) {
         toolChoice: 'auto',
         providerOptions: {
           openai: {
-            ...(model === 'scira-o4-mini' || model === 'scira-o3'
+            ...(model === 'oncobot-o4-mini' || model === 'oncobot-o3'
               ? {
                   strictSchemas: true,
                   reasoningSummary: 'detailed',
                   serviceTier: 'flex',
                 }
               : {}),
-            ...(model === 'scira-4.1-mini'
+            ...(model === 'oncobot-4.1-mini'
               ? {
                   parallelToolCalls: false,
                   strictSchemas: true,
@@ -364,7 +364,7 @@ export async function POST(req: Request) {
               : {}),
           },
           xai: {
-            ...(model === 'scira-default'
+            ...(model === 'oncobot-default'
               ? {
                   reasoningEffort: 'low',
                 }
@@ -421,7 +421,7 @@ export async function POST(req: Request) {
           const tool = tools[toolCall.toolName as keyof typeof tools];
 
           const { object: repairedArgs } = await generateObject({
-            model: scira.languageModel('scira-4o-mini'),
+            model: oncobot.languageModel('oncobot-4o-mini'),
             schema: tool.parameters,
             prompt: [
               `The model tried to call the tool "${toolCall.toolName}"` + ` with the following arguments:`,

@@ -6,7 +6,7 @@ import { SearchGroupId } from '@/lib/utils';
 import { generateObject, UIMessage, generateText } from 'ai';
 import { z } from 'zod';
 import { getUser } from '@/lib/auth-utils';
-import { scira } from '@/ai/providers';
+import { oncobot } from '@/ai/providers';
 import {
   getChatsByUserId,
   deleteChatById,
@@ -76,7 +76,7 @@ export async function suggestQuestions(history: any[]) {
   console.log(history);
 
   const { object } = await generateObject({
-    model: scira.languageModel('scira-nano'),
+    model: oncobot.languageModel('oncobot-nano'),
     temperature: 0,
     maxTokens: 512,
     system: `You are a search engine follow up query/questions generator. You MUST create EXACTLY 3 questions for the search engine based on the message history.
@@ -143,7 +143,7 @@ export async function checkImageModeration(images: any) {
 
 export async function generateTitleFromUserMessage({ message }: { message: UIMessage }) {
   const { text: title } = await generateText({
-    model: scira.languageModel('scira-nano'),
+    model: oncobot.languageModel('oncobot-nano'),
     system: `\n
     - you will generate a short title based on the first message a user begins a conversation with
     - ensure it is not more than 80 characters long
@@ -253,7 +253,7 @@ const groupTools = {
 
 const groupInstructions = {
   web: `
-  You are an AI web search engine called Scira, designed to help users find information on the internet with no unnecessary chatter and more focus on the content and responsed with markdown format and the response guidelines below.
+  You are an AI web search engine called Oncobot, designed to help users find information on the internet with no unnecessary chatter and more focus on the content and responsed with markdown format and the response guidelines below.
   'You MUST run the tool IMMEDIATELY on receiving any user message' before composing your response. **This is non-negotiable.**
   Today's Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}
 
@@ -832,7 +832,7 @@ const groupInstructions = {
   - Do not include images in responses`,
 
   chat: `
-  You are Scira, a helpful assistant that helps with the task asked by the user.
+  You are Oncobot, a helpful assistant that helps with the task asked by the user.
   Today's date is ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}.
 
   ### Guidelines:

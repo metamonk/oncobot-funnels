@@ -66,24 +66,24 @@ const ChatInterface = memo(
     const [q] = useQueryState('q', parseAsString.withDefault(''));
 
     // Use localStorage hook directly for model selection with a default
-    const [selectedModel, setSelectedModel] = useLocalStorage('scira-selected-model', 'scira-default');
-    const [selectedGroup, setSelectedGroup] = useLocalStorage<SearchGroupId>('scira-selected-group', 'web');
+    const [selectedModel, setSelectedModel] = useLocalStorage('oncobot-selected-model', 'oncobot-default');
+    const [selectedGroup, setSelectedGroup] = useLocalStorage<SearchGroupId>('oncobot-selected-group', 'web');
     const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useLocalStorage(
-      'scira-custom-instructions-enabled',
+      'oncobot-custom-instructions-enabled',
       true,
     );
 
     // Get persisted values for dialog states
     const [persistedHasShownUpgradeDialog, setPersitedHasShownUpgradeDialog] = useLocalStorage(
-      'scira-upgrade-prompt-shown',
+      'oncobot-upgrade-prompt-shown',
       false,
     );
     const [persistedHasShownSignInPrompt, setPersitedHasShownSignInPrompt] = useLocalStorage(
-      'scira-signin-prompt-shown',
+      'oncobot-signin-prompt-shown',
       false,
     );
     const [persistedHasShownAnnouncementDialog, setPersitedHasShownAnnouncementDialog] = useLocalStorage(
-      'scira-announcement-prompt-shown',
+      'oncobot-announcement-prompt-shown',
       false,
     );
 
@@ -217,7 +217,7 @@ const ChatInterface = memo(
       () => ({
         id: chatId,
         api: '/api/search',
-        experimental_throttle: selectedModel === 'scira-anthropic' ? 1000 : 100,
+        experimental_throttle: selectedModel === 'oncobot-anthropic' ? 1000 : 100,
         sendExtraMessageFields: true,
         maxSteps: 5,
         body: {
@@ -558,7 +558,7 @@ const ChatInterface = memo(
             {status === 'ready' && messages.length === 0 && (
               <div className="text-center m-0 mb-2">
                 <h1 className="text-3xl sm:text-5xl !mb-0 text-foreground dark:text-foreground font-be-vietnam-pro! font-light tracking-tighter">
-                  scira
+                  oncobot
                 </h1>
               </div>
             )}

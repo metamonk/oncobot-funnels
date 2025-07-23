@@ -51,17 +51,17 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/ph',
-        destination: 'https://www.producthunt.com/posts/scira',
+        destination: 'https://www.producthunt.com/posts/oncobot',
         permanent: true,
       },
       {
         source: '/raycast',
-        destination: 'https://www.raycast.com/zaidmukaddam/scira',
+        destination: 'https://www.raycast.com/zaidmukaddam/oncobot',
         permanent: true,
       },
       {
         source: '/plst',
-        destination: 'https://peerlist.io/zaidmukaddam/project/scira-ai-20',
+        destination: 'https://peerlist.io/zaidmukaddam/project/oncobot-ai-20',
         permanent: true,
       },
     ];

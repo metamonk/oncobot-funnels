@@ -10,7 +10,7 @@ import { Daytona } from '@daytonaio/sdk';
 import { DataStreamWriter, generateObject, generateText, tool } from 'ai';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
-import { scira } from '@/ai/providers';
+import { oncobot } from '@/ai/providers';
 import { SNAPSHOT_NAME } from '@/lib/constants';
 
 const pythonLibsAvailable = [
@@ -135,7 +135,7 @@ const extremeSearch = async (prompt: string, dataStream: DataStreamWriter): Prom
 
   // plan out the research
   const { object: plan } = await generateObject({
-    model: scira.languageModel('scira-x-fast'),
+    model: oncobot.languageModel('oncobot-x-fast'),
     schema: z.object({
       plan: z
         .array(
@@ -180,7 +180,7 @@ Plan Guidelines:
 
   // Create the autonomous research agent with tools
   const { text } = await generateText({
-    model: scira.languageModel('scira-x-fast-mini'),
+    model: oncobot.languageModel('oncobot-x-fast-mini'),
     maxSteps: totalTodos,
     system: `
 You are an autonomous deep research analyst. Your goal is to research the given research plan thoroughly with the given tools.

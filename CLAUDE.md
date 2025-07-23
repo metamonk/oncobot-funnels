@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Scira (oncobot-v3) is an AI-powered search engine built with Next.js 15, TypeScript, and multiple AI providers. It provides comprehensive search capabilities across web, academic papers, social media, entertainment, and more.
+Oncobot (oncobot-v3) is an AI-powered search engine built with Next.js 15, TypeScript, and multiple AI providers. It provides comprehensive search capabilities across web, academic papers, social media, entertainment, and more.
 
 ## Development Commands
 

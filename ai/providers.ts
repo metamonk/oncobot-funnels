@@ -16,42 +16,42 @@ const fireworks = createOpenAI({
   apiKey: process.env.HF_TOKEN,
 });
 
-export const scira = customProvider({
+export const oncobot = customProvider({
   languageModels: {
-    'scira-default': xai('grok-3-mini'),
-    'scira-x-fast-mini': xai('grok-3-mini-fast'),
-    'scira-x-fast': xai('grok-3-fast'),
-    'scira-nano': openai.responses('gpt-4.1-nano'),
-    'scira-4.1-mini': openai.responses('gpt-4.1-mini'),
-    'scira-grok-3': xai('grok-3'),
-    'scira-grok-4': xai('grok-4'),
-    'scira-vision': xai('grok-2-vision-1212'),
-    'scira-g2': xai('grok-2-latest'),
-    'scira-4o-mini': openai.responses('gpt-4o-mini'),
-    'scira-o4-mini': openai.responses('o4-mini-2025-04-16'),
-    'scira-o3': openai.responses('o3'),
-    'scira-qwen-32b': wrapLanguageModel({
+    'oncobot-default': xai('grok-3-mini'),
+    'oncobot-x-fast-mini': xai('grok-3-mini-fast'),
+    'oncobot-x-fast': xai('grok-3-fast'),
+    'oncobot-nano': openai.responses('gpt-4.1-nano'),
+    'oncobot-4.1-mini': openai.responses('gpt-4.1-mini'),
+    'oncobot-grok-3': xai('grok-3'),
+    'oncobot-grok-4': xai('grok-4'),
+    'oncobot-vision': xai('grok-2-vision-1212'),
+    'oncobot-g2': xai('grok-2-latest'),
+    'oncobot-4o-mini': openai.responses('gpt-4o-mini'),
+    'oncobot-o4-mini': openai.responses('o4-mini-2025-04-16'),
+    'oncobot-o3': openai.responses('o3'),
+    'oncobot-qwen-32b': wrapLanguageModel({
       model: groq('qwen/qwen3-32b', {
         parallelToolCalls: false,
       }),
       middleware,
     }),
-    'scira-qwen-30b': wrapLanguageModel({
+    'oncobot-qwen-30b': wrapLanguageModel({
       model: fireworks('accounts/fireworks/models/qwen3-30b-a3b'),
       middleware,
     }),
-    'scira-deepseek-v3': wrapLanguageModel({
+    'oncobot-deepseek-v3': wrapLanguageModel({
       model: fireworks('accounts/fireworks/models/deepseek-v3-0324'),
       middleware,
     }),
-    'scira-kimi-k2': groq('moonshotai/kimi-k2-instruct'),
-    'scira-haiku': anthropic('claude-3-5-haiku-20241022'),
-    'scira-mistral': mistral('mistral-small-latest'),
-    'scira-google-lite': google('gemini-2.5-flash-lite'),
-    'scira-google': google('gemini-2.5-flash'),
-    'scira-google-pro': google('gemini-2.5-pro'),
-    'scira-anthropic': anthropic('claude-sonnet-4-20250514'),
-    'scira-llama-4': groq('meta-llama/llama-4-maverick-17b-128e-instruct', {
+    'oncobot-kimi-k2': groq('moonshotai/kimi-k2-instruct'),
+    'oncobot-haiku': anthropic('claude-3-5-haiku-20241022'),
+    'oncobot-mistral': mistral('mistral-small-latest'),
+    'oncobot-google-lite': google('gemini-2.5-flash-lite'),
+    'oncobot-google': google('gemini-2.5-flash'),
+    'oncobot-google-pro': google('gemini-2.5-pro'),
+    'oncobot-anthropic': anthropic('claude-sonnet-4-20250514'),
+    'oncobot-llama-4': groq('meta-llama/llama-4-maverick-17b-128e-instruct', {
       parallelToolCalls: false,
     }),
   },
@@ -60,7 +60,7 @@ export const scira = customProvider({
 export const models = [
   // Free Unlimited Models (xAI)
   {
-    value: 'scira-default',
+    value: 'oncobot-default',
     label: 'Grok 3 Mini',
     description: "xAI's most efficient reasoning LLM.",
     vision: false,
@@ -74,7 +74,7 @@ export const models = [
     maxOutputTokens: 16000,
   },
   {
-    value: 'scira-vision',
+    value: 'oncobot-vision',
     label: 'Grok 2 Vision',
     description: "xAI's advanced vision LLM",
     vision: true,
@@ -88,7 +88,7 @@ export const models = [
     maxOutputTokens: 8000,
   },
   {
-    value: 'scira-grok-3',
+    value: 'oncobot-grok-3',
     label: 'Grok 3',
     description: "xAI's recent smartest LLM",
     vision: false,
@@ -102,7 +102,7 @@ export const models = [
     maxOutputTokens: 16000,
   },
   {
-    value: 'scira-grok-4',
+    value: 'oncobot-grok-4',
     label: 'Grok 4',
     description: "xAI's most intelligent vision LLM",
     vision: true,
@@ -118,7 +118,7 @@ export const models = [
 
   // Mini Models (Free/Paid)
   {
-    value: 'scira-mistral',
+    value: 'oncobot-mistral',
     label: 'Mistral Small',
     description: "Mistral's small LLM",
     vision: true,
@@ -132,7 +132,7 @@ export const models = [
     maxOutputTokens: 128000,
   },
   {
-    value: 'scira-qwen-30b',
+    value: 'oncobot-qwen-30b',
     label: 'Qwen 3 30B A3B',
     description: "Alibaba's advanced MoE reasoning LLM",
     vision: false,
@@ -146,7 +146,7 @@ export const models = [
     maxOutputTokens: 16000,
   },
   {
-    value: 'scira-qwen-32b',
+    value: 'oncobot-qwen-32b',
     label: 'Qwen 3 32B',
     description: "Alibaba's advanced reasoning LLM",
     vision: false,
@@ -160,7 +160,7 @@ export const models = [
     maxOutputTokens: 40960,
   },
   {
-    value: 'scira-deepseek-v3',
+    value: 'oncobot-deepseek-v3',
     label: 'DeepSeek V3 0324',
     description: "DeepSeek's advanced base LLM",
     vision: false,
@@ -174,7 +174,7 @@ export const models = [
     maxOutputTokens: 16000,
   },
   {
-    value: 'scira-4o-mini',
+    value: 'oncobot-4o-mini',
     label: 'GPT 4o Mini',
     description: "OpenAI's previous flagship mini LLM",
     vision: true,
@@ -188,7 +188,7 @@ export const models = [
     maxOutputTokens: 16000,
   },
   {
-    value: 'scira-4.1-mini',
+    value: 'oncobot-4.1-mini',
     label: 'GPT 4.1 Mini',
     description: "OpenAI's latest flagship mini LLM",
     vision: true,
@@ -202,7 +202,7 @@ export const models = [
     maxOutputTokens: 16000,
   },
   {
-    value: 'scira-google-lite',
+    value: 'oncobot-google-lite',
     label: 'Gemini 2.5 Flash Lite',
     description: "Google's advanced smallest LLM",
     vision: true,
@@ -218,7 +218,7 @@ export const models = [
 
   // Pro Models
   {
-    value: 'scira-anthropic',
+    value: 'oncobot-anthropic',
     label: 'Claude 4 Sonnet',
     description: "Anthropic's most advanced LLM",
     vision: true,
@@ -232,7 +232,7 @@ export const models = [
     maxOutputTokens: 64000,
   },
   {
-    value: 'scira-google',
+    value: 'oncobot-google',
     label: 'Gemini 2.5 Flash',
     description: "Google's advanced small LLM",
     vision: true,
@@ -246,7 +246,7 @@ export const models = [
     maxOutputTokens: 65000,
   },
   {
-    value: 'scira-kimi-k2',
+    value: 'oncobot-kimi-k2',
     label: 'Kimi K2',
     description: "MoonShot AI's advanced base LLM",
     vision: false,
@@ -260,7 +260,7 @@ export const models = [
     maxOutputTokens: 10000,
   },
   {
-    value: 'scira-google-pro',
+    value: 'oncobot-google-pro',
     label: 'Gemini 2.5 Pro',
     description: "Google's most advanced LLM",
     vision: true,
@@ -274,7 +274,7 @@ export const models = [
     maxOutputTokens: 65000,
   },
   {
-    value: 'scira-o4-mini',
+    value: 'oncobot-o4-mini',
     label: 'o4 mini',
     description: "OpenAI's faster mini reasoning LLM",
     vision: true,
@@ -288,7 +288,7 @@ export const models = [
     maxOutputTokens: 100000,
   },
   {
-    value: 'scira-o3',
+    value: 'oncobot-o3',
     label: 'o3',
     description: "OpenAI's big reasoning LLM",
     vision: true,
@@ -304,7 +304,7 @@ export const models = [
 
   // Experimental Models
   {
-    value: 'scira-llama-4',
+    value: 'oncobot-llama-4',
     label: 'Llama 4 Maverick',
     description: "Meta's latest LLM",
     vision: true,
