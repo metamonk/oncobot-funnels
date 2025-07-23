@@ -11,9 +11,10 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { Toaster } from 'sonner';
 
 import { Providers } from './providers';
+import { config } from '@/lib/config';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://onco.bot'),
+  metadataBase: new URL(config.app.url),
   title: {
     default: 'OncoBot',
     template: '%s | OncoBot',
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
   },
   description: 'OncoBot is a minimalistic AI-powered search engine that helps you find information on the internet.',
   openGraph: {
-    url: 'https://onco.bot',
+    url: config.app.url,
     siteName: 'OncoBot',
   },
   keywords: [

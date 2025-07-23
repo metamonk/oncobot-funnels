@@ -4,6 +4,7 @@ import { getUser } from '@/lib/auth-utils';
 import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
 import { Message } from '@/lib/db/schema';
 import { Metadata } from 'next';
+import { config } from '@/lib/config';
 
 interface UIMessage {
   id: string;
@@ -43,12 +44,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     description: 'A search in onco.bot',
     openGraph: {
       title: title,
-      url: `https://onco.bot/search/${id}`,
+      url: `${config.app.url}/search/${id}`,
       description: 'A search in onco.bot',
       siteName: 'onco.bot',
       images: [
         {
-          url: `https://onco.bot/api/og/chat/${id}`,
+          url: `${config.app.url}/api/og/chat/${id}`,
           width: 1200,
           height: 630,
         },
@@ -57,20 +58,20 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     twitter: {
       card: 'summary_large_image',
       title: title,
-      url: `https://onco.bot/search/${id}`,
+      url: `${config.app.url}/search/${id}`,
       description: 'A search in onco.bot',
       siteName: 'onco.bot',
       creator: '@oncobot',
       images: [
         {
-          url: `https://onco.bot/api/og/chat/${id}`,
+          url: `${config.app.url}/api/og/chat/${id}`,
           width: 1200,
           height: 630,
         },
       ],
     },
     alternates: {
-      canonical: `https://onco.bot/search/${id}`,
+      canonical: `${config.app.url}/search/${id}`,
     },
   } as Metadata;
 }

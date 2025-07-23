@@ -15,6 +15,7 @@ import { User } from '@/lib/db/schema';
 import { LinkedinLogo, RedditLogo, XLogo } from '@phosphor-icons/react';
 import { ClassicLoader } from '@/components/ui/loading';
 import { useRouter } from 'next/navigation';
+import { config } from '@/lib/config';
 
 type VisibilityType = 'public' | 'private';
 
@@ -75,7 +76,7 @@ const Navbar = memo(
 
       if (!chatId) return;
 
-      const url = `https://onco.bot/search/${chatId}`;
+      const url = `${config.app.url}/search/${chatId}`;
       navigator.clipboard.writeText(url);
       setCopied(true);
       toast.success('Link copied to clipboard');
@@ -84,7 +85,7 @@ const Navbar = memo(
     };
 
     // Generate the share URL
-    const shareUrl = chatId ? `https://onco.bot/search/${chatId}` : '';
+    const shareUrl = chatId ? `${config.app.url}/search/${chatId}` : '';
 
     // Social media share handlers
     const handleShareLinkedIn = (e: React.MouseEvent) => {

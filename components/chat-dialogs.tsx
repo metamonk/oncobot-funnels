@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ChatHistoryDialog } from '@/components/chat-history-dialog';
 import { SignInPromptDialog } from '@/components/sign-in-prompt-dialog';
+import { config } from '@/lib/config';
 
 interface PostMessageUpgradeDialogProps {
   open: boolean;
@@ -147,7 +148,7 @@ export const ApiAnnouncementDialog = React.memo(({ open, onOpenChange }: ApiAnno
             </Button>
             <Button
               onClick={() => {
-                window.open('https://api.onco.bot/', '_blank');
+                window.open(config.app.apiUrl, '_blank');
                 onOpenChange(false);
               }}
               size="sm"
