@@ -250,6 +250,6 @@ export const auth = betterAuth({
     }),
     nextCookies(),
   ],
-  trustedOrigins: ['https://localhost:3000', 'https://onco.bot', 'https://www.onco.bot'],
-  allowedOrigins: ['https://localhost:3000', 'https://onco.bot', 'https://www.onco.bot'],
+  trustedOrigins: ['http://localhost:3000', 'https://onco.bot', 'https://www.onco.bot'],
+  allowedOrigins: ['http://localhost:3000', 'https://onco.bot', 'https://www.onco.bot'],
 });
