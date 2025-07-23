@@ -42,7 +42,7 @@ export default function TermsPage() {
                 <div className="relative w-14 h-14 rounded-full bg-white/90 dark:bg-black/90 shadow-sm flex items-center justify-center border border-neutral-200 dark:border-neutral-800">
                   <NextImage
                     src="/oncobot.png"
-                    alt="Oncobot Logo"
+                    alt="OncoBot Logo"
                     className="h-8 w-8 opacity-90 invert dark:invert-0"
                     width={32}
                     height={32}
@@ -68,7 +68,7 @@ export default function TermsPage() {
       <div className="py-16 px-4">
         <div className="container max-w-3xl mx-auto prose dark:prose-invert prose-neutral prose-headings:font-be-vietnam-pro prose-p:text-neutral-600 dark:prose-p:text-neutral-400 prose-a:text-neutral-900 dark:prose-a:text-neutral-200 prose-a:no-underline hover:prose-a:text-black dark:hover:prose-a:text-white prose-headings:tracking-tight">
           <p className="text-lg">
-            Welcome to Oncobot. These Terms of Service govern your use of our website and services. By using Oncobot,
+            Welcome to OncoBot. These Terms of Service govern your use of our website and services. By using OncoBot,
             you agree to these terms in full. If you disagree with any part of these terms, please do not use our
             service.
           </p>
@@ -83,7 +83,7 @@ export default function TermsPage() {
 
           <h2>2. Description of Service</h2>
           <p>
-            Oncobot is a minimalistic AI-powered search engine that helps users find information on the internet. Our
+            OncoBot is a minimalistic AI-powered search engine that helps users find information on the internet. Our
             service utilizes artificial intelligence to process search queries and provide relevant results and
             information.
           </p>
@@ -93,7 +93,7 @@ export default function TermsPage() {
           </p>
 
           <h2>3. User Conduct</h2>
-          <p>You agree not to use Oncobot to:</p>
+          <p>You agree not to use OncoBot to:</p>
           <ul>
             <li>Engage in any activity that violates applicable laws or regulations</li>
             <li>Infringe upon the rights of others, including intellectual property rights</li>
@@ -105,7 +105,7 @@ export default function TermsPage() {
           </ul>
 
           <h2>4. Content and Results</h2>
-          <p>While we strive to provide accurate and reliable information, Oncobot:</p>
+          <p>While we strive to provide accurate and reliable information, OncoBot:</p>
           <ul>
             <li>Does not guarantee the accuracy, completeness, or reliability of any results</li>
             <li>Is not responsible for content generated based on your search queries</li>
@@ -113,14 +113,14 @@ export default function TermsPage() {
           </ul>
           <p>
             You should exercise judgment and critical thinking when evaluating search results and generated content.
-            Oncobot should not be used as the sole source for making important decisions, especially in professional,
+            OncoBot should not be used as the sole source for making important decisions, especially in professional,
             medical, legal, or financial contexts.
           </p>
 
           <h2>5. Intellectual Property</h2>
           <p>
-            All content, features, and functionality of Oncobot, including but not limited to text, graphics, logos,
-            icons, images, audio clips, and software, are the property of Oncobot or its licensors and are protected by
+            All content, features, and functionality of OncoBot, including but not limited to text, graphics, logos,
+            icons, images, audio clips, and software, are the property of OncoBot or its licensors and are protected by
             copyright, trademark, and other intellectual property laws.
           </p>
           <p>
@@ -129,7 +129,7 @@ export default function TermsPage() {
           </p>
 
           <h2>6. Third-Party Services</h2>
-          <p>Oncobot relies on third-party services to provide its functionality:</p>
+          <p>OncoBot relies on third-party services to provide its functionality:</p>
           <ul>
             <li>Our service is hosted on Vercel&apos;s infrastructure</li>
             <li>We integrate with AI technology providers including OpenAI, Anthropic, xAI, and others</li>
@@ -137,13 +137,13 @@ export default function TermsPage() {
             <li>We are not responsible for the practices or policies of these third-party services</li>
           </ul>
           <p>
-            By using Oncobot, you acknowledge and agree that your data may be processed by these third-party services
+            By using OncoBot, you acknowledge and agree that your data may be processed by these third-party services
             as described in our Privacy Policy.
           </p>
 
           <h2>7. Pricing and Billing</h2>
           <p>
-            Oncobot offers both free and paid subscription plans. For detailed pricing information, visit our{' '}
+            OncoBot offers both free and paid subscription plans. For detailed pricing information, visit our{' '}
             <Link href="/pricing" className="underline">
               Pricing page
             </Link>
@@ -154,7 +154,7 @@ export default function TermsPage() {
               <strong>Free Plan:</strong> Includes limited daily searches with access to basic AI models
             </li>
             <li>
-              <strong>Oncobot Pro:</strong> $15/month subscription with unlimited searches and access to all AI models
+              <strong>OncoBot Pro:</strong> $15/month subscription with unlimited searches and access to all AI models
             </li>
           </ul>
           <p>For paid subscriptions:</p>
@@ -185,7 +185,7 @@ export default function TermsPage() {
 
           <h2>9. Privacy</h2>
           <p>
-            Your use of Oncobot is also governed by our{' '}
+            Your use of OncoBot is also governed by our{' '}
             <Link href="/privacy-policy" className="underline">
               Privacy Policy
             </Link>
@@ -194,21 +194,21 @@ export default function TermsPage() {
 
           <h2>10. Limitation of Liability</h2>
           <p>
-            To the maximum extent permitted by law, Oncobot shall not be liable for any indirect, incidental, special,
+            To the maximum extent permitted by law, OncoBot shall not be liable for any indirect, incidental, special,
             consequential, or punitive damages, including loss of profits, data, or goodwill, arising out of or in
             connection with your use of or inability to use the service.
           </p>
 
           <h2>11. Disclaimers</h2>
           <p>
-            Oncobot is provided &quot;as is&quot; and &quot;as available&quot; without any warranties of any kind,
+            OncoBot is provided &quot;as is&quot; and &quot;as available&quot; without any warranties of any kind,
             either express or implied, including but not limited to warranties of merchantability, fitness for a
             particular purpose, or non-infringement.
           </p>
 
           <h2>12. Termination</h2>
           <p>
-            We reserve the right to suspend or terminate your access to Oncobot, with or without notice, for conduct
+            We reserve the right to suspend or terminate your access to OncoBot, with or without notice, for conduct
             that we believe violates these Terms of Service or is harmful to other users, us, or third parties, or for
             any other reason at our discretion.
           </p>
@@ -216,20 +216,20 @@ export default function TermsPage() {
           <h2>13. Governing Law</h2>
           <p>
             These Terms shall be governed by and construed in accordance with the laws of the jurisdiction in which
-            Oncobot operates, without regard to its conflict of law provisions.
+            OncoBot operates, without regard to its conflict of law provisions.
           </p>
 
           <h2>14. Contact Us</h2>
           <p>If you have any questions about these Terms of Service, please contact us at:</p>
           <p>
-            <a href="mailto:zaid@oncobot.ai" className="flex items-center gap-1">
-              zaid@oncobot.ai <ExternalLink className="h-4 w-4" />
+            <a href="mailto:zaid@onco.bot" className="flex items-center gap-1">
+              zaid@onco.bot <ExternalLink className="h-4 w-4" />
             </a>
           </p>
 
           <div className="my-8 border-t border-neutral-200 dark:border-neutral-800 pt-8">
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              By using Oncobot, you agree to these Terms of Service and our{' '}
+              By using OncoBot, you agree to these Terms of Service and our{' '}
               <Link href="/privacy-policy" className="underline">
                 Privacy Policy
               </Link>
@@ -257,7 +257,7 @@ export default function TermsPage() {
                 />
               </div>
               <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                © {new Date().getFullYear()} Oncobot by Zaid Mukaddam
+                © {new Date().getFullYear()} OncoBot by Zaid Mukaddam
               </div>
             </div>
             <div className="flex items-center gap-6 text-sm text-neutral-500 dark:text-neutral-400">

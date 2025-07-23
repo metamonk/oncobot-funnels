@@ -558,7 +558,7 @@ const ChatInterface = memo(
             {status === 'ready' && messages.length === 0 && (
               <div className="text-center m-0 mb-2">
                 <h1 className="text-3xl sm:text-5xl !mb-0 text-foreground dark:text-foreground font-be-vietnam-pro! font-light tracking-tighter">
-                  oncobot
+                  OncoBot
                 </h1>
               </div>
             )}

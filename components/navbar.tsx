@@ -75,7 +75,7 @@ const Navbar = memo(
 
       if (!chatId) return;
 
-      const url = `https://oncobot.ai/search/${chatId}`;
+      const url = `https://onco.bot/search/${chatId}`;
       navigator.clipboard.writeText(url);
       setCopied(true);
       toast.success('Link copied to clipboard');
@@ -84,7 +84,7 @@ const Navbar = memo(
     };
 
     // Generate the share URL
-    const shareUrl = chatId ? `https://oncobot.ai/search/${chatId}` : '';
+    const shareUrl = chatId ? `https://onco.bot/search/${chatId}` : '';
 
     // Social media share handlers
     const handleShareLinkedIn = (e: React.MouseEvent) => {

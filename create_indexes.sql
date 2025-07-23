@@ -1,4 +1,4 @@
--- Critical Performance Indexes for oncobot
+-- Critical Performance Indexes for OncoBot
 -- Using correct database column names from schema
 
 -- 1. MESSAGE USAGE - Most critical (user_id + date range queries)

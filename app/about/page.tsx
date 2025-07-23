@@ -115,7 +115,7 @@ export default function AboutPage() {
               <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
                 <ShieldCheck className="h-4 w-4" />
                 <span className="text-sm font-medium">
-                  Oncobot is not connected to any cryptocurrency tokens or coins. We are purely an AI search engine.
+                  OncoBot is not connected to any cryptocurrency tokens or coins. We are purely an AI search engine.
                 </span>
               </div>
               <button
@@ -152,7 +152,7 @@ export default function AboutPage() {
                 Terms of Service
               </h3>
               <p className="text-xs text-muted-foreground">
-                By using Oncobot, you agree to our Terms of Service which outline the rules for using our platform. This
+                By using OncoBot, you agree to our Terms of Service which outline the rules for using our platform. This
                 includes guidelines on acceptable use, intellectual property rights, and limitations of liability.
               </p>
               <Link href="/terms" className="text-xs text-primary hover:underline inline-flex items-center">
@@ -205,13 +205,13 @@ export default function AboutPage() {
           <Link href="/" className="flex items-center gap-2">
             <Image
               src="/oncobot.png"
-              alt="Oncobot"
+              alt="OncoBot"
               width={100}
               height={100}
               className="size-7 invert dark:invert-0"
               quality={100}
             />
-            <span className="font-normal font-be-vietnam-pro">Oncobot</span>
+            <span className="font-normal font-be-vietnam-pro">OncoBot</span>
           </Link>
 
           <nav className="flex items-center gap-8">
@@ -250,7 +250,7 @@ export default function AboutPage() {
                 <div className="relative">
                   <Image
                     src="/oncobot.png"
-                    alt="Oncobot"
+                    alt="OncoBot"
                     width={100}
                     height={100}
                     className="size-16 invert dark:invert-0 transition-all duration-300 group-hover:scale-110"
@@ -338,7 +338,7 @@ export default function AboutPage() {
                     src="https://openalternative.co/oncobot/badge.svg?theme=dark&width=200&height=50"
                     width="200"
                     height="50"
-                    alt="Oncobot badge"
+                    alt="OncoBot badge"
                     loading="lazy"
                   />
                 </a>
@@ -387,7 +387,7 @@ export default function AboutPage() {
             <div className="text-center space-y-4">
               <h2 className="text-3xl font-medium tracking-tight">RAG & Search Grounding</h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
-                Oncobot combines RAG and search grounding to deliver accurate, up-to-date answers from reliable sources.
+                OncoBot combines RAG and search grounding to deliver accurate, up-to-date answers from reliable sources.
               </p>
             </div>
 
@@ -729,7 +729,7 @@ export default function AboutPage() {
             <div className="text-center space-y-4">
               <h2 className="text-3xl font-medium tracking-tight">Built For Everyone</h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
-                Whether you need quick answers or in-depth research, Oncobot adapts to your needs
+                Whether you need quick answers or in-depth research, OncoBot adapts to your needs
               </p>
             </div>
 
@@ -946,7 +946,7 @@ export default function AboutPage() {
                 </div>
 
                 <div className="mb-8">
-                  <h3 className="text-lg font-medium text-card-foreground mb-3 tracking-[-0.01em]">Oncobot Pro</h3>
+                  <h3 className="text-lg font-medium text-card-foreground mb-3 tracking-[-0.01em]">OncoBot Pro</h3>
                   <p className="text-muted-foreground text-sm mb-6 leading-relaxed">
                     Everything you need for unlimited usage
                   </p>
@@ -996,12 +996,12 @@ export default function AboutPage() {
                 <div className="flex-1 space-y-2 text-center sm:text-left">
                   <h3 className="font-medium text-base">Student Discount: $10 off Pro Plan</h3>
                   <p className="text-sm text-muted-foreground">
-                    Students can get the Pro plan for just $5/month. Email zaid@oncobot.ai with your student ID and a
-                    brief description of how you use Oncobot for your studies.
+                    Students can get the Pro plan for just $5/month. Email zaid@onco.bot with your student ID and a
+                    brief description of how you use OncoBot for your studies.
                   </p>
                   <div className="pt-1">
                     <a
-                      href="mailto:zaid@oncobot.ai?subject=Student%20Discount%20Request"
+                      href="mailto:zaid@onco.bot?subject=Student%20Discount%20Request"
                       className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-border bg-background hover:bg-accent h-9 px-4 py-2"
                     >
                       Request Student Discount
@@ -1060,14 +1060,14 @@ export default function AboutPage() {
           >
             <div className="text-center space-y-4">
               <h2 className="text-3xl font-medium tracking-tight">Frequently Asked Questions</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">Find answers to common questions about Oncobot</p>
+              <p className="text-muted-foreground max-w-2xl mx-auto">Find answers to common questions about OncoBot</p>
             </div>
 
             <ProAccordion type="single" collapsible className="w-full">
               <ProAccordionItem value="item-1">
-                <ProAccordionTrigger>What is Oncobot?</ProAccordionTrigger>
+                <ProAccordionTrigger>What is OncoBot?</ProAccordionTrigger>
                 <ProAccordionContent>
-                  Oncobot is a minimalistic open-source AI-powered search engine that uses RAG (Retrieval-Augmented
+                  OncoBot is a minimalistic open-source AI-powered search engine that uses RAG (Retrieval-Augmented
                   Generation) and search grounding to provide accurate, up-to-date answers from reliable sources.
                 </ProAccordionContent>
               </ProAccordionItem>
@@ -1084,7 +1084,7 @@ export default function AboutPage() {
                 <ProAccordionTrigger>Is there a student discount?</ProAccordionTrigger>
                 <ProAccordionContent>
                   Yes, students can get $10 off the Pro plan, bringing it down to $5/month. To apply, email
-                  zaid@oncobot.ai with your student verification details and a brief description of how you use Oncobot for
+                  zaid@onco.bot with your student verification details and a brief description of how you use OncoBot for
                   your academic work or studies.
                 </ProAccordionContent>
               </ProAccordionItem>
@@ -1098,17 +1098,17 @@ export default function AboutPage() {
               </ProAccordionItem>
 
               <ProAccordionItem value="item-5">
-                <ProAccordionTrigger>What AI models does Oncobot use?</ProAccordionTrigger>
+                <ProAccordionTrigger>What AI models does OncoBot use?</ProAccordionTrigger>
                 <ProAccordionContent>
-                  Oncobot uses a range of advanced AI models including Grok 3.0, Claude 3.7 Sonnet, OpenAI GPT 4o, Gemini
+                  OncoBot uses a range of advanced AI models including Grok 3.0, Claude 3.7 Sonnet, OpenAI GPT 4o, Gemini
                   2.5 Pro, and more to provide the best possible answers.
                 </ProAccordionContent>
               </ProAccordionItem>
 
               <ProAccordionItem value="item-6">
-                <ProAccordionTrigger>How does Oncobot ensure information accuracy?</ProAccordionTrigger>
+                <ProAccordionTrigger>How does OncoBot ensure information accuracy?</ProAccordionTrigger>
                 <ProAccordionContent>
-                  Oncobot combines RAG technology with search grounding to retrieve information from reliable sources and
+                  OncoBot combines RAG technology with search grounding to retrieve information from reliable sources and
                   verify it before providing answers. Each response includes source attribution.
                 </ProAccordionContent>
               </ProAccordionItem>
@@ -1116,8 +1116,8 @@ export default function AboutPage() {
               <ProAccordionItem value="item-7">
                 <ProAccordionTrigger>How do I apply for the student discount?</ProAccordionTrigger>
                 <ProAccordionContent>
-                  Email zaid@oncobot.ai with a copy of your student ID or enrollment proof. In your email, include a brief
-                  description of how you use or plan to use Oncobot for your academic work or studies. Once verified,
+                  Email zaid@onco.bot with a copy of your student ID or enrollment proof. In your email, include a brief
+                  description of how you use or plan to use OncoBot for your academic work or studies. Once verified,
                   you&apos;ll receive a special discount code for $10 off the Pro plan.
                 </ProAccordionContent>
               </ProAccordionItem>
@@ -1127,7 +1127,7 @@ export default function AboutPage() {
               <p className="text-muted-foreground text-sm leading-relaxed">
                 Have more questions?{' '}
                 <a
-                  href="mailto:zaid@oncobot.ai"
+                  href="mailto:zaid@onco.bot"
                   className="text-foreground hover:underline underline-offset-4 decoration-muted-foreground transition-colors duration-200"
                 >
                   Get in touch

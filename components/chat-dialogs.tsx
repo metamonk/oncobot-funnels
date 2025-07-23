@@ -22,7 +22,7 @@ export const PostMessageUpgradeDialog = React.memo(({ open, onOpenChange }: Post
                 <Crown className="w-4 h-4 text-white dark:text-black" weight="fill" />
               </div>
               <div>
-                <h2 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">Upgrade to Oncobot Pro</h2>
+                <h2 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">Upgrade to OncoBot Pro</h2>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">Get unlimited access to all features</p>
               </div>
             </div>
@@ -98,11 +98,11 @@ export const ApiAnnouncementDialog = React.memo(({ open, onOpenChange }: ApiAnno
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-white dark:bg-neutral-900 flex items-center justify-center border border-neutral-200 dark:border-neutral-700">
-                <img src="/oncobot.png" alt="Oncobot" className="w-5 h-5 object-contain" />
+                <img src="/oncobot.png" alt="OncoBot" className="w-5 h-5 object-contain" />
               </div>
               <div>
                 <h2 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
-                  Introducing Oncobot API Platform
+                  Introducing OncoBot API Platform
                 </h2>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">Powerful APIs for developers</p>
               </div>
@@ -147,7 +147,7 @@ export const ApiAnnouncementDialog = React.memo(({ open, onOpenChange }: ApiAnno
             </Button>
             <Button
               onClick={() => {
-                window.open('https://api.oncobot.ai/', '_blank');
+                window.open('https://api.onco.bot/', '_blank');
                 onOpenChange(false);
               }}
               size="sm"

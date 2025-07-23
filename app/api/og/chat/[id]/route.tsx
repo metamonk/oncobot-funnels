@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const bgImageData = await fs.promises.readFile(bgImagePath);
     const bgImageBase64 = `data:image/png;base64,${bgImageData.toString('base64')}`;
 
-    // Read the Oncobot logo
+    // Read the OncoBot logo
     const logoPath = path.join(process.cwd(), 'public', 'oncobot.png');
     const logoData = await fs.promises.readFile(logoPath);
     const logoBase64 = `data:image/png;base64,${logoData.toString('base64')}`;
@@ -72,7 +72,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                 src={logoBase64}
                 width={140}
                 height={140}
-                alt="Oncobot"
+                alt="OncoBot"
                 style={{
                   objectFit: 'contain',
                   marginBottom: 28,
@@ -87,7 +87,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                   fontFamily: 'Syne',
                 }}
               >
-                Oncobot
+                OncoBot
               </div>
             </div>
           </div>
@@ -169,7 +169,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                 src={logoBase64}
                 width={80}
                 height={80}
-                alt="Oncobot"
+                alt="OncoBot"
                 style={{
                   objectFit: 'contain',
                 }}
@@ -185,7 +185,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                     lineHeight: 1,
                   }}
                 >
-                  Oncobot
+                  OncoBot
                 </div>
                 <div
                   style={{
@@ -276,7 +276,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                   fontFamily: 'Syne',
                 }}
               >
-                Start your search at oncobot.ai
+                Start your search at onco.bot
               </div>
             </div>
           </div>

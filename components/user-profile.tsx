@@ -218,7 +218,7 @@ const UserProfile = memo(
                           <Crown size={14} className="text-foreground" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="font-medium text-foreground text-sm">Oncobot Pro</span>
+                          <span className="font-medium text-foreground text-sm">OncoBot Pro</span>
                           <span className="text-[10px] text-muted-foreground">Unlimited access to all features</span>
                         </div>
                       </div>
@@ -288,7 +288,7 @@ const UserProfile = memo(
             {/* External Links */}
             <DropdownMenuItem className="cursor-pointer" asChild>
               <a
-                href={'https://oncobot.userjot.com'}
+                href={'https://onco.bot/feedback'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full flex items-center gap-2"

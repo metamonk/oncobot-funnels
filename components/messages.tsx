@@ -39,11 +39,11 @@ interface MessagesProps {
   isOwner?: boolean; // Add ownership prop
 }
 
-const OncobotLogoHeader = () => (
+const OncoBotLogoHeader = () => (
   <div className="flex items-center gap-2 my-1.5">
     <Image
       src="/oncobot.png"
-      alt="Oncobot"
+      alt="OncoBot"
       className="size-7 invert dark:invert-0"
       width={100}
       height={100}
@@ -51,7 +51,7 @@ const OncobotLogoHeader = () => (
       quality={100}
       priority
     />
-    <h2 className="text-xl font-normal font-be-vietnam-pro text-foreground dark:text-foreground">Oncobot</h2>
+    <h2 className="text-xl font-normal font-be-vietnam-pro text-foreground dark:text-foreground">OncoBot</h2>
   </div>
 );
 
@@ -207,7 +207,7 @@ const Messages: React.FC<MessagesProps> = React.memo(
           if ((!part.text || part.text.trim() === '') && status === 'streaming' && !hasActiveToolInvocations) {
             return (
               <div key={`${messageIndex}-${partIndex}-loading`} className="flex flex-col min-h-[calc(100vh-18rem)]">
-                <OncobotLogoHeader />
+                <OncoBotLogoHeader />
                 <div className="flex space-x-2 ml-8 mt-2">
                   <div
                     className="w-2 h-2 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
@@ -382,7 +382,7 @@ const Messages: React.FC<MessagesProps> = React.memo(
               // Render logo and title for the first step-start
               return (
                 <div key={`${messageIndex}-${partIndex}-step-start-logo`}>
-                  <OncobotLogoHeader />
+                  <OncoBotLogoHeader />
                 </div>
               );
             }
@@ -514,7 +514,7 @@ const Messages: React.FC<MessagesProps> = React.memo(
         {status === 'submitted' && !hasActiveToolInvocations && (
           <div className="flex items-start min-h-[calc(100vh-18rem)]">
             <div className="w-full">
-              <OncobotLogoHeader />
+              <OncoBotLogoHeader />
               <div className="flex space-x-2 ml-8 mt-2">
                 <div
                   className="w-2 h-2 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
@@ -537,7 +537,7 @@ const Messages: React.FC<MessagesProps> = React.memo(
         {isMissingAssistantResponse && (
           <div className="flex items-start min-h-[calc(100vh-18rem)]">
             <div className="w-full">
-              <OncobotLogoHeader />
+              <OncoBotLogoHeader />
 
               <div className="bg-secondary/30 dark:bg-secondary/20 border border-secondary dark:border-secondary rounded-lg p-4 mb-4 max-w-2xl">
                 <div className="flex items-start gap-3">
