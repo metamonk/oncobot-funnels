@@ -11,7 +11,7 @@ import { Heart, ChartLineUp, CalendarCheck, NotePencil, Plus, Info } from '@phos
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { calculateProgress } from '@/lib/health-profile-flow';
-import { HealthProfileQuestionnaire } from './HealthProfileQuestionnaire';
+import { HealthProfileQuestionnaireModal } from './HealthProfileQuestionnaireModal';
 
 interface HealthProfileSectionProps {
   user: any;
@@ -57,17 +57,6 @@ export function HealthProfileSection({ user }: HealthProfileSectionProps) {
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-32 w-full" />
       </div>
-    );
-  }
-
-  if (showQuestionnaire) {
-    return (
-      <HealthProfileQuestionnaire
-        existingProfile={profile}
-        existingResponses={responses}
-        onComplete={handleQuestionnaireComplete}
-        onCancel={() => setShowQuestionnaire(false)}
-      />
     );
   }
 
@@ -229,6 +218,15 @@ export function HealthProfileSection({ user }: HealthProfileSectionProps) {
           </Button>
         </div>
       )}
+
+      {/* Questionnaire Modal */}
+      <HealthProfileQuestionnaireModal
+        open={showQuestionnaire}
+        onOpenChange={setShowQuestionnaire}
+        existingProfile={profile}
+        existingResponses={responses}
+        onComplete={handleQuestionnaireComplete}
+      />
     </div>
   );
 }

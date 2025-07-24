@@ -8,7 +8,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 interface HealthProfilePromptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onStartProfile: () => void;
+  onStartProfile?: () => void;
 }
 
 export const HealthProfilePromptDialog = React.memo(({ 
@@ -17,8 +17,8 @@ export const HealthProfilePromptDialog = React.memo(({
   onStartProfile
 }: HealthProfilePromptDialogProps) => {
   const handleStart = () => {
-    onStartProfile();
     onOpenChange(false);
+    onStartProfile?.();
   };
 
   return (

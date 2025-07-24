@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Crown, ArrowSquareOut } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ChatHistoryDialog } from '@/components/chat-history-dialog';
 import { SignInPromptDialog } from '@/components/sign-in-prompt-dialog';
 import { HealthProfilePromptDialog } from '@/components/health-profile/HealthProfilePromptDialog';
+import { HealthProfileQuestionnaireModal } from '@/components/health-profile/HealthProfileQuestionnaireModal';
 import { config } from '@/lib/config';
 import { useRouter } from 'next/navigation';
 
@@ -220,6 +221,7 @@ export const ChatDialogs = React.memo(
     setAnyDialogOpen,
   }: ChatDialogsProps) => {
     const router = useRouter();
+    const [showQuestionnaireModal, setShowQuestionnaireModal] = useState(false);
     return (
       <>
         {/* Chat History Dialog */}
@@ -277,8 +279,18 @@ export const ChatDialogs = React.memo(
           onStartProfile={() => {
             setShowHealthProfilePrompt(false);
             setHasShownHealthProfilePrompt(true);
-            // Open settings dialog to health tab
-            router.push('?settings=health');
+            // Open questionnaire modal
+            setShowQuestionnaireModal(true);
+          }}
+        />
+
+        {/* Health Profile Questionnaire Modal */}
+        <HealthProfileQuestionnaireModal
+          open={showQuestionnaireModal}
+          onOpenChange={setShowQuestionnaireModal}
+          onComplete={() => {
+            setShowQuestionnaireModal(false);
+            // Optionally show a success message or redirect
           }}
         />
       </>
