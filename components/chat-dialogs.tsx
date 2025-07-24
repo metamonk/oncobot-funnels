@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ChatHistoryDialog } from '@/components/chat-history-dialog';
 import { SignInPromptDialog } from '@/components/sign-in-prompt-dialog';
+import { HealthProfilePromptDialog } from '@/components/health-profile/HealthProfilePromptDialog';
 import { config } from '@/lib/config';
+import { useRouter } from 'next/navigation';
 
 interface PostMessageUpgradeDialogProps {
   open: boolean;
@@ -186,6 +188,10 @@ interface ChatDialogsProps {
   setShowAnnouncementDialog: (open: boolean) => void;
   hasShownAnnouncementDialog: boolean;
   setHasShownAnnouncementDialog: (value: boolean) => void;
+  showHealthProfilePrompt: boolean;
+  setShowHealthProfilePrompt: (open: boolean) => void;
+  hasShownHealthProfilePrompt: boolean;
+  setHasShownHealthProfilePrompt: (value: boolean) => void;
   user: any;
   setAnyDialogOpen: (open: boolean) => void;
 }
@@ -206,9 +212,14 @@ export const ChatDialogs = React.memo(
     setShowAnnouncementDialog,
     hasShownAnnouncementDialog,
     setHasShownAnnouncementDialog,
+    showHealthProfilePrompt,
+    setShowHealthProfilePrompt,
+    hasShownHealthProfilePrompt,
+    setHasShownHealthProfilePrompt,
     user,
     setAnyDialogOpen,
   }: ChatDialogsProps) => {
+    const router = useRouter();
     return (
       <>
         {/* Chat History Dialog */}
@@ -251,6 +262,23 @@ export const ChatDialogs = React.memo(
             if (!open) {
               setHasShownAnnouncementDialog(true);
             }
+          }}
+        />
+
+        {/* Health Profile Prompt Dialog */}
+        <HealthProfilePromptDialog
+          open={showHealthProfilePrompt}
+          onOpenChange={(open) => {
+            setShowHealthProfilePrompt(open);
+            if (!open) {
+              setHasShownHealthProfilePrompt(true);
+            }
+          }}
+          onStartProfile={() => {
+            setShowHealthProfilePrompt(false);
+            setHasShownHealthProfilePrompt(true);
+            // Open settings dialog to health tab
+            router.push('?settings=health');
           }}
         />
       </>

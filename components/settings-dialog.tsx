@@ -35,6 +35,7 @@ import {
   Memory,
   Calendar,
   NotePencil,
+  Heart,
 } from '@phosphor-icons/react';
 import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
@@ -49,6 +50,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { useTheme } from 'next-themes';
 import { Switch } from '@/components/ui/switch';
 import { useFastProStatus } from '@/hooks/use-user-data';
+import { HealthProfileSection } from '@/components/health-profile/HealthProfileSection';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -934,6 +936,7 @@ export function SettingsDialog({
 
   const tabItems = [
     { value: 'profile', label: 'Account', icon: User },
+    { value: 'health', label: 'Health Profile', icon: Heart },
     { value: 'usage', label: 'Usage', icon: ChartLineUp },
     { value: 'subscription', label: 'Subscription', icon: Crown },
     { value: 'instructions', label: 'Customize', icon: NotePencil },
@@ -949,6 +952,10 @@ export function SettingsDialog({
           isProUser={isProUser}
           isProStatusLoading={isProStatusLoading}
         />
+      </TabsContent>
+
+      <TabsContent value="health" className="mt-0">
+        <HealthProfileSection user={user} />
       </TabsContent>
 
       <TabsContent value="usage" className="mt-0">
@@ -990,7 +997,7 @@ export function SettingsDialog({
 
               {/* Bottom tab navigation - compact and accessible */}
               <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-4 shrink-0">
-                <TabsList className="w-full h-14 p-1 bg-transparent rounded-none grid grid-cols-5 gap-1">
+                <TabsList className="w-full h-14 p-1 bg-transparent rounded-none grid grid-cols-6 gap-1">
                   {tabItems.map((item) => (
                     <TabsTrigger
                       key={item.value}
@@ -999,17 +1006,17 @@ export function SettingsDialog({
                     >
                       <item.icon
                         className={cn(
-                          'h-5 w-5 transition-colors',
+                          'h-4 w-4 transition-colors',
                           currentTab === item.value ? 'text-foreground' : 'text-muted-foreground',
                         )}
                       />
                       <span
                         className={cn(
-                          'text-[10px] mt-0.5 transition-colors',
+                          'text-[9px] mt-0.5 transition-colors line-clamp-1',
                           currentTab === item.value ? 'text-foreground font-medium' : 'text-muted-foreground',
                         )}
                       >
-                        {item.label}
+                        {item.label === 'Health Profile' ? 'Health' : item.label}
                       </span>
                     </TabsTrigger>
                   ))}

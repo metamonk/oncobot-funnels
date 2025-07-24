@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, boolean, json, varchar, integer } from 'drizzle-orm/pg-core';
 import { generateId } from 'ai';
-import { InferSelectModel } from 'drizzle-orm';
+import { InferSelectModel, relations } from 'drizzle-orm';
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -173,3 +173,79 @@ export type Subscription = InferSelectModel<typeof subscription>;
 export type ExtremeSearchUsage = InferSelectModel<typeof extremeSearchUsage>;
 export type MessageUsage = InferSelectModel<typeof messageUsage>;
 export type CustomInstructions = InferSelectModel<typeof customInstructions>;
+
+// Health profile table
+export const healthProfile = pgTable('health_profile', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateId()),
+  cancerRegion: text('cancer_region'),
+  primarySite: text('primary_site'),
+  cancerType: text('cancer_type'),
+  diseaseStage: text('disease_stage'),
+  treatmentHistory: json('treatment_history'),
+  molecularMarkers: json('molecular_markers'),
+  performanceStatus: text('performance_status'),
+  complications: json('complications'),
+  completedAt: timestamp('completed_at'),
+  questionnaireVersion: integer('questionnaire_version').notNull().default(1),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// User health profile mapping table
+export const userHealthProfile = pgTable('user_health_profile', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateId()),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  healthProfileId: text('health_profile_id')
+    .notNull()
+    .references(() => healthProfile.id, { onDelete: 'cascade' }),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// Health profile responses table for individual answers
+export const healthProfileResponse = pgTable('health_profile_response', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateId()),
+  healthProfileId: text('health_profile_id')
+    .notNull()
+    .references(() => healthProfile.id, { onDelete: 'cascade' }),
+  questionId: text('question_id').notNull(),
+  response: json('response').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// Relations
+export const userHealthProfileRelations = relations(userHealthProfile, ({ one }) => ({
+  user: one(user, {
+    fields: [userHealthProfile.userId],
+    references: [user.id],
+  }),
+  healthProfile: one(healthProfile, {
+    fields: [userHealthProfile.healthProfileId],
+    references: [healthProfile.id],
+  }),
+}));
+
+export const healthProfileRelations = relations(healthProfile, ({ many }) => ({
+  userHealthProfiles: many(userHealthProfile),
+  responses: many(healthProfileResponse),
+}));
+
+export const healthProfileResponseRelations = relations(healthProfileResponse, ({ one }) => ({
+  healthProfile: one(healthProfile, {
+    fields: [healthProfileResponse.healthProfileId],
+    references: [healthProfile.id],
+  }),
+}));
+
+export type HealthProfile = InferSelectModel<typeof healthProfile>;
+export type UserHealthProfile = InferSelectModel<typeof userHealthProfile>;
+export type HealthProfileResponse = InferSelectModel<typeof healthProfileResponse>;

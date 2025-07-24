@@ -5,9 +5,11 @@ export interface ChatState {
   showUpgradeDialog: boolean;
   showSignInPrompt: boolean;
   showAnnouncementDialog: boolean;
+  showHealthProfilePrompt: boolean;
   hasShownUpgradeDialog: boolean;
   hasShownSignInPrompt: boolean;
   hasShownAnnouncementDialog: boolean;
+  hasShownHealthProfilePrompt: boolean;
   commandDialogOpen: boolean;
   anyDialogOpen: boolean;
 
@@ -30,9 +32,11 @@ export type ChatAction =
   | { type: 'SET_SHOW_UPGRADE_DIALOG'; payload: boolean }
   | { type: 'SET_SHOW_SIGNIN_PROMPT'; payload: boolean }
   | { type: 'SET_SHOW_ANNOUNCEMENT_DIALOG'; payload: boolean }
+  | { type: 'SET_SHOW_HEALTH_PROFILE_PROMPT'; payload: boolean }
   | { type: 'SET_HAS_SHOWN_UPGRADE_DIALOG'; payload: boolean }
   | { type: 'SET_HAS_SHOWN_SIGNIN_PROMPT'; payload: boolean }
   | { type: 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG'; payload: boolean }
+  | { type: 'SET_HAS_SHOWN_HEALTH_PROFILE_PROMPT'; payload: boolean }
   | { type: 'SET_COMMAND_DIALOG_OPEN'; payload: boolean }
   | { type: 'SET_ANY_DIALOG_OPEN'; payload: boolean }
   | { type: 'SET_SUGGESTED_QUESTIONS'; payload: string[] }
@@ -58,6 +62,9 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
     case 'SET_SHOW_ANNOUNCEMENT_DIALOG':
       return { ...state, showAnnouncementDialog: action.payload };
 
+    case 'SET_SHOW_HEALTH_PROFILE_PROMPT':
+      return { ...state, showHealthProfilePrompt: action.payload };
+
     case 'SET_HAS_SHOWN_UPGRADE_DIALOG':
       return { ...state, hasShownUpgradeDialog: action.payload };
 
@@ -66,6 +73,9 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
 
     case 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG':
       return { ...state, hasShownAnnouncementDialog: action.payload };
+
+    case 'SET_HAS_SHOWN_HEALTH_PROFILE_PROMPT':
+      return { ...state, hasShownHealthProfilePrompt: action.payload };
 
     case 'SET_COMMAND_DIALOG_OPEN':
       return { ...state, commandDialogOpen: action.payload };
@@ -93,6 +103,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         showUpgradeDialog: false,
         showSignInPrompt: false,
         showAnnouncementDialog: false,
+        showHealthProfilePrompt: false,
       };
 
     default:
@@ -105,15 +116,18 @@ export const createInitialState = (
   hasShownUpgradeDialog: boolean = false,
   hasShownSignInPrompt: boolean = false,
   hasShownAnnouncementDialog: boolean = false,
+  hasShownHealthProfilePrompt: boolean = false,
 ): ChatState => ({
   hasSubmitted: false,
   hasManuallyScrolled: false,
   showUpgradeDialog: false,
   showSignInPrompt: false,
   showAnnouncementDialog: false,
+  showHealthProfilePrompt: false,
   hasShownUpgradeDialog,
   hasShownSignInPrompt,
   hasShownAnnouncementDialog,
+  hasShownHealthProfilePrompt,
   commandDialogOpen: false,
   anyDialogOpen: false,
   suggestedQuestions: [],

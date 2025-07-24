@@ -86,6 +86,10 @@ const ChatInterface = memo(
       'oncobot-announcement-prompt-shown',
       false,
     );
+    const [persistedHasShownHealthProfilePrompt, setPersitedHasShownHealthProfilePrompt] = useLocalStorage(
+      'oncobot-health-profile-prompt-shown',
+      false,
+    );
 
     // Use reducer for complex state management
     const [chatState, dispatch] = useReducer(
@@ -95,6 +99,7 @@ const ChatInterface = memo(
         persistedHasShownUpgradeDialog,
         persistedHasShownSignInPrompt,
         persistedHasShownAnnouncementDialog,
+        persistedHasShownHealthProfilePrompt,
       ),
     );
 
@@ -136,6 +141,9 @@ const ChatInterface = memo(
 
     // Announcement dialog timer
     const announcementTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Health profile prompt timer
+    const healthProfileTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Generate a consistent ID for new chats
     const chatId = useMemo(() => initialChatId ?? uuidv4(), [initialChatId]);
@@ -210,6 +218,31 @@ const ChatInterface = memo(
         }
       };
     }, [chatState.hasShownAnnouncementDialog, setPersitedHasShownAnnouncementDialog]);
+
+    // Timer for health profile prompt for authenticated users
+    useEffect(() => {
+      // Only show for authenticated users who haven't seen the prompt
+      if (user && !chatState.hasShownHealthProfilePrompt) {
+        // Clear any existing timer
+        if (healthProfileTimerRef.current) {
+          clearTimeout(healthProfileTimerRef.current);
+        }
+
+        // Set timer for 3 minutes (180000 ms)
+        healthProfileTimerRef.current = setTimeout(() => {
+          dispatch({ type: 'SET_SHOW_HEALTH_PROFILE_PROMPT', payload: true });
+          dispatch({ type: 'SET_HAS_SHOWN_HEALTH_PROFILE_PROMPT', payload: true });
+          setPersitedHasShownHealthProfilePrompt(true);
+        }, 180000);
+      }
+
+      // Cleanup timer on unmount or when user logs out
+      return () => {
+        if (healthProfileTimerRef.current) {
+          clearTimeout(healthProfileTimerRef.current);
+        }
+      };
+    }, [user, chatState.hasShownHealthProfilePrompt, setPersitedHasShownHealthProfilePrompt]);
 
     type VisibilityType = 'public' | 'private';
 
@@ -542,6 +575,13 @@ const ChatInterface = memo(
           setHasShownAnnouncementDialog={(value) => {
             dispatch({ type: 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG', payload: value });
             setPersitedHasShownAnnouncementDialog(value);
+          }}
+          showHealthProfilePrompt={chatState.showHealthProfilePrompt}
+          setShowHealthProfilePrompt={(open) => dispatch({ type: 'SET_SHOW_HEALTH_PROFILE_PROMPT', payload: open })}
+          hasShownHealthProfilePrompt={chatState.hasShownHealthProfilePrompt}
+          setHasShownHealthProfilePrompt={(value) => {
+            dispatch({ type: 'SET_HAS_SHOWN_HEALTH_PROFILE_PROMPT', payload: value });
+            setPersitedHasShownHealthProfilePrompt(value);
           }}
           user={user}
           setAnyDialogOpen={(open) => dispatch({ type: 'SET_ANY_DIALOG_OPEN', payload: open })}

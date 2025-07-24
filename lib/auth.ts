@@ -12,6 +12,9 @@ import {
   subscription,
   customInstructions,
   stream,
+  healthProfile,
+  userHealthProfile,
+  healthProfileResponse,
 } from '@/lib/db/schema';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from '@/lib/db';
@@ -56,6 +59,9 @@ export const auth = betterAuth({
       subscription,
       customInstructions,
       stream,
+      healthProfile,
+      userHealthProfile,
+      healthProfileResponse,
     },
   }),
   socialProviders: {
