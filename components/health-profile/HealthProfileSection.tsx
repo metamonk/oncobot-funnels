@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getUserHealthProfile, hasCompletedHealthProfile } from '@/lib/health-profile-actions';
-import { Heart, ChartLineUp, CalendarCheck, NotePencil, Plus, AlertCircle } from '@phosphor-icons/react';
+import { Heart, ChartLineUp, CalendarCheck, NotePencil, Plus, Info } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { calculateProgress } from '@/lib/health-profile-flow';
@@ -202,7 +202,7 @@ export function HealthProfileSection({ user }: HealthProfileSectionProps) {
 
           <div className={cn("bg-blue-50 dark:bg-blue-950/20 rounded-lg mb-6", isMobile ? "p-3" : "p-4")}>
             <div className="flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+              <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
               <div className="text-left">
                 <p className={cn("text-blue-900 dark:text-blue-200", isMobile ? "text-xs" : "text-sm")}>
                   Your health information helps us:
