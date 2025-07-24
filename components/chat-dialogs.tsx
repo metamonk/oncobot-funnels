@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Crown, ArrowSquareOut } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -101,8 +102,14 @@ export const ApiAnnouncementDialog = React.memo(({ open, onOpenChange }: ApiAnno
           {/* Header */}
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-white dark:bg-neutral-900 flex items-center justify-center border border-neutral-200 dark:border-neutral-700">
-                <img src="/oncobot.png" alt="OncoBot" className="w-5 h-5 object-contain" />
+              <div className="w-8 h-8 rounded-lg bg-white dark:bg-neutral-900 flex items-center justify-center border border-neutral-200 dark:border-neutral-700 relative">
+                <Image 
+                  src="/oncobot.png" 
+                  alt="OncoBot" 
+                  width={20}
+                  height={20}
+                  className="object-contain" 
+                />
               </div>
               <div>
                 <h2 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">

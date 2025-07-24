@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, X, Check } from 'lucide-react';
@@ -51,15 +52,11 @@ export function HealthProfileQuestionnaireModal({
   const [profileId, setProfileId] = useState(existingProfile?.id || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState(existingProfile?.cancerRegion || responses.CANCER_REGION || null);
-
-  // Get questions based on selected region
-  const questions = selectedRegion ? getQuestionsForRegion(selectedRegion) : universalQuestions;
-  const currentQuestion = questions[currentQuestionIndex];
-  const progress = selectedRegion ? calculateProgress(responses, selectedRegion) : 0;
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   // Check if question should be shown based on dependencies
   const shouldShowQuestion = (question: Question): boolean => {
-    if (!question.dependsOn) return true;
+    if (!question || !question.dependsOn) return true;
     
     const dependencyValue = responses[question.dependsOn.questionId];
     const requiredValue = question.dependsOn.requiredValue;
@@ -70,10 +67,31 @@ export function HealthProfileQuestionnaireModal({
     return dependencyValue === requiredValue;
   };
 
+  // Get questions based on selected region
+  const questions = selectedRegion ? getQuestionsForRegion(selectedRegion) : universalQuestions;
+  const currentQuestion = questions[currentQuestionIndex];
+  const progress = selectedRegion ? calculateProgress(responses, selectedRegion) : 0;
+
+  // Initialize to first valid question on mount
+  useEffect(() => {
+    if (!hasInitialized && questions.length > 0) {
+      const firstValidIndex = questions.findIndex((q) => q && shouldShowQuestion(q));
+      if (firstValidIndex !== -1 && firstValidIndex !== currentQuestionIndex) {
+        setCurrentQuestionIndex(firstValidIndex);
+      }
+      setHasInitialized(true);
+    }
+  }, [hasInitialized, questions, currentQuestionIndex, shouldShowQuestion]);
+
+  // Handle case where no question is found or questions array is empty
+  if (!currentQuestion || questions.length === 0) {
+    return null;
+  }
+
   // Find next valid question
   const findNextValidQuestion = (fromIndex: number): number => {
     for (let i = fromIndex + 1; i < questions.length; i++) {
-      if (shouldShowQuestion(questions[i])) {
+      if (questions[i] && shouldShowQuestion(questions[i])) {
         return i;
       }
     }
@@ -83,19 +101,19 @@ export function HealthProfileQuestionnaireModal({
   // Find previous valid question
   const findPreviousValidQuestion = (fromIndex: number): number => {
     for (let i = fromIndex - 1; i >= 0; i--) {
-      if (shouldShowQuestion(questions[i])) {
+      if (questions[i] && shouldShowQuestion(questions[i])) {
         return i;
       }
     }
     return -1;
   };
 
-  const handleResponse = async (value: string) => {
+  const handleResponse = async (value: string | string[]) => {
     const newResponses = { ...responses, [currentQuestion.id]: value };
     setResponses(newResponses);
 
     // Special handling for cancer region selection
-    if (currentQuestion.id === 'CANCER_REGION') {
+    if (currentQuestion.id === 'CANCER_REGION' && typeof value === 'string') {
       setSelectedRegion(value);
     }
 
@@ -109,8 +127,19 @@ export function HealthProfileQuestionnaireModal({
     }
   };
 
+  const handleMultipleChoiceToggle = (optionValue: string) => {
+    const currentValues = (responses[currentQuestion.id] || []) as string[];
+    const newValues = currentValues.includes(optionValue)
+      ? currentValues.filter(v => v !== optionValue)
+      : [...currentValues, optionValue];
+    handleResponse(newValues);
+  };
+
   const handleNext = () => {
-    if (!responses[currentQuestion.id]) {
+    const response = responses[currentQuestion.id];
+    const isEmpty = !response || (Array.isArray(response) && response.length === 0);
+    
+    if (isEmpty) {
       toast.error('Please select an answer before continuing');
       return;
     }
@@ -144,9 +173,17 @@ export function HealthProfileQuestionnaireModal({
           chemotherapy: responses.TREATMENT_CHEMOTHERAPY,
           radiation: responses.TREATMENT_RADIATION,
           immunotherapy: responses.TREATMENT_IMMUNOTHERAPY,
+          // Include any multiple choice treatment responses
+          ...Object.keys(responses)
+            .filter(key => key.startsWith('TREATMENT_') && Array.isArray(responses[key]))
+            .reduce((acc, key) => ({ ...acc, [key.toLowerCase()]: responses[key] }), {})
         },
         molecularMarkers: {
           testingStatus: responses.MOLECULAR_TESTING_STATUS,
+          // Include all molecular marker responses
+          ...Object.keys(responses)
+            .filter(key => key.includes('MOLECULAR_') && key !== 'MOLECULAR_TESTING_STATUS')
+            .reduce((acc, key) => ({ ...acc, [key.toLowerCase()]: responses[key] }), {})
         },
         complications: {
           brainMets: responses.COMPLICATION_BRAIN_METS,
@@ -245,31 +282,60 @@ export function HealthProfileQuestionnaireModal({
                 </div>
 
                 {/* Options */}
-                <RadioGroup
-                  value={responses[currentQuestion.id] || ''}
-                  onValueChange={handleResponse}
-                  className="space-y-3"
-                >
-                  {currentQuestion.options.map((option) => (
-                    <div
-                      key={option.value}
-                      className={cn(
-                        "flex items-center space-x-3 rounded-lg border p-4 cursor-pointer transition-colors",
-                        "hover:bg-muted/50",
-                        responses[currentQuestion.id] === option.value && "border-primary bg-primary/5"
-                      )}
-                      onClick={() => handleResponse(option.value)}
-                    >
-                      <RadioGroupItem value={option.value} id={option.value} />
-                      <Label 
-                        htmlFor={option.value} 
-                        className="flex-1 cursor-pointer font-normal"
+                {currentQuestion.type === 'multiple_choice' ? (
+                  <div className="space-y-3">
+                    {currentQuestion.options.map((option) => {
+                      const isChecked = (responses[currentQuestion.id] || []).includes(option.value);
+                      return (
+                        <label
+                          key={option.value}
+                          htmlFor={`checkbox-${option.value}`}
+                          className={cn(
+                            "flex items-center space-x-3 rounded-lg border p-4 cursor-pointer transition-colors",
+                            "hover:bg-muted/50",
+                            isChecked && "border-primary bg-primary/5"
+                          )}
+                        >
+                          <Checkbox
+                            id={`checkbox-${option.value}`}
+                            checked={isChecked}
+                            onCheckedChange={() => handleMultipleChoiceToggle(option.value)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <span className="flex-1 font-normal">
+                            {option.label}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <RadioGroup
+                    value={responses[currentQuestion.id] || ''}
+                    onValueChange={handleResponse}
+                    className="space-y-3"
+                  >
+                    {currentQuestion.options.map((option) => (
+                      <div
+                        key={option.value}
+                        className={cn(
+                          "flex items-center space-x-3 rounded-lg border p-4 cursor-pointer transition-colors",
+                          "hover:bg-muted/50",
+                          responses[currentQuestion.id] === option.value && "border-primary bg-primary/5"
+                        )}
+                        onClick={() => handleResponse(option.value)}
                       >
-                        {option.label}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
+                        <RadioGroupItem value={option.value} id={option.value} />
+                        <Label 
+                          htmlFor={option.value} 
+                          className="flex-1 cursor-pointer font-normal"
+                        >
+                          {option.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                )}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -300,7 +366,11 @@ export function HealthProfileQuestionnaireModal({
             {currentQuestionIndex === questions.length - 1 ? (
               <Button
                 onClick={handleComplete}
-                disabled={!responses[currentQuestion.id] || isSubmitting}
+                disabled={
+                  (!responses[currentQuestion.id] || 
+                   (Array.isArray(responses[currentQuestion.id]) && responses[currentQuestion.id].length === 0)) || 
+                  isSubmitting
+                }
                 className="gap-2"
               >
                 {isSubmitting ? (
@@ -318,7 +388,10 @@ export function HealthProfileQuestionnaireModal({
             ) : (
               <Button
                 onClick={handleNext}
-                disabled={!responses[currentQuestion.id]}
+                disabled={
+                  !responses[currentQuestion.id] || 
+                  (Array.isArray(responses[currentQuestion.id]) && responses[currentQuestion.id].length === 0)
+                }
                 className="gap-2"
               >
                 <span className={cn(isMobile && "sr-only")}>Next</span>
