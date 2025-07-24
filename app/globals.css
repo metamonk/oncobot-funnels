@@ -196,7 +196,6 @@
 }
 
 :root {
-  --font-be-vietnam-pro: 'Be Vietnam Pro';
   --background: oklch(0.9842 0.0034 247.8575);
   --foreground: oklch(0.2795 0.0368 260.0310);
   --card: oklch(1.0000 0 0);
@@ -243,7 +242,6 @@
 }
 
 .dark {
-  --font-be-vietnam-pro: 'Be Vietnam Pro';
   --background: oklch(0.2077 0.0398 265.7549);
   --foreground: oklch(0.9288 0.0126 255.5078);
   --card: oklch(0.2795 0.0368 260.0310);
@@ -288,7 +286,9 @@
 }
 
 @theme inline {
-  --font-be-vietnam-pro: var(--font-be-vietnam-pro);
+  --font-family-sans: var(--font-sans);
+  --font-family-serif: var(--font-serif);
+  --font-family-mono: var(--font-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

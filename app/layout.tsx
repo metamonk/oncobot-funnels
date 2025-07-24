@@ -5,7 +5,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Metadata, Viewport } from 'next';
-import { Be_Vietnam_Pro, Geist } from 'next/font/google';
+import { Inter, Merriweather, JetBrains_Mono } from 'next/font/google';
 
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { Toaster } from 'sonner';
@@ -70,19 +70,26 @@ export const viewport: Viewport = {
   ],
 };
 
-const geist = Geist({
+const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
   preload: true,
   display: 'swap',
 });
 
-const beVietnamPro = Be_Vietnam_Pro({
+const merriweather = Merriweather({
   subsets: ['latin'],
-  variable: '--font-be-vietnam-pro',
+  variable: '--font-serif',
   preload: true,
   display: 'swap',
-  weight: ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
+  weight: ['300', '400', '700', '900'],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  preload: true,
+  display: 'swap',
 });
 
 export default function RootLayout({
@@ -92,7 +99,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geist.variable} ${beVietnamPro.variable} font-sans antialiased`} suppressHydrationWarning>
+      <body className={`${inter.variable} ${merriweather.variable} ${jetbrainsMono.variable} font-sans antialiased`} suppressHydrationWarning>
         <NuqsAdapter>
           <Providers>
             <Toaster position="top-center" />

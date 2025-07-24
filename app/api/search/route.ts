@@ -72,6 +72,7 @@ import {
   memoryManagerTool,
   redditSearchTool,
   extremeSearchTool,
+  clinicalTrialsTool,
 } from '@/lib/tools';
 
 type ResponseMessageWithoutId = CoreToolMessage | CoreAssistantMessage;
@@ -386,6 +387,7 @@ export async function POST(req: Request) {
           youtube_search: youtubeSearchTool,
           reddit_search: redditSearchTool,
           retrieve: retrieveTool,
+          clinical_trials: clinicalTrialsTool(dataStream),
 
           // Media & Entertainment
           movie_or_tv_search: movieTvSearchTool,
