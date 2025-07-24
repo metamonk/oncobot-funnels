@@ -3,7 +3,7 @@
 import { db } from '@/lib/db';
 import { healthProfile, userHealthProfile, healthProfileResponse } from '@/lib/db/schema';
 import { getUser } from '@/lib/auth-utils';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, ne } from 'drizzle-orm';
 import { generateId } from 'ai';
 
 export async function getUserHealthProfile() {
@@ -79,7 +79,7 @@ export async function createHealthProfile(data: {
       .set({ isActive: false })
       .where(and(
         eq(userHealthProfile.userId, user.id),
-        eq(userHealthProfile.healthProfileId, profileId).not()
+        ne(userHealthProfile.healthProfileId, profileId)
       ));
 
     return newProfile;
