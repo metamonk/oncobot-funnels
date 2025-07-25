@@ -21,6 +21,11 @@ export const metadata: Metadata = {
     absolute: 'OncoBot',
   },
   description: 'OncoBot is a minimalistic AI-powered search engine that helps you find information on the internet.',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-icon.png',
+  },
+  manifest: '/manifest.json',
   openGraph: {
     url: config.app.url,
     siteName: 'OncoBot',

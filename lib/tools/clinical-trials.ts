@@ -449,9 +449,17 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             });
             
             // Add location filters if provided
-            if (params.location) {
-              if (params.location.country) {
-                apiParams.append('filter.geo', `distance(${params.location.city || ''}, ${params.location.state || ''}, ${params.location.country}, ${params.location.distance || 50}mi)`);
+            if (params.location && params.location.city && params.location.country) {
+              // Format: distance(latitude,longitude,distance)
+              // For now, we'll use city,state,country format which the API should support
+              const locationParts = [
+                params.location.city,
+                params.location.state,
+                params.location.country
+              ].filter(Boolean).join(',');
+              
+              if (locationParts) {
+                apiParams.append('filter.geo', `distance(${locationParts},${params.location.distance || 50}mi)`);
               }
             }
             
@@ -645,6 +653,19 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
         }
       } catch (error) {
         console.error('Clinical trials tool error:', error);
+        
+        // Extract error details
+        let errorMessage = 'Failed to search clinical trials';
+        if (error instanceof Error) {
+          errorMessage = error.message;
+          
+          // Check for specific API errors
+          if (error.message.includes('400')) {
+            errorMessage = 'Invalid search parameters. Please check your location or search criteria.';
+          } else if (error.message.includes('filter.geo')) {
+            errorMessage = 'Location search is currently unavailable. Please try searching without location filters.';
+          }
+        }
         
         dataStream?.writeMessageAnnotation({
           type: 'error',

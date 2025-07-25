@@ -2,13 +2,13 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'OncoBot - AI-powered Search Engine',
+    name: 'OncoBot - Medical Oncology AI Assistant',
     short_name: 'OncoBot',
     description:
-      'A minimalistic AI-powered search engine that helps you find information on the internet using advanced AI models like GPT-4, Claude, and Grok',
+      'AI-powered medical oncology assistant providing evidence-based cancer treatment insights, clinical trial matching, and personalized health information',
     start_url: '/',
     display: 'standalone',
-    categories: ['search', 'ai', 'productivity'],
+    categories: ['medical', 'health', 'ai', 'oncology'],
     background_color: '#171717',
     icons: [
       {

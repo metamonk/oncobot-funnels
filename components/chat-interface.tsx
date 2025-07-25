@@ -313,9 +313,22 @@ const ChatInterface = memo(
               });
             }
           } else {
-            console.error('Chat error:', error.cause, error.message);
-            toast.error('An error occurred.', {
-              description: `Oops! An error occurred while processing your request. ${error.cause || error.message}`,
+            console.error('Chat error:', error);
+            // Handle different error types
+            let errorMessage = 'Unknown error occurred';
+            
+            if (error && typeof error === 'object') {
+              if ('message' in error && error.message) {
+                errorMessage = String(error.message);
+              } else if ('cause' in error && error.cause) {
+                errorMessage = String(error.cause);
+              } else if ('toString' in error && typeof error.toString === 'function') {
+                errorMessage = error.toString();
+              }
+            }
+            
+            toast.error('An error occurred', {
+              description: errorMessage,
             });
           }
         },
