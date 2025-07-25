@@ -913,7 +913,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     return () => {
       document.removeEventListener('keydown', handleGlobalKeyDown);
     };
-  }, [isRecording, input, setInput]);
+  }, [isRecording, input, setInput, inputRef]);
 
   const handleRecord = useCallback(async () => {
     if (isRecording && mediaRecorderRef.current) {
@@ -1535,7 +1535,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
       return () => clearTimeout(focusTimeout);
     }
-  }, [status]);
+  }, [status, inputRef]);
 
   const onSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {

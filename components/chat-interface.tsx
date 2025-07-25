@@ -333,7 +333,6 @@ const ChatInterface = memo(
           }
         },
         initialMessages: initialMessages,
-        // eslint-disable-next-line react-hooks/exhaustive-deps
       }),
       [
         selectedModel,
@@ -343,6 +342,8 @@ const ChatInterface = memo(
         initialMessages,
         chatState.selectedVisibilityType,
         isCustomInstructionsEnabled,
+        refetchUsage,
+        user,
       ],
     );
 

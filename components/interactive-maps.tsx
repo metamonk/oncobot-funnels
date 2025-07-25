@@ -280,11 +280,21 @@ const InteractiveMapComponent = memo<InteractiveMapProps>(
         map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
 
         return () => {
-          if (popupRef.current) {
-            popupRef.current.remove();
+          // Copy refs to variables to avoid stale closure
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+          const popup = popupRef.current;
+          const currentMap = mapRef.current;
+          
+          if (popup) {
+            popup.remove();
           }
+          
           map.remove();
-          mapRef.current = null;
+          
+          if (currentMap === map) {
+            mapRef.current = null;
+          }
+          
           setIsMapLoaded(false);
         };
       } catch (error) {

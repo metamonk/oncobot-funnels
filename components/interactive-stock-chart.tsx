@@ -311,7 +311,7 @@ export const InteractiveStockChart = React.memo(
         tooltipHtml += `</div>`;
         return tooltipHtml;
       },
-      [interval, processedData, isDark],
+      [processedData, isDark],
     );
 
     // Chart options
@@ -437,7 +437,7 @@ export const InteractiveStockChart = React.memo(
           };
         }),
       };
-    }, [processedData, interval, getTooltipFormatter, isDark, isMobile]);
+    }, [processedData, getTooltipFormatter, isDark, isMobile]);
 
     return (
       <div className="w-full rounded-lg border border-border/50 overflow-hidden shadow-xs">

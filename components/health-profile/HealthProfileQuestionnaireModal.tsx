@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -55,7 +55,7 @@ export function HealthProfileQuestionnaireModal({
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // Check if question should be shown based on dependencies
-  const shouldShowQuestion = (question: Question): boolean => {
+  const shouldShowQuestion = useCallback((question: Question): boolean => {
     if (!question || !question.dependsOn) return true;
     
     const dependencyValue = responses[question.dependsOn.questionId];
@@ -65,7 +65,7 @@ export function HealthProfileQuestionnaireModal({
       return requiredValue.includes(dependencyValue);
     }
     return dependencyValue === requiredValue;
-  };
+  }, [responses]);
 
   // Get questions based on selected region
   const questions = selectedRegion ? getQuestionsForRegion(selectedRegion) : universalQuestions;
