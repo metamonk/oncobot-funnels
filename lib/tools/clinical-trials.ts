@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { DataStreamWriter } from 'ai';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
 import { HealthProfile, HealthProfileResponse } from '@/lib/db/schema';
-import { findPlaceOnMapTool } from '@/lib/tools/map-tools';
+import { serverEnv } from '@/env/server';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -459,27 +459,43 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
                   params.location.country || 'USA'
                 ].filter(Boolean).join(', ');
                 
-                // Geocode the location to get coordinates
-                const geocodeResult = await findPlaceOnMapTool.execute({
-                  query: locationQuery,
-                  latitude: null,
-                  longitude: null
-                });
-                
-                if (geocodeResult.success && geocodeResult.places && geocodeResult.places.length > 0) {
-                  const location = geocodeResult.places[0].location;
-                  const distance = params.location.distance || 50;
-                  
-                  // Format: distance(latitude,longitude,distancemi)
-                  // Example: distance(41.8781,-87.6298,50mi) for Chicago
-                  apiParams.append('filter.geo', `distance(${location.lat},${location.lng},${distance}mi)`);
-                  
-                  // Log for debugging
-                  console.log('Geocoded location:', locationQuery, 'to:', location);
-                  console.log('Using filter.geo:', `distance(${location.lat},${location.lng},${distance}mi)`);
+                // Instead of calling the tool directly, let's use the Google Maps API
+                // This is a simplified version - you might want to extract this to a shared function
+                const googleApiKey = serverEnv.GOOGLE_MAPS_API_KEY;
+                if (!googleApiKey) {
+                  console.warn('Google Maps API key not configured, skipping location filter');
                 } else {
-                  console.warn('Could not geocode location:', locationQuery);
-                  // Continue without location filter rather than failing the entire search
+                
+                  const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(locationQuery)}&key=${googleApiKey}`;
+                  const geocodeResponse = await fetch(geocodeUrl);
+                  
+                  if (geocodeResponse.ok) {
+                    const geocodeData = await geocodeResponse.json();
+                    const geocodeResult = {
+                      success: geocodeData.status === 'OK' && geocodeData.results.length > 0,
+                      places: geocodeData.results?.map((result: any) => ({
+                        location: result.geometry.location
+                      }))
+                    };
+                    
+                    if (geocodeResult.success && geocodeResult.places && geocodeResult.places.length > 0) {
+                      const location = geocodeResult.places[0].location;
+                      const distance = params.location.distance || 50;
+                      
+                      // Format: distance(latitude,longitude,distancemi)
+                      // Example: distance(41.8781,-87.6298,50mi) for Chicago
+                      apiParams.append('filter.geo', `distance(${location.lat},${location.lng},${distance}mi)`);
+                      
+                      // Log for debugging
+                      console.log('Geocoded location:', locationQuery, 'to:', location);
+                      console.log('Using filter.geo:', `distance(${location.lat},${location.lng},${distance}mi)`);
+                    } else {
+                      console.warn('Could not geocode location:', locationQuery);
+                      // Continue without location filter rather than failing the entire search
+                    }
+                  } else {
+                    console.warn('Failed to geocode location:', locationQuery);
+                  }
                 }
               } catch (geocodeError) {
                 console.error('Error geocoding location:', geocodeError);
@@ -498,14 +514,19 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             console.log('Query being sent:', query);
             
             // Stream search start
+            const searchStatusData: any = {
+              status: 'started',
+              query: query,
+              message: 'Searching ClinicalTrials.gov...'
+            };
+            
+            if (params.location) {
+              searchStatusData.location = `${params.location.city}, ${params.location.state || ''} ${params.location.country || 'USA'}`;
+            }
+            
             dataStream?.writeMessageAnnotation({
               type: 'search_status',
-              data: {
-                status: 'started',
-                query: query,
-                message: 'Searching ClinicalTrials.gov...',
-                location: params.location ? `${params.location.city}, ${params.location.state || ''} ${params.location.country || 'USA'}` : undefined
-              }
+              data: searchStatusData
             });
             
             // Fetch trials from API
