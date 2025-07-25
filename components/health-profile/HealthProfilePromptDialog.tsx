@@ -10,16 +10,23 @@ interface HealthProfilePromptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStartProfile?: () => void;
+  onDismiss?: () => void;
 }
 
 export const HealthProfilePromptDialog = React.memo(({ 
   open, 
   onOpenChange,
-  onStartProfile
+  onStartProfile,
+  onDismiss
 }: HealthProfilePromptDialogProps) => {
   const handleStart = () => {
     onOpenChange(false);
     onStartProfile?.();
+  };
+
+  const handleDismiss = () => {
+    onOpenChange(false);
+    onDismiss?.();
   };
 
   return (
@@ -80,7 +87,7 @@ export const HealthProfilePromptDialog = React.memo(({
           <div className="flex gap-3">
             <Button
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={handleDismiss}
               size="sm"
               className="flex-1 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800"
             >

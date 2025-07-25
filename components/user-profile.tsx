@@ -231,7 +231,7 @@ const UserProfile = memo(
             {/* External Links */}
             <DropdownMenuItem className="cursor-pointer" asChild>
               <a
-                href={'https://onco.bot/feedback'}
+                href={'https://oncoai.userjot.com'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full flex items-center gap-2"

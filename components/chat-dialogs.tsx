@@ -191,6 +191,12 @@ export const ChatDialogs = React.memo(
             // Open questionnaire modal
             setShowQuestionnaireModal(true);
           }}
+          onDismiss={() => {
+            // Store the timestamp when user dismisses with "Maybe Later"
+            localStorage.setItem('healthProfilePromptLastDismissed', Date.now().toString());
+            setShowHealthProfilePrompt(false);
+            setHasShownHealthProfilePrompt(true);
+          }}
         />
 
         {/* Health Profile Questionnaire Modal */}
@@ -199,6 +205,8 @@ export const ChatDialogs = React.memo(
           onOpenChange={setShowQuestionnaireModal}
           onComplete={() => {
             setShowQuestionnaireModal(false);
+            // Clear the dismissal timestamp since they've completed their profile
+            localStorage.removeItem('healthProfilePromptLastDismissed');
             // Optionally show a success message or redirect
           }}
         />
