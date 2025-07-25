@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { DataStreamWriter } from 'ai';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
 import { HealthProfile, HealthProfileResponse } from '@/lib/db/schema';
+import { findPlaceOnMapTool } from '@/lib/tools/map-tools';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -449,17 +450,40 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             });
             
             // Add location filters if provided
-            if (params.location && params.location.city && params.location.country) {
-              // Format: distance(latitude,longitude,distance)
-              // For now, we'll use city,state,country format which the API should support
-              const locationParts = [
-                params.location.city,
-                params.location.state,
-                params.location.country
-              ].filter(Boolean).join(',');
-              
-              if (locationParts) {
-                apiParams.append('filter.geo', `distance(${locationParts},${params.location.distance || 50}mi)`);
+            if (params.location && params.location.city) {
+              try {
+                // Build location query string
+                const locationQuery = [
+                  params.location.city,
+                  params.location.state,
+                  params.location.country || 'USA'
+                ].filter(Boolean).join(', ');
+                
+                // Geocode the location to get coordinates
+                const geocodeResult = await findPlaceOnMapTool.execute({
+                  query: locationQuery,
+                  latitude: null,
+                  longitude: null
+                });
+                
+                if (geocodeResult.success && geocodeResult.places && geocodeResult.places.length > 0) {
+                  const location = geocodeResult.places[0].location;
+                  const distance = params.location.distance || 50;
+                  
+                  // Format: distance(latitude,longitude,distancemi)
+                  // Example: distance(41.8781,-87.6298,50mi) for Chicago
+                  apiParams.append('filter.geo', `distance(${location.lat},${location.lng},${distance}mi)`);
+                  
+                  // Log for debugging
+                  console.log('Geocoded location:', locationQuery, 'to:', location);
+                  console.log('Using filter.geo:', `distance(${location.lat},${location.lng},${distance}mi)`);
+                } else {
+                  console.warn('Could not geocode location:', locationQuery);
+                  // Continue without location filter rather than failing the entire search
+                }
+              } catch (geocodeError) {
+                console.error('Error geocoding location:', geocodeError);
+                // Continue without location filter
               }
             }
             
@@ -479,7 +503,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
               data: {
                 status: 'started',
                 query: query,
-                message: 'Searching ClinicalTrials.gov...'
+                message: 'Searching ClinicalTrials.gov...',
+                location: params.location ? `${params.location.city}, ${params.location.state || ''} ${params.location.country || 'USA'}` : undefined
               }
             });
             
