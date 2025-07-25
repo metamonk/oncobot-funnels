@@ -33,6 +33,7 @@ import {
   DollarSign,
   ExternalLink,
   Film,
+  FlaskConical,
   Globe,
   Loader2,
   MapPin,
@@ -113,6 +114,7 @@ const OnChainCryptoComponents = lazy(() =>
 const CryptoTickers = lazy(() =>
   import('@/components/crypto-charts').then((module) => ({ default: module.CryptoTickers })),
 );
+const ClinicalTrials = lazy(() => import('@/components/clinical-trials'));
 
 // Loading component for lazy-loaded components
 const ComponentLoader = () => (
@@ -1731,6 +1733,18 @@ const ToolInvocationListView = memo(
                 </div>
               </div>
             </div>
+          );
+        }
+
+        if (toolInvocation.toolName === 'clinical_trials') {
+          if (!result) {
+            return <SearchLoadingState icon={FlaskConical} text="Searching clinical trials..." color="blue" />;
+          }
+
+          return (
+            <Suspense fallback={<ComponentLoader />}>
+              <ClinicalTrials result={result} action={args.action} />
+            </Suspense>
           );
         }
 

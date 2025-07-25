@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import NextImage from 'next/image';
 import { ExternalLink } from 'lucide-react';
+import { OncoBotLogo } from '@/components/logos/oncobot-logo';
 
 const container = {
   hidden: { opacity: 0 },
@@ -40,14 +40,10 @@ export default function TermsPage() {
             <motion.div variants={item} className="text-center">
               <Link href="/" className="inline-flex items-center gap-3 font-be-vietnam-pro font-bold">
                 <div className="relative w-14 h-14 rounded-full bg-white/90 dark:bg-black/90 shadow-sm flex items-center justify-center border border-neutral-200 dark:border-neutral-800">
-                  <NextImage
-                    src="/oncobot.png"
-                    alt="OncoBot Logo"
-                    className="h-8 w-8 opacity-90 invert dark:invert-0"
-                    width={32}
-                    height={32}
-                    unoptimized
-                    quality={100}
+                  <OncoBotLogo 
+                    size="sm"
+                    variant="default"
+                    className="opacity-90 text-foreground dark:text-gray-200"
                   />
                 </div>
               </Link>
@@ -246,14 +242,10 @@ export default function TermsPage() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 flex items-center justify-center">
-                <NextImage
-                  src="/oncobot.png"
-                  alt="Oncobot Logo"
-                  className="h-4 w-4 opacity-80 invert dark:invert-0"
-                  width={16}
-                  height={16}
-                  unoptimized
-                  quality={100}
+                <OncoBotLogo 
+                  size="xs"
+                  variant="default"
+                  className="opacity-80 text-foreground dark:text-gray-200"
                 />
               </div>
               <div className="text-sm text-neutral-500 dark:text-neutral-400">

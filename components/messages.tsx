@@ -3,6 +3,7 @@ import { Message } from '@/components/message';
 import { UIMessage } from '@ai-sdk/ui-utils';
 import { ReasoningPartView, ReasoningPart } from '@/components/reasoning-part';
 import Image from 'next/image';
+import { OncoBotLogo } from '@/components/logos/oncobot-logo';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, AlertCircle, Copy } from 'lucide-react';
 import { MarkdownRenderer } from '@/components/markdown';
@@ -41,15 +42,10 @@ interface MessagesProps {
 
 const OncoBotLogoHeader = () => (
   <div className="flex items-center gap-2 my-1.5">
-    <Image
-      src="/oncobot.png"
-      alt="OncoBot"
-      className="size-7 invert dark:invert-0"
-      width={100}
-      height={100}
-      unoptimized
-      quality={100}
-      priority
+    <OncoBotLogo 
+      size="sm" 
+      variant="default" 
+      className="text-foreground dark:text-gray-200"
     />
     <h2 className="text-xl font-normal font-be-vietnam-pro text-foreground dark:text-foreground">OncoBot</h2>
   </div>

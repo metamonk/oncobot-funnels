@@ -36,6 +36,7 @@ import { TextShimmer } from '@/components/core/text-shimmer';
 import { VercelLogo } from '@/components/logos/vercel-logo';
 import { ExaLogo } from '@/components/logos/exa-logo';
 import { ElevenLabsLogo } from '@/components/logos/elevenlabs-logo';
+import { OncoBotLogo } from '@/components/logos/oncobot-logo';
 import { useRouter } from 'next/navigation';
 import { GithubLogo, XLogo } from '@phosphor-icons/react';
 import { Badge } from '@/components/ui/badge';
@@ -203,13 +204,10 @@ export default function AboutPage() {
       <header className="sticky top-0 z-50 backdrop-blur-lg bg-background/80 border-b border-border">
         <div className="container max-w-screen-xl mx-auto py-4 px-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2">
-            <Image
-              src="/oncobot.png"
-              alt="OncoBot"
-              width={100}
-              height={100}
-              className="size-7 invert dark:invert-0"
-              quality={100}
+            <OncoBotLogo 
+              size="sm"
+              variant="default"
+              className="text-foreground dark:text-gray-200"
             />
             <span className="font-normal font-be-vietnam-pro">OncoBot</span>
           </Link>
@@ -248,13 +246,10 @@ export default function AboutPage() {
             <motion.div variants={item} className="space-y-8">
               <Link href="/" className="inline-flex items-center gap-2 group">
                 <div className="relative">
-                  <Image
-                    src="/oncobot.png"
-                    alt="OncoBot"
-                    width={100}
-                    height={100}
-                    className="size-16 invert dark:invert-0 transition-all duration-300 group-hover:scale-110"
-                    quality={100}
+                  <OncoBotLogo 
+                    size="xl"
+                    variant="default"
+                    className="text-foreground dark:text-gray-200 transition-all duration-300 group-hover:scale-110"
                   />
                 </div>
                 <span className="text-5xl font-light tracking-tight font-be-vietname-pro">oncobot</span>
@@ -1143,7 +1138,7 @@ export default function AboutPage() {
         <div className="container max-w-screen-xl mx-auto py-12 px-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <Image src="/oncobot.png" alt="Oncobot" width={32} height={32} className="h-8 w-8 invert dark:invert-0" />
+              <OncoBotLogo size="sm" variant="default" className="text-foreground dark:text-gray-200" />
               <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} All rights reserved.</p>
             </div>
 

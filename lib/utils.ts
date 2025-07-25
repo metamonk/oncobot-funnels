@@ -1,7 +1,7 @@
 // /lib/utils.ts
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Globe, Book, TelescopeIcon, DollarSign } from 'lucide-react';
+import { Globe, Book, TelescopeIcon, DollarSign, Heart } from 'lucide-react';
 import {
   ChatsCircleIcon,
   CodeIcon,
@@ -10,6 +10,7 @@ import {
   YoutubeLogoIcon,
   XLogoIcon,
 } from '@phosphor-icons/react/ssr';
+import { isSearchModeEnabled } from './feature-toggles';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -25,7 +26,8 @@ export type SearchGroupId =
   | 'chat'
   | 'extreme'
   | 'memory'
-  | 'crypto';
+  | 'crypto'
+  | 'health';
 
 export const searchGroups = [
   {
@@ -33,14 +35,14 @@ export const searchGroups = [
     name: 'Web',
     description: 'Search across the entire internet powered by Exa AI',
     icon: Globe,
-    show: true,
+    show: isSearchModeEnabled('web'),
   },
   {
     id: 'memory' as const,
     name: 'Memory',
     description: 'Your personal memory companion',
     icon: MemoryIcon,
-    show: true,
+    show: isSearchModeEnabled('memory'),
     requireAuth: true,
   },
   {
@@ -48,56 +50,63 @@ export const searchGroups = [
     name: 'Analysis',
     description: 'Code, stock and currency stuff',
     icon: CodeIcon,
-    show: true,
+    show: isSearchModeEnabled('analysis'),
   },
   {
     id: 'crypto' as const,
     name: 'Crypto',
     description: 'Cryptocurrency research powered by CoinGecko',
     icon: DollarSign,
-    show: true,
+    show: isSearchModeEnabled('crypto'),
   },
   {
     id: 'chat' as const,
     name: 'Chat',
     description: 'Talk to the model directly.',
     icon: ChatsCircleIcon,
-    show: true,
+    show: isSearchModeEnabled('chat'),
   },
   {
     id: 'x' as const,
     name: 'X',
     description: 'Search X posts',
     icon: XLogoIcon,
-    show: true,
+    show: isSearchModeEnabled('x'),
   },
   {
     id: 'reddit' as const,
     name: 'Reddit',
     description: 'Search Reddit posts',
     icon: RedditLogoIcon,
-    show: true,
+    show: isSearchModeEnabled('reddit'),
   },
   {
     id: 'academic' as const,
     name: 'Academic',
     description: 'Search academic papers powered by Exa',
     icon: Book,
-    show: true,
+    show: isSearchModeEnabled('academic'),
   },
   {
     id: 'youtube' as const,
     name: 'YouTube',
     description: 'Search YouTube videos powered by Exa',
     icon: YoutubeLogoIcon,
-    show: true,
+    show: isSearchModeEnabled('youtube'),
   },
   {
     id: 'extreme' as const,
     name: 'Extreme',
     description: 'Deep research with multiple sources and analysis',
     icon: TelescopeIcon,
-    show: true,
+    show: isSearchModeEnabled('extreme'),
+  },
+  {
+    id: 'health' as const,
+    name: 'Health',
+    description: 'Clinical trials and health information search',
+    icon: Heart,
+    show: isSearchModeEnabled('health'),
   },
 ] as const;
 

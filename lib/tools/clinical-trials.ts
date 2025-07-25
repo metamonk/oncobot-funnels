@@ -195,44 +195,50 @@ function buildSearchQuery(criteria: SearchCriteria): string {
   const queryParts: string[] = [];
   
   if (criteria.condition) {
-    queryParts.push(`(${criteria.condition})`);
+    // Simplify condition - just use the first meaningful term
+    const conditionTerms = criteria.condition.split(' OR ');
+    if (conditionTerms.length > 0) {
+      // Extract the main cancer type from the mapping
+      const mainTerm = conditionTerms[0].replace(/[()]/g, '').trim();
+      queryParts.push(mainTerm);
+    }
   }
   
   if (criteria.cancerType && criteria.cancerType !== 'OTHER' && criteria.cancerType !== 'UNKNOWN') {
     // Clean up the cancer type for search
     const cleanType = criteria.cancerType
       .replace(/_/g, ' ')
-      .toLowerCase()
-      .replace(/\b\w/g, l => l.toUpperCase());
+      .toLowerCase();
     queryParts.push(cleanType);
   }
   
   if (criteria.stage) {
-    // Map stage to clinical trials terminology
+    // Simplify stage mapping - use just the main term
     const stageMapping: Record<string, string> = {
-      'STAGE_I': 'stage I OR stage 1 OR early stage',
-      'STAGE_II': 'stage II OR stage 2',
-      'STAGE_III': 'stage III OR stage 3 OR locally advanced',
-      'STAGE_IV': 'stage IV OR stage 4 OR metastatic OR advanced',
-      'RECURRENT': 'recurrent OR relapsed',
+      'STAGE_I': 'stage 1',
+      'STAGE_II': 'stage 2',
+      'STAGE_III': 'stage 3',
+      'STAGE_IV': 'stage 4',
+      'RECURRENT': 'recurrent',
       'UNKNOWN': ''
     };
     
     const stageQuery = stageMapping[criteria.stage];
     if (stageQuery) {
-      queryParts.push(`(${stageQuery})`);
+      queryParts.push(stageQuery);
     }
   }
   
   if (criteria.molecularMarkers && criteria.molecularMarkers.length > 0) {
-    const markerQueries = criteria.molecularMarkers.map(marker => {
-      // Clean up marker names for search
-      return marker.replace(/_/g, ' ').replace(/\s+/g, ' OR ');
-    });
-    queryParts.push(`(${markerQueries.join(' OR ')})`);
+    // Just add the first molecular marker if present
+    if (criteria.molecularMarkers[0]) {
+      const marker = criteria.molecularMarkers[0].replace(/_/g, ' ').toLowerCase();
+      queryParts.push(marker);
+    }
   }
   
-  return queryParts.join(' AND ');
+  // Join with spaces instead of AND - let the API handle the search
+  return queryParts.join(' ');
 }
 
 // Calculate match score for a trial
@@ -389,16 +395,18 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
       try {
         switch (action) {
           case 'search': {
-            if (!searchParams) {
-              throw new Error('Search parameters required for search action');
-            }
+            // Default searchParams if not provided
+            const params = searchParams || {
+              useProfile: true,
+              maxResults: 10
+            };
             
             // Load user's health profile if requested
             let profile: HealthProfile | null = null;
             let responses: HealthProfileResponse[] = [];
             let searchCriteria: SearchCriteria = {};
             
-            if (searchParams.useProfile) {
+            if (params.useProfile) {
               try {
                 const profileData = await getUserHealthProfile();
                 if (profileData) {
@@ -413,37 +421,49 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             
             // Build search query
             let query = '';
-            if (searchParams.customQuery) {
-              query = searchParams.customQuery;
+            if (params.customQuery) {
+              query = params.customQuery;
             } else if (searchCriteria) {
               query = buildSearchQuery(searchCriteria);
             }
             
             if (!query) {
-              throw new Error('No search criteria available. Please provide a custom query or ensure health profile is complete.');
+              // If no query can be built, return a helpful message instead of throwing an error
+              return {
+                success: false,
+                error: 'No search criteria available. Please complete your health profile or provide a specific search query (e.g., "lung cancer", "breast cancer stage 3", etc.).',
+                totalCount: 0,
+                matches: [],
+                searchCriteria: searchCriteria,
+                query: ''
+              };
             }
             
             // Build API parameters
-            const params = new URLSearchParams({
+            const apiParams = new URLSearchParams({
               'query.cond': query,
               'filter.overallStatus': 'RECRUITING,ENROLLING_BY_INVITATION,ACTIVE_NOT_RECRUITING',
-              'fields': 'NCTId,BriefTitle,OfficialTitle,OverallStatus,StartDate,PrimaryCompletionDate,BriefSummary,DetailedDescription,Condition,Keyword,StudyType,Phase,DesignAllocation,DesignInterventionModel,DesignPrimaryPurpose,DesignMasking,ArmGroupLabel,ArmGroupType,ArmGroupDescription,ArmGroupInterventionName,InterventionType,InterventionName,InterventionDescription,EligibilityCriteria,Gender,MinimumAge,MaximumAge,HealthyVolunteers,StandardAge,LocationFacility,LocationCity,LocationState,LocationZip,LocationCountry,LocationStatus,CentralContactName,CentralContactRole,CentralContactPhone,CentralContactEMail',
-              'pageSize': searchParams.maxResults.toString(),
+              'pageSize': params.maxResults.toString(),
               'countTotal': 'true',
               'sort': 'StartDate:desc'
             });
             
             // Add location filters if provided
-            if (searchParams.location) {
-              if (searchParams.location.country) {
-                params.append('filter.geo', `distance(${searchParams.location.city || ''}, ${searchParams.location.state || ''}, ${searchParams.location.country}, ${searchParams.location.distance || 50}mi)`);
+            if (params.location) {
+              if (params.location.country) {
+                apiParams.append('filter.geo', `distance(${params.location.city || ''}, ${params.location.state || ''}, ${params.location.country}, ${params.location.distance || 50}mi)`);
               }
             }
             
             // Add phase filters if provided
-            if (searchParams.phases && searchParams.phases.length > 0) {
-              params.append('filter.phase', searchParams.phases.join(','));
+            if (params.phases && params.phases.length > 0) {
+              apiParams.append('filter.phase', params.phases.join(','));
             }
+            
+            // Log the URL for debugging
+            const apiUrl = `${STUDIES_ENDPOINT}?${apiParams}`;
+            console.log('Clinical Trials API URL:', apiUrl);
+            console.log('Query being sent:', query);
             
             // Stream search start
             dataStream?.writeMessageAnnotation({
@@ -456,9 +476,16 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             });
             
             // Fetch trials from API
-            const response = await fetch(`${STUDIES_ENDPOINT}?${params}`);
+            const response = await fetch(apiUrl);
             if (!response.ok) {
-              throw new Error(`API request failed: ${response.statusText}`);
+              const errorBody = await response.text();
+              console.error('API Error Response:', {
+                status: response.status,
+                statusText: response.statusText,
+                body: errorBody,
+                url: apiUrl
+              });
+              throw new Error(`API request failed (${response.status}): ${response.statusText}. Details: ${errorBody}`);
             }
             
             const data = await response.json();
@@ -495,7 +522,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             return {
               success: true,
               totalCount: data.totalCount || trials.length,
-              matches: matches.slice(0, searchParams.maxResults),
+              matches: matches.slice(0, params.maxResults),
               searchCriteria: searchCriteria,
               query: query
             };
@@ -508,13 +535,19 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             
             // Fetch specific trial details
             const params = new URLSearchParams({
-              'filter.ids': trialId,
-              'fields': 'NCTId,BriefTitle,OfficialTitle,OverallStatus,StartDate,PrimaryCompletionDate,BriefSummary,DetailedDescription,Condition,Keyword,StudyType,Phase,DesignAllocation,DesignInterventionModel,DesignPrimaryPurpose,DesignMasking,ArmGroupLabel,ArmGroupType,ArmGroupDescription,ArmGroupInterventionName,InterventionType,InterventionName,InterventionDescription,EligibilityCriteria,Gender,MinimumAge,MaximumAge,HealthyVolunteers,StandardAge,LocationFacility,LocationCity,LocationState,LocationZip,LocationCountry,LocationStatus,CentralContactName,CentralContactRole,CentralContactPhone,CentralContactEMail'
+              'filter.ids': trialId
             });
             
             const response = await fetch(`${STUDIES_ENDPOINT}?${params}`);
             if (!response.ok) {
-              throw new Error(`API request failed: ${response.statusText}`);
+              const errorBody = await response.text();
+              console.error('API Error Response (details):', {
+                status: response.status,
+                statusText: response.statusText,
+                body: errorBody,
+                url: `${STUDIES_ENDPOINT}?${params}`
+              });
+              throw new Error(`API request failed (${response.status}): ${response.statusText}`);
             }
             
             const data = await response.json();
@@ -557,13 +590,19 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             
             // Fetch trial details
             const params = new URLSearchParams({
-              'filter.ids': trialId,
-              'fields': 'NCTId,BriefTitle,EligibilityCriteria,Gender,MinimumAge,MaximumAge,HealthyVolunteers,StandardAge,Condition'
+              'filter.ids': trialId
             });
             
             const response = await fetch(`${STUDIES_ENDPOINT}?${params}`);
             if (!response.ok) {
-              throw new Error(`API request failed: ${response.statusText}`);
+              const errorBody = await response.text();
+              console.error('API Error Response (eligibility):', {
+                status: response.status,
+                statusText: response.statusText,
+                body: errorBody,
+                url: `${STUDIES_ENDPOINT}?${params}`
+              });
+              throw new Error(`API request failed (${response.status}): ${response.statusText}`);
             }
             
             const data = await response.json();
