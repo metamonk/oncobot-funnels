@@ -21,7 +21,6 @@ import {
   updateCustomInstructions,
   deleteCustomInstructions,
 } from '@/lib/db/queries';
-import { getDiscountConfig } from '@/lib/discount';
 import { groq } from '@ai-sdk/groq';
 import {
   getProUserStatus,
@@ -1261,18 +1260,6 @@ export async function getExtremeSearchUsageCount(providedUser?: any) {
   }
 }
 
-export async function getDiscountConfigAction() {
-  'use server';
-
-  try {
-    return await getDiscountConfig();
-  } catch (error) {
-    console.error('Error getting discount configuration:', error);
-    return {
-      enabled: false,
-    };
-  }
-}
 
 export async function getHistoricalUsage(providedUser?: any) {
   'use server';

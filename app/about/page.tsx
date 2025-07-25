@@ -674,14 +674,6 @@ export default function AboutPage() {
                 </ProAccordionContent>
               </ProAccordionItem>
 
-              <ProAccordionItem value="item-7">
-                <ProAccordionTrigger>How do I apply for the student discount?</ProAccordionTrigger>
-                <ProAccordionContent>
-                  Email zaid@onco.bot with a copy of your student ID or enrollment proof. In your email, include a brief
-                  description of how you use or plan to use OncoBot for your academic work or studies. Once verified,
-                  you&apos;ll receive a special discount code for $10 off the Pro plan.
-                </ProAccordionContent>
-              </ProAccordionItem>
             </ProAccordion>
 
             <div className="text-center pt-4">
