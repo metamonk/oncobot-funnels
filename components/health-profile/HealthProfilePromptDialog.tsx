@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Heart, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { Heart } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
