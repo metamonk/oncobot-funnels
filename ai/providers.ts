@@ -69,7 +69,7 @@ export const models = [
     category: 'Mini',
     pdf: false,
     pro: false,
-    requiresAuth: false,
+    requiresAuth: true,
     freeUnlimited: false,
     maxOutputTokens: 16000,
   },
@@ -83,7 +83,7 @@ export const models = [
     category: 'Mini',
     pdf: false,
     pro: false,
-    requiresAuth: false,
+    requiresAuth: true,
     freeUnlimited: false,
     maxOutputTokens: 8000,
   },
@@ -96,7 +96,7 @@ export const models = [
     experimental: false,
     category: 'Pro',
     pdf: false,
-    pro: true,
+    pro: false,
     requiresAuth: true,
     freeUnlimited: false,
     maxOutputTokens: 16000,
@@ -110,7 +110,7 @@ export const models = [
     experimental: false,
     category: 'Pro',
     pdf: false,
-    pro: true,
+    pro: false,
     requiresAuth: true,
     freeUnlimited: false,
     maxOutputTokens: 16000,
@@ -226,7 +226,7 @@ export const models = [
     experimental: false,
     category: 'Pro',
     pdf: true,
-    pro: true,
+    pro: false,
     requiresAuth: true,
     freeUnlimited: false,
     maxOutputTokens: 64000,
@@ -240,7 +240,7 @@ export const models = [
     experimental: false,
     category: 'Pro',
     pdf: true,
-    pro: true,
+    pro: false,
     requiresAuth: true,
     freeUnlimited: false,
     maxOutputTokens: 65000,
@@ -254,7 +254,7 @@ export const models = [
     experimental: false,
     category: 'Pro',
     pdf: false,
-    pro: true,
+    pro: false,
     requiresAuth: true,
     freeUnlimited: false,
     maxOutputTokens: 10000,
@@ -268,8 +268,8 @@ export const models = [
     experimental: false,
     category: 'Pro',
     pdf: true,
-    pro: true,
-    requiresAuth: false,
+    pro: false,
+    requiresAuth: true,
     freeUnlimited: false,
     maxOutputTokens: 65000,
   },
@@ -282,7 +282,7 @@ export const models = [
     experimental: false,
     category: 'Pro',
     pdf: true,
-    pro: true,
+    pro: false,
     requiresAuth: true,
     freeUnlimited: false,
     maxOutputTokens: 100000,
@@ -296,7 +296,7 @@ export const models = [
     experimental: false,
     category: 'Pro',
     pdf: true,
-    pro: true,
+    pro: false,
     requiresAuth: true,
     freeUnlimited: false,
     maxOutputTokens: 100000,
@@ -313,7 +313,7 @@ export const models = [
     category: 'Experimental',
     pdf: false,
     pro: false,
-    requiresAuth: false,
+    requiresAuth: true,
     freeUnlimited: false,
     maxOutputTokens: 8000,
   },
@@ -330,8 +330,8 @@ export function requiresAuthentication(modelValue: string): boolean {
 }
 
 export function requiresProSubscription(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.pro || false;
+  // Pro subscription system removed - all features available to authenticated users
+  return false;
 }
 
 export function isFreeUnlimited(modelValue: string): boolean {
@@ -372,14 +372,9 @@ export function canUseModel(modelValue: string, user: any, isProUser: boolean): 
     return { canUse: false, reason: 'Model not found' };
   }
 
-  // Check if model requires authentication
+  // Check if model requires authentication (all models now require auth)
   if (model.requiresAuth && !user) {
     return { canUse: false, reason: 'authentication_required' };
-  }
-
-  // Check if model requires Pro subscription
-  if (model.pro && !isProUser) {
-    return { canUse: false, reason: 'pro_subscription_required' };
   }
 
   return { canUse: true };
@@ -387,14 +382,15 @@ export function canUseModel(modelValue: string, user: any, isProUser: boolean): 
 
 // Helper to check if user should bypass rate limits
 export function shouldBypassRateLimits(modelValue: string, user: any): boolean {
-  const model = getModelConfig(modelValue);
-  return Boolean(user && model?.freeUnlimited);
+  // All authenticated users bypass rate limits (no more pro system)
+  return !!user;
 }
 
 // Get acceptable file types for a model
 export function getAcceptedFileTypes(modelValue: string, isProUser: boolean): string {
   const model = getModelConfig(modelValue);
-  if (model?.pdf && isProUser) {
+  // PDF support now available to all authenticated users
+  if (model?.pdf) {
     return 'image/*,.pdf';
   }
   return 'image/*';

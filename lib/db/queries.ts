@@ -9,8 +9,6 @@ import {
   type Message,
   type Chat,
   stream,
-  extremeSearchUsage,
-  messageUsage,
   customInstructions,
 } from './schema';
 import { ChatSDKError } from '../errors';
@@ -246,9 +244,25 @@ export async function updateChatTitleById({ chatId, title }: { chatId: string; t
 
 export async function getMessageCountByUserId({ id, differenceInHours }: { id: string; differenceInHours: number }) {
   try {
-    // Use the new message usage tracking system instead
-    // This is more reliable as it won't be affected by message deletions
-    return await getMessageCount({ userId: id });
+    // Count messages directly from the message table
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setHours(startDate.getHours() - differenceInHours);
+
+    const messages = await db
+      .select({ count: message.id })
+      .from(message)
+      .innerJoin(chat, eq(message.chatId, chat.id))
+      .where(
+        and(
+          eq(chat.userId, id),
+          eq(message.role, 'user'),
+          gte(message.createdAt, startDate),
+          lt(message.createdAt, endDate)
+        )
+      );
+
+    return messages.length;
   } catch (error) {
     throw new ChatSDKError('bad_request:database', 'Failed to get message count by user id');
   }
@@ -277,158 +291,7 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
   }
 }
 
-export async function getExtremeSearchUsageByUserId({ userId }: { userId: string }) {
-  try {
-    const now = new Date();
-    // Start of current month
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    startOfMonth.setHours(0, 0, 0, 0);
 
-    // Start of next month
-    const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    startOfNextMonth.setHours(0, 0, 0, 0);
-
-    const [usage] = await db
-      .select()
-      .from(extremeSearchUsage)
-      .where(
-        and(
-          eq(extremeSearchUsage.userId, userId),
-          gte(extremeSearchUsage.date, startOfMonth),
-          lt(extremeSearchUsage.date, startOfNextMonth),
-        ),
-      )
-      .limit(1);
-
-    return usage;
-  } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get extreme search usage');
-  }
-}
-
-export async function incrementExtremeSearchUsage({ userId }: { userId: string }) {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // End of current month for monthly reset
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-    endOfMonth.setHours(0, 0, 0, 0);
-
-    const existingUsage = await getExtremeSearchUsageByUserId({ userId });
-
-    if (existingUsage) {
-      const [updatedUsage] = await db
-        .update(extremeSearchUsage)
-        .set({
-          searchCount: existingUsage.searchCount + 1,
-          updatedAt: new Date(),
-        })
-        .where(eq(extremeSearchUsage.id, existingUsage.id))
-        .returning();
-      return updatedUsage;
-    } else {
-      const [newUsage] = await db
-        .insert(extremeSearchUsage)
-        .values({
-          userId,
-          searchCount: 1,
-          date: today,
-          resetAt: endOfMonth,
-        })
-        .returning();
-      return newUsage;
-    }
-  } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to increment extreme search usage');
-  }
-}
-
-export async function getExtremeSearchCount({ userId }: { userId: string }): Promise<number> {
-  try {
-    const usage = await getExtremeSearchUsageByUserId({ userId });
-    return usage?.searchCount || 0;
-  } catch (error) {
-    console.error('Error getting extreme search count:', error);
-    return 0;
-  }
-}
-
-export async function getMessageUsageByUserId({ userId }: { userId: string }) {
-  try {
-    const now = new Date();
-    // Start of current day
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    startOfDay.setHours(0, 0, 0, 0);
-
-    // Start of next day
-    const startOfNextDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    startOfNextDay.setHours(0, 0, 0, 0);
-
-    const [usage] = await db
-      .select()
-      .from(messageUsage)
-      .where(
-        and(eq(messageUsage.userId, userId), gte(messageUsage.date, startOfDay), lt(messageUsage.date, startOfNextDay)),
-      )
-      .limit(1);
-
-    return usage;
-  } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get message usage');
-  }
-}
-
-export async function incrementMessageUsage({ userId }: { userId: string }) {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // End of current day for daily reset
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-    endOfDay.setHours(0, 0, 0, 0);
-
-    // Clean up previous day entries for this user
-    await db.delete(messageUsage).where(and(eq(messageUsage.userId, userId), lt(messageUsage.date, today)));
-
-    const existingUsage = await getMessageUsageByUserId({ userId });
-
-    if (existingUsage) {
-      const [updatedUsage] = await db
-        .update(messageUsage)
-        .set({
-          messageCount: existingUsage.messageCount + 1,
-          updatedAt: new Date(),
-        })
-        .where(eq(messageUsage.id, existingUsage.id))
-        .returning();
-      return updatedUsage;
-    } else {
-      const [newUsage] = await db
-        .insert(messageUsage)
-        .values({
-          userId,
-          messageCount: 1,
-          date: today,
-          resetAt: endOfDay,
-        })
-        .returning();
-      return newUsage;
-    }
-  } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to increment message usage');
-  }
-}
-
-export async function getMessageCount({ userId }: { userId: string }): Promise<number> {
-  try {
-    const usage = await getMessageUsageByUserId({ userId });
-    return usage?.messageCount || 0;
-  } catch (error) {
-    console.error('Error getting message count:', error);
-    return 0;
-  }
-}
 
 export async function getHistoricalUsageData({ userId }: { userId: string }) {
   try {

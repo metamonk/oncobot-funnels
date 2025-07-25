@@ -64,9 +64,10 @@ export default function TermsPage() {
       <div className="py-16 px-4">
         <div className="container max-w-3xl mx-auto prose dark:prose-invert prose-neutral prose-headings:font-be-vietnam-pro prose-p:text-neutral-600 dark:prose-p:text-neutral-400 prose-a:text-neutral-900 dark:prose-a:text-neutral-200 prose-a:no-underline hover:prose-a:text-black dark:hover:prose-a:text-white prose-headings:tracking-tight">
           <p className="text-lg">
-            Welcome to OncoBot. These Terms of Service govern your use of our website and services. By using OncoBot,
-            you agree to these terms in full. If you disagree with any part of these terms, please do not use our
-            service.
+            Welcome to OncoBot, a medical oncology AI assistant. These Terms of Service govern your use of our platform
+            and services. By using OncoBot, you agree to these terms in full. If you disagree with any part of these
+            terms, please do not use our service. <strong>OncoBot is designed to assist healthcare professionals and
+            should not be used as a substitute for professional medical judgment.</strong>
           </p>
 
           <h2>1. Acceptance of Terms</h2>
@@ -79,13 +80,14 @@ export default function TermsPage() {
 
           <h2>2. Description of Service</h2>
           <p>
-            OncoBot is a minimalistic AI-powered search engine that helps users find information on the internet. Our
-            service utilizes artificial intelligence to process search queries and provide relevant results and
-            information.
+            OncoBot is an AI-powered medical oncology assistant that helps healthcare professionals access clinical trial
+            information, treatment guidelines, and oncology research. Our service utilizes artificial intelligence to
+            process medical queries and provide evidence-based information from reputable medical sources.
           </p>
           <p>
-            Our service is hosted on Vercel and integrates with various AI technology providers, including OpenAI,
-            Anthropic, xAI, and others, to deliver search results and content generation capabilities.
+            Our service includes features such as clinical trial matching, health profile creation, treatment information
+            retrieval, and access to current oncology guidelines. We integrate with various AI technology providers and
+            medical databases to deliver comprehensive oncology information.
           </p>
 
           <h2>3. User Conduct</h2>
@@ -100,17 +102,19 @@ export default function TermsPage() {
             <li>Interfere with the proper functioning of the service</li>
           </ul>
 
-          <h2>4. Content and Results</h2>
-          <p>While we strive to provide accurate and reliable information, OncoBot:</p>
+          <h2>4. Medical Disclaimer</h2>
+          <p><strong>IMPORTANT: OncoBot is not a substitute for professional medical advice, diagnosis, or treatment.</strong></p>
           <ul>
-            <li>Does not guarantee the accuracy, completeness, or reliability of any results</li>
-            <li>Is not responsible for content generated based on your search queries</li>
-            <li>May provide links to third-party websites over which we have no control</li>
+            <li>Always seek the advice of qualified healthcare providers with any questions regarding medical conditions</li>
+            <li>Never disregard professional medical advice or delay seeking it because of information from OncoBot</li>
+            <li>OncoBot is designed as an informational tool for healthcare professionals, not for patient self-diagnosis</li>
+            <li>Clinical decisions should be based on professional judgment and complete patient evaluation</li>
+            <li>Information provided may not be exhaustive or reflect the most recent medical developments</li>
           </ul>
           <p>
-            You should exercise judgment and critical thinking when evaluating search results and generated content.
-            OncoBot should not be used as the sole source for making important decisions, especially in professional,
-            medical, legal, or financial contexts.
+            While we strive to provide accurate medical information from reputable sources, OncoBot does not guarantee
+            the accuracy, completeness, or timeliness of any medical information. Users must verify all information
+            independently before making clinical decisions.
           </p>
 
           <h2>5. Intellectual Property</h2>
@@ -137,49 +141,31 @@ export default function TermsPage() {
             as described in our Privacy Policy.
           </p>
 
-          <h2>7. Pricing and Billing</h2>
+          <h2>7. User Accounts and Authentication</h2>
           <p>
-            OncoBot offers both free and paid subscription plans. For detailed pricing information, visit our{' '}
-            <Link href="/pricing" className="underline">
-              Pricing page
-            </Link>
-            .
+            OncoBot requires user authentication to access its services. By creating an account, you agree to:
           </p>
           <ul>
-            <li>
-              <strong>Free Plan:</strong> Includes limited daily searches with access to basic AI models
-            </li>
-            <li>
-              <strong>OncoBot Pro:</strong> $15/month subscription with unlimited searches and access to all AI models
-            </li>
-          </ul>
-          <p>For paid subscriptions:</p>
-          <ul>
-            <li>Billing is processed monthly and charged automatically to your payment method</li>
-            <li>All fees are non-refundable except as expressly stated in our refund policy</li>
-            <li>We reserve the right to change subscription prices with 30 days advance notice</li>
-            <li>You are responsible for all applicable taxes</li>
-            <li>Failed payments may result in service suspension or termination</li>
+            <li>Provide accurate and complete registration information</li>
+            <li>Maintain the security of your account credentials</li>
+            <li>Notify us immediately of any unauthorized access</li>
+            <li>Be responsible for all activities under your account</li>
+            <li>Use the service only for lawful medical and research purposes</li>
           </ul>
 
-          <h2>8. Cancellation and Refunds</h2>
+          <h2>8. Health Information and Data</h2>
           <p>
-            You may cancel your subscription at any time through your account settings or by contacting us. Upon
-            cancellation:
+            When using OncoBot&apos;s health profile and clinical trial matching features:
           </p>
           <ul>
-            <li>Your subscription will remain active until the end of your current billing period</li>
-            <li>You will retain access to paid features until the subscription expires</li>
-            <li>Your account will automatically revert to the free plan</li>
-            <li>No partial refunds will be provided for unused portions of your subscription</li>
+            <li>You may input health-related information for clinical trial matching purposes</li>
+            <li>All health data is handled in accordance with our Privacy Policy</li>
+            <li>You are responsible for obtaining appropriate consent before entering any patient data</li>
+            <li>Health profiles should only be created by or with the consent of the individual</li>
+            <li>We do not provide medical advice based on health profile information</li>
           </ul>
-          <p>
-            <strong>No Refund Policy:</strong> All subscription fees are final and non-refundable. We do not provide
-            refunds, credits, or prorated billing for partial subscription periods, regardless of usage or
-            circumstances. Please consider this policy carefully before subscribing to our paid plans.
-          </p>
 
-          <h2>9. Privacy</h2>
+          <h2>9. Privacy and Health Data</h2>
           <p>
             Your use of OncoBot is also governed by our{' '}
             <Link href="/privacy-policy" className="underline">

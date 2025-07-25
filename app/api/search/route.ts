@@ -32,8 +32,6 @@ import {
   getStreamIdsByChatId,
   saveChat,
   saveMessages,
-  incrementExtremeSearchUsage,
-  incrementMessageUsage,
   updateChatTitleById,
 } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
@@ -148,80 +146,18 @@ export async function POST(req: Request) {
   if (user) {
     customInstructions = await getCustomInstructions(user);
 
-    const isProUser = user.isProUser;
-
-    // Check if model requires Pro subscription
-    if (requiresProSubscription(model) && !isProUser) {
-      return new ChatSDKError('upgrade_required:model', `${model} requires a Pro subscription`).toResponse();
-    }
-
-    // For non-pro users, check usage limits upfront
-    if (!isProUser) {
-      const criticalChecksStartTime = Date.now();
-
-      try {
-        const [messageCountResult, extremeSearchUsage] = await Promise.all([
-          getUserMessageCount(user),
-          getExtremeSearchUsageCount(user),
-        ]);
-        console.log(`⏱️  Critical checks took: ${((Date.now() - criticalChecksStartTime) / 1000).toFixed(2)}s`);
-
-        if (messageCountResult.error) {
-          console.error('Error getting message count:', messageCountResult.error);
-          return new ChatSDKError('bad_request:api', 'Failed to verify usage limits').toResponse();
-        }
-
-        // Check if user should bypass limits for free unlimited models
-        const shouldBypassLimits = shouldBypassRateLimits(model, user);
-
-        if (!shouldBypassLimits && messageCountResult.count !== undefined) {
-          const dailyLimit = 100; // Non-pro users have a daily limit
-          if (messageCountResult.count >= dailyLimit) {
-            return new ChatSDKError('rate_limit:chat', 'Daily search limit reached').toResponse();
-          }
-        }
-
-        criticalChecksPromise = Promise.resolve({
-          canProceed: true,
-          messageCount: messageCountResult.count,
-          isProUser: false,
-          subscriptionData: user.subscriptionData,
-          shouldBypassLimits,
-          extremeSearchUsage: extremeSearchUsage.count,
-        });
-      } catch (error) {
-        console.error('Critical checks failed:', error);
-        return new ChatSDKError('bad_request:api', 'Failed to verify user access').toResponse();
-      }
-    } else {
-      // Pro users skip all usage limit checks
-      const criticalChecksStartTime = Date.now();
-      console.log(
-        `⏱️  Critical checks took: ${((Date.now() - criticalChecksStartTime) / 1000).toFixed(2)}s (Pro user - skipped usage checks)`,
-      );
-      criticalChecksPromise = Promise.resolve({
-        canProceed: true,
-        messageCount: 0, // Not relevant for pro users
-        isProUser: true,
-        subscriptionData: user.subscriptionData,
-        shouldBypassLimits: true,
-        extremeSearchUsage: 0, // Not relevant for pro users
-      });
-    }
-  } else {
-    // For anonymous users, check if model requires authentication
-    if (requiresAuthentication(model)) {
-      return new ChatSDKError('unauthorized:model', `${model} requires authentication`).toResponse();
-    }
-
+    // All authenticated users have full access
     criticalChecksPromise = Promise.resolve({
       canProceed: true,
-      messageCount: 0,
-      isProUser: false,
-      subscriptionData: null,
-      shouldBypassLimits: false,
-      extremeSearchUsage: 0,
+      messageCount: 0, // No longer tracked for limits
+      isProUser: false, // Pro system removed
+      subscriptionData: null, // No subscriptions
+      shouldBypassLimits: true, // All auth users bypass limits
+      extremeSearchUsage: 0, // No longer tracked
     });
+  } else {
+    // Require authentication for all users
+    return new ChatSDKError('unauthorized:auth', 'Authentication required to use OncoBot').toResponse();
   }
 
   // Get configuration in parallel with critical checks
@@ -492,32 +428,9 @@ export async function POST(req: Request) {
               // Title generation failure shouldn't break the conversation
             }
 
-            // Track message usage for rate limiting (deletion-proof)
-            // Only track usage for models that are not free unlimited
-            try {
-              if (!shouldBypassRateLimits(model, user)) {
-                await incrementMessageUsage({ userId: user.id });
-              }
-            } catch (error) {
-              console.error('Failed to track message usage:', error);
-            }
+            // No more message usage tracking - all authenticated users have unlimited access
 
-            // Track extreme search usage if it was used successfully
-            if (group === 'extreme') {
-              try {
-                // Check if extreme_search tool was actually called
-                const extremeSearchUsed = event.steps?.some((step) =>
-                  step.toolCalls?.some((toolCall) => toolCall.toolName === 'extreme_search'),
-                );
-
-                if (extremeSearchUsed) {
-                  console.log('Extreme search was used successfully, incrementing count');
-                  await incrementExtremeSearchUsage({ userId: user.id });
-                }
-              } catch (error) {
-                console.error('Failed to track extreme search usage:', error);
-              }
-            }
+            // No more extreme search tracking - all authenticated users have unlimited access
 
             // LAST: Save assistant message (after title is generated)
             try {

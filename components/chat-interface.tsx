@@ -9,7 +9,6 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState, useRedu
 
 // Third-party library imports
 import { useChat, UseChatOptions } from '@ai-sdk/react';
-import { Crown } from '@phosphor-icons/react';
 import { useRouter } from 'next/navigation';
 import { parseAsString, useQueryState } from 'nuqs';
 import { toast } from 'sonner';
@@ -28,12 +27,12 @@ import FormComponent from '@/components/ui/form-component';
 // Hook imports
 import { useAutoResume } from '@/hooks/use-auto-resume';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useValidatedSearchMode } from '@/hooks/use-validated-search-mode';
 import { useUsageData } from '@/hooks/use-usage-data';
 import { useProUserStatus } from '@/hooks/use-user-data';
 import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
 
 // Utility and type imports
-import { SEARCH_LIMITS } from '@/lib/constants';
 import { ChatSDKError } from '@/lib/errors';
 import { cn, SearchGroupId, invalidateChatsCache } from '@/lib/utils';
 
@@ -67,17 +66,13 @@ const ChatInterface = memo(
 
     // Use localStorage hook directly for model selection with a default
     const [selectedModel, setSelectedModel] = useLocalStorage('oncobot-selected-model', 'oncobot-default');
-    const [selectedGroup, setSelectedGroup] = useLocalStorage<SearchGroupId>('oncobot-selected-group', 'web');
+    const [selectedGroup, setSelectedGroup] = useValidatedSearchMode('health');
     const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useLocalStorage(
       'oncobot-custom-instructions-enabled',
       true,
     );
 
     // Get persisted values for dialog states
-    const [persistedHasShownUpgradeDialog, setPersitedHasShownUpgradeDialog] = useLocalStorage(
-      'oncobot-upgrade-prompt-shown',
-      false,
-    );
     const [persistedHasShownSignInPrompt, setPersitedHasShownSignInPrompt] = useLocalStorage(
       'oncobot-signin-prompt-shown',
       false,
@@ -96,7 +91,6 @@ const ChatInterface = memo(
       chatReducer,
       createInitialState(
         initialVisibility,
-        persistedHasShownUpgradeDialog,
         persistedHasShownSignInPrompt,
         persistedHasShownAnnouncementDialog,
         persistedHasShownHealthProfilePrompt,
@@ -153,10 +147,8 @@ const ChatInterface = memo(
     const hasExceededLimit =
       shouldCheckUserLimits &&
       !proStatusLoading &&
-      !shouldBypassLimits &&
-      usageData &&
-      usageData.count >= SEARCH_LIMITS.DAILY_SEARCH_LIMIT;
-    const isLimitBlocked = Boolean(hasExceededLimit);
+      false; // Rate limiting removed - all authenticated users have unlimited access
+    const isLimitBlocked = false;
 
     // Timer for sign-in prompt for unauthenticated users
     useEffect(() => {
@@ -268,27 +260,6 @@ const ChatInterface = memo(
           // Refresh usage data after message completion for authenticated users
           if (user) {
             refetchUsage();
-          }
-
-          // Check if this is the first message completion and user is not Pro
-          const isFirstMessage = messages.length <= 1;
-
-          console.log('Upgrade dialog check:', {
-            isFirstMessage,
-            isProUser: isUserPro,
-            hasShownUpgradeDialog: chatState.hasShownUpgradeDialog,
-            user: !!user,
-            messagesLength: messages.length,
-          });
-
-          // Show upgrade dialog after first message if user is not Pro and hasn't seen it before
-          if (isFirstMessage && !isUserPro && !proStatusLoading && !chatState.hasShownUpgradeDialog && user) {
-            console.log('Showing upgrade dialog...');
-            setTimeout(() => {
-              dispatch({ type: 'SET_SHOW_UPGRADE_DIALOG', payload: true });
-              dispatch({ type: 'SET_HAS_SHOWN_UPGRADE_DIALOG', payload: true });
-              setPersitedHasShownUpgradeDialog(true);
-            }, 1000);
           }
 
           // Only generate suggested questions if authenticated user or private chat
@@ -479,13 +450,11 @@ const ChatInterface = memo(
         payload:
           chatState.commandDialogOpen ||
           chatState.showSignInPrompt ||
-          chatState.showUpgradeDialog ||
           chatState.showAnnouncementDialog,
       });
     }, [
       chatState.commandDialogOpen,
       chatState.showSignInPrompt,
-      chatState.showUpgradeDialog,
       chatState.showAnnouncementDialog,
     ]);
 
@@ -544,9 +513,6 @@ const ChatInterface = memo(
           user={user}
           onHistoryClick={() => dispatch({ type: 'SET_COMMAND_DIALOG_OPEN', payload: true })}
           isOwner={isOwner}
-          subscriptionData={subscriptionData}
-          isProUser={isUserPro}
-          isProStatusLoading={proStatusLoading}
           isCustomInstructionsEnabled={isCustomInstructionsEnabled}
           setIsCustomInstructionsEnabled={setIsCustomInstructionsEnabled}
         />
@@ -561,13 +527,6 @@ const ChatInterface = memo(
           setHasShownSignInPrompt={(value) => {
             dispatch({ type: 'SET_HAS_SHOWN_SIGNIN_PROMPT', payload: value });
             setPersitedHasShownSignInPrompt(value);
-          }}
-          showUpgradeDialog={chatState.showUpgradeDialog}
-          setShowUpgradeDialog={(open) => dispatch({ type: 'SET_SHOW_UPGRADE_DIALOG', payload: open })}
-          hasShownUpgradeDialog={chatState.hasShownUpgradeDialog}
-          setHasShownUpgradeDialog={(value) => {
-            dispatch({ type: 'SET_HAS_SHOWN_UPGRADE_DIALOG', payload: value });
-            setPersitedHasShownUpgradeDialog(value);
           }}
           showAnnouncementDialog={chatState.showAnnouncementDialog}
           setShowAnnouncementDialog={(open) => dispatch({ type: 'SET_SHOW_ANNOUNCEMENT_DIALOG', payload: open })}
@@ -597,53 +556,12 @@ const ChatInterface = memo(
           <div className={`w-full max-w-[95%] sm:max-w-2xl space-y-6 p-0 mx-auto transition-all duration-300`}>
             {status === 'ready' && messages.length === 0 && (
               <div className="text-center m-0 mb-2">
-                <h1 className="text-3xl sm:text-5xl !mb-0 text-foreground dark:text-foreground font-be-vietnam-pro! font-light tracking-tighter">
-                  OncoBot
+                <h1 className="text-5xl sm:text-6xl !mb-0 text-foreground dark:text-foreground font-mono font-medium tracking-tight">
+                  oncobot
                 </h1>
               </div>
             )}
 
-            {/* Show initial limit exceeded message */}
-            {status === 'ready' && messages.length === 0 && isLimitBlocked && (
-              <div className="mt-8 p-6 bg-muted/30 dark:bg-muted/20 border border-border/60 dark:border-border/60 rounded-xl max-w-lg mx-auto">
-                <div className="text-center space-y-4">
-                  <div className="flex items-center justify-center gap-2 text-muted-foreground dark:text-muted-foreground">
-                    <Crown className="h-4 w-4" />
-                    <span className="text-sm font-medium">Daily limit reached</span>
-                  </div>
-                  <div>
-                    <p className="text-foreground dark:text-foreground mb-2">
-                      You&apos;ve used all {SEARCH_LIMITS.DAILY_SEARCH_LIMIT} searches for today.
-                    </p>
-                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">
-                      Upgrade to continue with unlimited searches and premium features.
-                    </p>
-                  </div>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        refetchUsage();
-                      }}
-                      size="sm"
-                      className="flex-1"
-                    >
-                      Refresh
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        window.location.href = '/pricing';
-                      }}
-                      size="sm"
-                      className="flex-1 bg-primary hover:bg-primary/90 dark:bg-primary dark:hover:bg-primary/90 text-primary-foreground dark:text-primary-foreground"
-                    >
-                      <Crown className="h-3 w-3 mr-1.5" />
-                      Upgrade
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Use the Messages component */}
             {messages.length > 0 && (
@@ -718,42 +636,6 @@ const ChatInterface = memo(
               </div>
             )}
 
-          {/* Show limit exceeded message */}
-          {isLimitBlocked && messages.length > 0 && (
-            <div className="fixed bottom-8 sm:bottom-4 left-0 right-0 w-full max-w-[95%] sm:max-w-2xl mx-auto z-20">
-              <div className="p-3 bg-muted/30 dark:bg-muted/20 border border-border/60 dark:border-border/60 rounded-lg shadow-sm backdrop-blur-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Crown className="h-3.5 w-3.5 text-muted-foreground dark:text-muted-foreground" />
-                    <span className="text-sm text-foreground dark:text-foreground">
-                      Daily limit reached ({SEARCH_LIMITS.DAILY_SEARCH_LIMIT} searches used)
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        refetchUsage();
-                      }}
-                      className="h-7 px-2 text-xs"
-                    >
-                      Refresh
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        window.location.href = '/pricing';
-                      }}
-                      className="h-7 px-3 text-xs bg-primary hover:bg-primary/90 dark:bg-primary dark:hover:bg-primary/90 text-primary-foreground dark:text-primary-foreground"
-                    >
-                      Upgrade
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     );

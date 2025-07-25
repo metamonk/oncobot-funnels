@@ -28,7 +28,7 @@ import { TextUIPart, ReasoningUIPart, ToolInvocationUIPart, SourceUIPart, StepSt
 import { MarkdownRenderer, preprocessLaTeX } from '@/components/markdown';
 import { deleteTrailingMessages } from '@/app/actions';
 import { getErrorActions, getErrorIcon, isSignInRequired, isProRequired, isRateLimited } from '@/lib/errors';
-import { Crown, PlusCircle, User } from '@phosphor-icons/react';
+import { PlusCircle, User } from '@phosphor-icons/react';
 
 // Define MessagePart type
 type MessagePart = TextUIPart | ReasoningUIPart | ToolInvocationUIPart | SourceUIPart | StepStartUIPart;
@@ -92,8 +92,6 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
     switch (errorIcon) {
       case 'auth':
         return <User className="h-4 w-4 text-blue-500 dark:text-blue-300" weight="fill" />;
-      case 'upgrade':
-        return <Crown className="h-4 w-4 text-amber-500 dark:text-amber-300" weight="fill" />;
       case 'warning':
         return <AlertCircle className="h-4 w-4 text-orange-500 dark:text-orange-300" />;
       default:
@@ -112,15 +110,6 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
           title: 'text-primary dark:text-primary',
           text: 'text-primary/80 dark:text-primary/80',
           button: 'bg-primary hover:bg-primary/90 text-primary-foreground',
-        };
-      case 'upgrade':
-        return {
-          bg: 'bg-secondary/30 dark:bg-secondary/20',
-          border: 'border-secondary dark:border-secondary',
-          iconBg: 'bg-secondary/50 dark:bg-secondary/40',
-          title: 'text-secondary-foreground dark:text-secondary-foreground',
-          text: 'text-secondary-foreground/80 dark:text-secondary-foreground/80',
-          button: 'bg-secondary hover:bg-secondary/90 text-secondary-foreground',
         };
       case 'warning':
         return {
@@ -150,9 +139,6 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
     switch (action) {
       case 'signin':
         window.location.href = '/sign-in';
-        break;
-      case 'upgrade':
-        window.location.href = '/pricing';
         break;
       case 'retry':
         if (handleRetry) {
@@ -187,12 +173,9 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
           <div className="flex-1">
             <h3 className={`font-medium ${colors.title}`}>
               {isChatSDKError && isSignInRequired(parsedError as any) && 'Sign In Required'}
-              {isChatSDKError &&
-                (isProRequired(parsedError as any) || isRateLimited(parsedError as any)) &&
-                'Upgrade Required'}
+              {isChatSDKError && isRateLimited(parsedError as any) && 'Rate Limit Exceeded'}
               {isChatSDKError &&
                 !isSignInRequired(parsedError as any) &&
-                !isProRequired(parsedError as any) &&
                 !isRateLimited(parsedError as any) &&
                 'Error'}
               {!isChatSDKError && 'Error'}
@@ -230,7 +213,6 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
               {actions.primary && canPerformAction(actions.primary.action) && (
                 <Button onClick={() => handleAction(actions.primary!.action)} className={colors.button} size="sm">
                   {actions.primary.action === 'signin' && <LogIn className="mr-2 h-3.5 w-3.5" />}
-                  {actions.primary.action === 'upgrade' && <Crown className="mr-2 h-3.5 w-3.5" />}
                   {actions.primary.action === 'retry' && <RefreshCw className="mr-2 h-3.5 w-3.5" />}
                   {actions.primary.label}
                 </Button>

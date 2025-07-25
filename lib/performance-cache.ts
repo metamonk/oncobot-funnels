@@ -94,17 +94,10 @@ class PerformanceCache<T> {
 
 // Create cache instances with appropriate limits
 export const sessionCache = new PerformanceCache<any>('sessions', 500, 15 * 60 * 1000); // 15 min, 500 sessions
-export const subscriptionCache = new PerformanceCache<any>('subscriptions', 1000, 1 * 60 * 1000); // 1 min, 1000 users
-export const usageCountCache = new PerformanceCache<number>('usage-counts', 2000, 5 * 60 * 1000); // 5 min, 2000 users
-export const proUserStatusCache = new PerformanceCache<boolean>('pro-user-status', 1000, 30 * 60 * 1000); // 30 min, 1000 users
 
 // Cache key generators
 export const createSessionKey = (token: string) => `session:${token}`;
 export const createUserKey = (token: string) => `user:${token}`;
-export const createSubscriptionKey = (userId: string) => `subscription:${userId}`;
-export const createMessageCountKey = (userId: string) => `msg-count:${userId}`;
-export const createExtremeCountKey = (userId: string) => `extreme-count:${userId}`;
-export const createProUserKey = (userId: string) => `pro-user:${userId}`;
 
 // Extract session token from headers
 export function extractSessionToken(headers: Headers): string | null {
@@ -115,35 +108,17 @@ export function extractSessionToken(headers: Headers): string | null {
   return match ? match[1] : null;
 }
 
-// Pro user status helpers with caching
+// Pro user status helpers - all authenticated users have pro status
 export function getProUserStatus(userId: string): boolean | null {
-  const cacheKey = createProUserKey(userId);
-  return proUserStatusCache.get(cacheKey);
-}
-
-export function setProUserStatus(userId: string, isProUser: boolean): void {
-  const cacheKey = createProUserKey(userId);
-  proUserStatusCache.set(cacheKey, isProUser);
-}
-
-export function computeAndCacheProUserStatus(userId: string, subscriptionData: any): boolean {
-  const isProUser = Boolean(subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active');
-
-  setProUserStatus(userId, isProUser);
-  return isProUser;
+  // All authenticated users have pro status
+  return true;
 }
 
 // Cache invalidation helpers
 export function invalidateUserCaches(userId: string) {
-  subscriptionCache.delete(createSubscriptionKey(userId));
-  usageCountCache.delete(createMessageCountKey(userId));
-  usageCountCache.delete(createExtremeCountKey(userId));
-  proUserStatusCache.delete(createProUserKey(userId));
+  // No user-specific caches to invalidate anymore
 }
 
 export function invalidateAllCaches() {
   sessionCache.clear();
-  subscriptionCache.clear();
-  usageCountCache.clear();
-  proUserStatusCache.clear();
 }

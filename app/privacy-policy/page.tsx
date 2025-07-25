@@ -64,39 +64,50 @@ export default function PrivacyPage() {
       <div className="py-16 px-4">
         <div className="container max-w-3xl mx-auto prose dark:prose-invert prose-neutral prose-headings:font-be-vietnam-pro prose-p:text-neutral-600 dark:prose-p:text-neutral-400 prose-a:text-neutral-900 dark:prose-a:text-neutral-200 prose-a:no-underline hover:prose-a:text-black dark:hover:prose-a:text-white prose-headings:tracking-tight">
           <p className="text-lg">
-            At OncoBot, we respect your privacy and are committed to protecting your personal data. This Privacy Policy
-            explains how we collect, use, and safeguard your information when you use our AI-powered search engine.
+            At OncoBot, we respect your privacy and are committed to protecting your personal and health-related data.
+            This Privacy Policy explains how we collect, use, and safeguard your information when you use our medical
+            oncology AI assistant. We understand the sensitive nature of health information and maintain strict
+            confidentiality standards.
           </p>
 
           <h2>Information We Collect</h2>
           <p>We may collect the following types of information:</p>
           <ul>
             <li>
-              <strong>Search Queries:</strong> The questions and searches you submit to our search engine.
+              <strong>Medical Queries:</strong> Questions and searches related to oncology, treatments, and clinical trials.
+            </li>
+            <li>
+              <strong>Health Profile Data:</strong> Optional health information you provide for clinical trial matching,
+              including cancer type, stage, biomarkers, and treatment history. This information is used solely to provide
+              relevant clinical trial recommendations.
+            </li>
+            <li>
+              <strong>Account Information:</strong> Email address and authentication details required for account creation.
             </li>
             <li>
               <strong>Usage Data:</strong> Information about how you interact with our service, including features used
-              and time spent on the platform.
+              and search patterns.
             </li>
             <li>
-              <strong>Device Information:</strong> Information about your device, browser type, IP address, and
-              operating system.
-            </li>
-            <li>
-              <strong>Cookies and Similar Technologies:</strong> We use cookies and similar tracking technologies to
-              enhance your experience and collect usage information.
+              <strong>Device Information:</strong> Technical information about your device, browser type, and operating
+              system for service optimization.
             </li>
           </ul>
 
           <h2>How We Use Your Information</h2>
           <p>We use your information for the following purposes:</p>
           <ul>
-            <li>To provide and improve our search service</li>
-            <li>To understand how users interact with our platform</li>
-            <li>To personalize and enhance your experience</li>
-            <li>To monitor and analyze usage patterns and trends</li>
-            <li>To detect, prevent, and address technical issues</li>
+            <li>To provide medical oncology information and clinical trial matching services</li>
+            <li>To improve the accuracy and relevance of medical information provided</li>
+            <li>To match health profiles with appropriate clinical trials when requested</li>
+            <li>To ensure the security and proper functioning of our platform</li>
+            <li>To comply with legal and regulatory requirements</li>
+            <li>To analyze usage patterns to improve our medical information services</li>
           </ul>
+          <p>
+            <strong>Important:</strong> We never sell or share your health information with third parties for marketing
+            purposes. Health profile data is used exclusively for providing clinical trial matching services.
+          </p>
 
           <h2>Data Sharing and Disclosure</h2>
           <p>We may share your information in the following circumstances:</p>
@@ -107,11 +118,15 @@ export default function PrivacyPage() {
             </li>
             <ul>
               <li>
-                <strong>Vercel:</strong> Our hosting and infrastructure provider
+                <strong>Infrastructure Providers:</strong> We use secure hosting services to maintain our platform
               </li>
               <li>
-                <strong>AI Processing Partners:</strong> We utilize services from companies including OpenAI, Anthropic,
-                xAI, and others to process search queries and provide results
+                <strong>AI Processing Partners:</strong> We utilize AI services to process medical queries. These partners
+                do not store or have access to your health profile data
+              </li>
+              <li>
+                <strong>Medical Databases:</strong> We access public medical databases like ClinicalTrials.gov to provide
+                up-to-date clinical trial information
               </li>
             </ul>
             <li>
@@ -123,28 +138,54 @@ export default function PrivacyPage() {
             </li>
           </ul>
 
-          <h2>Data Security</h2>
+          <h2>Data Security and Health Information Protection</h2>
           <p>
-            We implement appropriate technical and organizational measures to protect your personal information.
-            However, no method of transmission over the Internet or electronic storage is 100% secure, and we cannot
-            guarantee absolute security.
+            We implement stringent security measures to protect your personal and health information:
+          </p>
+          <ul>
+            <li>Encryption of health data in transit and at rest</li>
+            <li>Access controls limiting who can view health information</li>
+            <li>Regular security audits and updates</li>
+            <li>Secure authentication requirements for all users</li>
+            <li>Compliance with healthcare data protection best practices</li>
+          </ul>
+          <p>
+            While we employ industry-standard security measures, no method of transmission over the Internet is 100%
+            secure. We continuously work to enhance our security practices to protect your sensitive health information.
           </p>
 
-          <h2>Your Rights</h2>
-          <p>Depending on your location, you may have the right to:</p>
+          <h2>Your Rights and Health Data Control</h2>
+          <p>You have the following rights regarding your personal and health information:</p>
           <ul>
-            <li>Access the personal information we hold about you</li>
-            <li>Request correction or deletion of your personal information</li>
-            <li>Object to or restrict certain processing activities</li>
-            <li>Data portability</li>
-            <li>Withdraw consent where applicable</li>
+            <li>Access all personal and health information we hold about you</li>
+            <li>Request correction or deletion of your health profile data at any time</li>
+            <li>Export your health profile information in a portable format</li>
+            <li>Opt-out of any data processing activities</li>
+            <li>Withdraw consent for health data processing</li>
+            <li>Request complete deletion of your account and all associated data</li>
+          </ul>
+          <p>
+            To exercise any of these rights, please contact us at the email address provided below. We will respond to
+            your request within 30 days.
+          </p>
+
+          <h2>Data Retention</h2>
+          <p>
+            We retain your information for as long as necessary to provide our services and comply with legal obligations:
+          </p>
+          <ul>
+            <li>Health profile data is retained until you request deletion or delete your account</li>
+            <li>Search queries may be retained in anonymized form for service improvement</li>
+            <li>Account information is retained for the duration of your account&apos;s existence</li>
+            <li>We promptly delete all personal and health data upon account deletion</li>
           </ul>
 
           <h2>Children&apos;s Privacy</h2>
           <p>
-            Our service is not directed to children under the age of 13. We do not knowingly collect personal
-            information from children under 13. If you are a parent or guardian and believe your child has provided us
-            with personal information, please contact us.
+            OncoBot is designed for use by healthcare professionals and adult patients. Our service is not directed to
+            children under the age of 18. We do not knowingly collect personal or health information from minors. If you
+            are a parent or guardian and believe your child has provided us with personal information, please contact us
+            immediately.
           </p>
 
           <h2>Changes to This Privacy Policy</h2>

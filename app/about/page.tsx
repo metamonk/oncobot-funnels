@@ -8,7 +8,6 @@ import {
   Image as ImageIcon,
   Search,
   Sparkles,
-  Users,
   FileText,
   ShieldCheck,
   ArrowUpRight,
@@ -17,7 +16,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -29,17 +27,11 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { X } from 'lucide-react';
 import { TextLoop } from '@/components/core/text-loop';
 import { TextShimmer } from '@/components/core/text-shimmer';
-import { VercelLogo } from '@/components/logos/vercel-logo';
-import { ExaLogo } from '@/components/logos/exa-logo';
-import { ElevenLabsLogo } from '@/components/logos/elevenlabs-logo';
 import { OncoBotLogo } from '@/components/logos/oncobot-logo';
 import { useRouter } from 'next/navigation';
 import { GithubLogo, XLogo } from '@phosphor-icons/react';
-import { Badge } from '@/components/ui/badge';
 import {
   ProAccordion,
   ProAccordionItem,
@@ -47,7 +39,6 @@ import {
   ProAccordionContent,
 } from '@/components/ui/pro-accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useGitHubStars } from '@/hooks/use-github-stars';
 import { models } from '@/ai/providers';
 
 const container = {
@@ -69,8 +60,7 @@ export default function AboutPage() {
   const router = useRouter();
   const [showTermsDialog, setShowTermsDialog] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [showCryptoAlert, setShowCryptoAlert] = useState(true);
-  const { data: githubStars, isLoading: isLoadingStars } = useGitHubStars();
+  
   useEffect(() => {
     // Check if user has seen the terms
     const hasAcceptedTerms = localStorage.getItem('hasAcceptedTerms');
@@ -78,11 +68,6 @@ export default function AboutPage() {
       setShowTermsDialog(true);
     }
 
-    // Check if user has dismissed the crypto alert
-    const hasDismissedCryptoAlert = localStorage.getItem('hasDismissedCryptoAlert');
-    if (hasDismissedCryptoAlert) {
-      setShowCryptoAlert(false);
-    }
   }, []);
 
   const handleAcceptTerms = () => {
@@ -92,10 +77,6 @@ export default function AboutPage() {
     }
   };
 
-  const handleDismissCryptoAlert = () => {
-    setShowCryptoAlert(false);
-    localStorage.setItem('hasDismissedCryptoAlert', 'true');
-  };
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -108,29 +89,6 @@ export default function AboutPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Crypto Disclaimer Alert */}
-      {showCryptoAlert && (
-        <div className="sticky top-0 z-50 border-b border-border bg-amber-50 dark:bg-amber-950/20">
-          <Alert className="border-0 rounded-none bg-transparent">
-            <AlertDescription className="flex items-center justify-between py-2">
-              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
-                <ShieldCheck className="h-4 w-4" />
-                <span className="text-sm font-medium">
-                  OncoBot is not connected to any cryptocurrency tokens or coins. We are purely an AI search engine.
-                </span>
-              </div>
-              <button
-                onClick={handleDismissCryptoAlert}
-                className="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 transition-colors"
-                aria-label="Dismiss alert"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
-
       {/* Terms Dialog */}
       <Dialog open={showTermsDialog} onOpenChange={setShowTermsDialog}>
         <DialogContent className="sm:max-w-[500px] p-0 bg-background border border-border">
@@ -153,8 +111,9 @@ export default function AboutPage() {
                 Terms of Service
               </h3>
               <p className="text-xs text-muted-foreground">
-                By using OncoBot, you agree to our Terms of Service which outline the rules for using our platform. This
-                includes guidelines on acceptable use, intellectual property rights, and limitations of liability.
+                By using OncoBot, you agree to our Terms of Service which outline the rules for using our medical information platform.
+                This includes important disclaimers about medical advice, acceptable use, and limitations of liability. OncoBot is designed
+                to assist healthcare professionals and should not replace professional medical judgment.
               </p>
               <Link href="/terms" className="text-xs text-primary hover:underline inline-flex items-center">
                 Read full Terms of Service
@@ -168,8 +127,9 @@ export default function AboutPage() {
                 Privacy Policy
               </h3>
               <p className="text-xs text-muted-foreground">
-                Our Privacy Policy describes how we collect, use, and protect your personal information. We take your
-                privacy seriously and are committed to maintaining the confidentiality of your data.
+                Our Privacy Policy describes how we collect, use, and protect your personal and health-related information.
+                We comply with healthcare privacy regulations and are committed to maintaining the confidentiality of all medical
+                data and patient information shared through our platform.
               </p>
               <Link href="/privacy-policy" className="text-xs text-primary hover:underline inline-flex items-center">
                 Read full Privacy Policy
@@ -203,13 +163,13 @@ export default function AboutPage() {
       {/* Navigation */}
       <header className="sticky top-0 z-50 backdrop-blur-lg bg-background/80 border-b border-border">
         <div className="container max-w-screen-xl mx-auto py-4 px-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-3">
             <OncoBotLogo 
               size="sm"
               variant="default"
               className="text-foreground dark:text-gray-200"
             />
-            <span className="font-normal font-be-vietnam-pro">OncoBot</span>
+            <span className="font-medium font-mono">oncobot</span>
           </Link>
 
           <nav className="flex items-center gap-8">
@@ -226,7 +186,7 @@ export default function AboutPage() {
               Privacy
             </Link>
             <Link
-              href="https://git.new/oncobot"
+              href="https://github.com/metamonk/oncobot-v3"
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
               target="_blank"
               rel="noopener noreferrer"
@@ -244,27 +204,27 @@ export default function AboutPage() {
           <motion.div className="space-y-20 text-center" variants={container} initial="hidden" animate="show">
             {/* Logo & Brand */}
             <motion.div variants={item} className="space-y-8">
-              <Link href="/" className="inline-flex items-center gap-2 group">
+              <Link href="/" className="inline-flex items-center gap-4 group">
                 <div className="relative">
                   <OncoBotLogo 
-                    size="xl"
+                    size="md"
                     variant="default"
                     className="text-foreground dark:text-gray-200 transition-all duration-300 group-hover:scale-110"
                   />
                 </div>
-                <span className="text-5xl font-light tracking-tight font-be-vietname-pro">oncobot</span>
+                <span className="text-4xl font-medium tracking-tight font-mono">oncobot</span>
               </Link>
 
               <div className="space-y-5">
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-light tracking-tight text-balance max-w-5xl mx-auto leading-tight font-be-vietname-pro">
-                  Minimalistic Open Source
+                  Open Source Medical
                   <br />
-                  AI-Powered Search Engine
+                  Oncology AI Assistant
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-                  A clean AI search engine with RAG and search grounding capabilities.
+                  Evidence-based cancer treatment insights powered by AI and medical databases.
                   <br />
-                  Open source and built for everyone.
+                  Built for healthcare professionals and patients.
                 </p>
               </div>
             </motion.div>
@@ -288,30 +248,11 @@ export default function AboutPage() {
                 </div>
               </form>
 
-              {/* Action Buttons */}
+              {/* Action Button */}
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <Link
-                  href="https://git.new/oncobot"
-                  className="inline-flex h-12 items-center gap-2 px-6 rounded-xl bg-foreground text-background hover:scale-105 transition-all duration-200"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <GithubLogo className="h-4 w-4" />
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">View Source</span>
-                    {!isLoadingStars && githubStars && (
-                      <span className="px-2 py-1 text-xs bg-background/20 rounded-full font-medium">
-                        {githubStars.toLocaleString()}
-                      </span>
-                    )}
-                    {isLoadingStars && (
-                      <span className="px-2 py-1 text-xs bg-background/20 rounded-full animate-pulse">...</span>
-                    )}
-                  </div>
-                </Link>
-                <Link
                   href="/"
-                  className="inline-flex h-12 items-center gap-2 px-6 rounded-xl border-2 border-border hover:border-foreground hover:scale-105 transition-all duration-200"
+                  className="inline-flex h-12 items-center gap-2 px-6 rounded-xl bg-foreground text-background hover:scale-105 transition-all duration-200"
                 >
                   <span className="font-medium">Try Now</span>
                   <ArrowUpRight className="h-4 w-4" />
@@ -319,53 +260,6 @@ export default function AboutPage() {
               </div>
             </motion.div>
 
-            {/* Social Proof */}
-            <motion.div variants={item} className="space-y-12">
-              {/* OpenAlternative Badge */}
-              <div className="flex justify-center">
-                <a
-                  href="https://openalternative.co/oncobot?utm_source=openalternative&utm_medium=badge&utm_campaign=embed&utm_content=tool-oncobot"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="transition-transform duration-300 hover:scale-110"
-                >
-                  <img
-                    src="https://openalternative.co/oncobot/badge.svg?theme=dark&width=200&height=50"
-                    width="200"
-                    height="50"
-                    alt="OncoBot badge"
-                    loading="lazy"
-                  />
-                </a>
-              </div>
-
-              {/* Awards */}
-              <div className="flex flex-wrap items-center justify-center gap-24">
-                <div className="flex flex-col items-center space-y-4 group">
-                  <div className="transition-transform duration-300 group-hover:scale-110">
-                    <img
-                      src="https://cdn.prod.website-files.com/657b3d8ca1cab4015f06c850/680a4d679063da73487739e0_No1prgold-caps-removebg-preview.png"
-                      alt="Tiny Startups #1 Product"
-                      className="size-24 object-contain"
-                    />
-                  </div>
-                  <div className="text-center space-y-1">
-                    <div className="font-medium text-sm">#1 Product of the Week</div>
-                    <div className="text-xs text-muted-foreground">Tiny Startups</div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-center space-y-4 group">
-                  <div className="transition-transform duration-300 group-hover:scale-110">
-                    <img src="/Winner-Medal-Weekly.svg" alt="Peerlist #1 Project" className="size-24 object-contain" />
-                  </div>
-                  <div className="text-center space-y-1">
-                    <div className="font-medium text-sm">#1 Project of the Week</div>
-                    <div className="text-xs text-muted-foreground">Peerlist</div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
           </motion.div>
         </div>
       </section>
@@ -401,7 +295,7 @@ export default function AboutPage() {
                   <div className="w-8 h-8 rounded-full bg-accent shrink-0"></div>
                   <div className="flex-1 space-y-1.5">
                     <p className="text-xs text-muted-foreground">Query</p>
-                    <p className="font-medium">Explain quantum computing and its real-world applications</p>
+                    <p className="font-medium">What are the latest immunotherapy options for melanoma patients?</p>
                   </div>
                 </div>
 
@@ -414,15 +308,15 @@ export default function AboutPage() {
                     <div className="space-y-1.5">
                       <p className="text-xs text-muted-foreground">Processing</p>
                       <TextLoop interval={1.5}>
-                        <p className="text-sm font-medium">🔍 Retrieving relevant information...</p>
-                        <p className="text-sm font-medium">📚 Processing search results...</p>
-                        <p className="text-sm font-medium">🤖 Generating response...</p>
-                        <p className="text-sm font-medium">✨ Enhancing with context...</p>
+                        <p className="text-sm font-medium">🔍 Searching medical databases...</p>
+                        <p className="text-sm font-medium">📚 Analyzing clinical trials...</p>
+                        <p className="text-sm font-medium">🤖 Processing oncology guidelines...</p>
+                        <p className="text-sm font-medium">✨ Synthesizing treatment options...</p>
                       </TextLoop>
                     </div>
                     <div className="space-y-1.5">
                       <TextShimmer className="text-sm leading-relaxed font-medium">
-                        Combining insights from multiple reliable sources...
+                        Cross-referencing NCCN guidelines with recent clinical data...
                       </TextShimmer>
                     </div>
                   </div>
@@ -437,8 +331,8 @@ export default function AboutPage() {
                     <p className="text-xs text-muted-foreground">Response</p>
                     <div className="prose prose-neutral dark:prose-invert prose-sm max-w-none">
                       <p>
-                        Quantum computing is a revolutionary technology that harnesses quantum mechanics to solve
-                        complex problems traditional computers cannot handle efficiently...
+                        For advanced melanoma, current immunotherapy options include checkpoint inhibitors such as
+                        pembrolizumab and nivolumab, which have shown significant survival benefits...
                       </p>
                       <div className="flex flex-wrap gap-1.5 mt-3">
                         <div className="text-xs py-1 px-2 bg-accent rounded-md text-accent-foreground">
@@ -460,167 +354,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Powered By Section */}
-      <section className="py-24 px-4 bg-gradient-to-b from-background to-accent/10">
-        <div className="container max-w-screen-2xl mx-auto !w-full">
-          <motion.div
-            className="max-w-6xl mx-auto space-y-16"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <div className="text-center space-y-6">
-              <motion.h2
-                className="text-4xl font-medium tracking-tight"
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.1 }}
-              >
-                Powered By Industry Leaders
-              </motion.h2>
-              <motion.p
-                className="text-muted-foreground max-w-3xl mx-auto text-lg leading-relaxed"
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.2 }}
-              >
-                Built with cutting-edge technology from the world&apos;s most innovative companies
-              </motion.p>
-            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
-              <motion.div
-                className="group relative p-12 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/50 flex flex-col items-center justify-center gap-8 shadow-lg hover:shadow-xl transition-all duration-300 min-h-[240px] overflow-hidden"
-                whileHover={{ y: -4, scale: 1.02 }}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.1 }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="relative z-10 w-full flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
-                  <VercelLogo />
-                </div>
-                <div className="relative z-10 text-center space-y-2">
-                  <h3 className="font-semibold text-lg">Vercel AI SDK</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    Advanced AI framework powering intelligent responses
-                  </p>
-                </div>
-              </motion.div>
-
-              <motion.div
-                className="group relative p-12 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/50 flex flex-col items-center justify-center gap-8 shadow-lg hover:shadow-xl transition-all duration-300 min-h-[240px] overflow-hidden"
-                whileHover={{ y: -4, scale: 1.02 }}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.2 }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="relative z-10 w-full flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
-                  <ExaLogo />
-                </div>
-                <div className="relative z-10 text-center space-y-2">
-                  <h3 className="font-semibold text-lg">Exa Search</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    Real-time search grounding with reliable sources
-                  </p>
-                </div>
-              </motion.div>
-
-              <motion.div
-                className="group relative p-12 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/50 flex flex-col items-center justify-center gap-8 shadow-lg hover:shadow-xl transition-all duration-300 min-h-[240px] overflow-hidden"
-                whileHover={{ y: -4, scale: 1.02 }}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.3 }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="relative z-10 w-full flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
-                  <ElevenLabsLogo />
-                </div>
-                <div className="relative z-10 text-center space-y-2">
-                  <h3 className="font-semibold text-lg">ElevenLabs Voice</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    Natural voice synthesis with human-like quality
-                  </p>
-                </div>
-              </motion.div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-24 px-4 border-y border-border bg-muted/30">
-        <div className="container max-w-screen-xl mx-auto">
-          <motion.div
-            className="max-w-3xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-y-12 gap-x-8">
-              <div className="flex flex-col items-center text-center space-y-2">
-                <div className="text-5xl font-medium">1M+</div>
-                <p className="text-muted-foreground">Questions Answered</p>
-              </div>
-              <div className="flex flex-col items-center text-center space-y-2">
-                <div className="text-5xl font-medium">100K+</div>
-                <p className="text-muted-foreground">Active Users</p>
-              </div>
-              <div className="flex flex-col items-center text-center space-y-2">
-                <div className="text-5xl font-medium">
-                  {isLoadingStars ? (
-                    <span className="animate-pulse">Loading...</span>
-                  ) : (
-                    `${githubStars?.toLocaleString() || '9,000'}+`
-                  )}
-                </div>
-                <p className="text-muted-foreground">GitHub Stars</p>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Highlight Section */}
-      <section className="py-24 px-4 bg-background">
-        <div className="container max-w-screen-xl mx-auto">
-          <motion.div
-            className="max-w-4xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-center">
-              <div className="lg:col-span-3 space-y-5">
-                <h2 className="text-3xl font-medium tracking-tight">Featured on Vercel&apos;s Blog</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  Recognized for our innovative use of AI technology and contribution to the developer community through
-                  the Vercel AI SDK.
-                </p>
-                <Link
-                  href="https://vercel.com/blog/ai-sdk-4-1"
-                  className="inline-flex items-center gap-2 font-medium hover:text-primary transition-colors"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Read the Feature
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </div>
-              <div className="lg:col-span-2 relative aspect-video rounded-lg overflow-hidden border border-border">
-                <Image src="/vercel-featured.png" alt="Featured on Vercel Blog" fill className="object-cover" />
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
 
       {/* Models Section */}
       <section className="py-24 px-4 bg-accent/10 border-y border-border">
@@ -735,19 +469,42 @@ export default function AboutPage() {
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative space-y-4">
-                  <h3 className="font-medium">Students</h3>
+                  <h3 className="font-medium">Patients</h3>
                   <ul className="space-y-3 text-sm text-muted-foreground">
                     <li className="flex items-start gap-2">
                       <Check className="h-4 w-4 text-primary mt-0.5" />
-                      <span>Research paper assistance</span>
+                      <span>Treatment options information</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <Check className="h-4 w-4 text-primary mt-0.5" />
-                      <span>Complex topic explanations</span>
+                      <span>Clinical trial matching</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <Check className="h-4 w-4 text-primary mt-0.5" />
-                      <span>Math problem solving</span>
+                      <span>Side effect management</span>
+                    </li>
+                  </ul>
+                </div>
+              </motion.div>
+              <motion.div
+                className="group relative p-6 rounded-xl bg-card border border-border shadow-sm overflow-hidden"
+                whileHover={{ y: -2 }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative space-y-4">
+                  <h3 className="font-medium">Clinical Coordinators</h3>
+                  <ul className="space-y-3 text-sm text-muted-foreground">
+                    <li className="flex items-start gap-2">
+                      <Check className="h-4 w-4 text-primary mt-0.5" />
+                      <span>Patient eligibility screening</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="h-4 w-4 text-primary mt-0.5" />
+                      <span>Protocol management</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="h-4 w-4 text-primary mt-0.5" />
+                      <span>Treatment coordination</span>
                     </li>
                   </ul>
                 </div>
@@ -762,38 +519,15 @@ export default function AboutPage() {
                   <ul className="space-y-3 text-sm text-muted-foreground">
                     <li className="flex items-start gap-2">
                       <Check className="h-4 w-4 text-primary mt-0.5" />
-                      <span>Academic paper analysis</span>
+                      <span>Oncology literature review</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <Check className="h-4 w-4 text-primary mt-0.5" />
-                      <span>Data interpretation</span>
+                      <span>Clinical data analysis</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <Check className="h-4 w-4 text-primary mt-0.5" />
-                      <span>Literature review</span>
-                    </li>
-                  </ul>
-                </div>
-              </motion.div>
-              <motion.div
-                className="group relative p-6 rounded-xl bg-card border border-border shadow-sm overflow-hidden"
-                whileHover={{ y: -2 }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative space-y-4">
-                  <h3 className="font-medium">Professionals</h3>
-                  <ul className="space-y-3 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-primary mt-0.5" />
-                      <span>Market research</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-primary mt-0.5" />
-                      <span>Technical documentation</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-primary mt-0.5" />
-                      <span>Data analysis</span>
+                      <span>Treatment outcome research</span>
                     </li>
                   </ul>
                 </div>
@@ -815,7 +549,7 @@ export default function AboutPage() {
             <div className="text-center space-y-4">
               <h2 className="text-3xl font-medium tracking-tight">Advanced Features</h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
-                Experience a smarter way to search with AI-powered capabilities
+                Experience advanced medical AI capabilities designed for oncology professionals
               </p>
             </div>
 
@@ -823,33 +557,33 @@ export default function AboutPage() {
               {[
                 {
                   icon: Brain,
-                  title: 'Smart Understanding',
-                  description: 'Uses multiple AI models to understand complex questions',
+                  title: 'Clinical Intelligence',
+                  description: 'Analyzes complex oncology cases and treatment patterns',
                 },
                 {
                   icon: Search,
-                  title: 'Comprehensive Search',
-                  description: 'Searches across multiple sources for complete answers',
+                  title: 'Medical Database Search',
+                  description: 'Searches clinical trials, guidelines, and research papers',
                 },
                 {
                   icon: ImageIcon,
-                  title: 'Image Understanding',
-                  description: 'Can understand and explain images you share',
+                  title: 'Scan Analysis',
+                  description: 'Interprets medical imaging and pathology reports',
                 },
                 {
                   icon: Command,
-                  title: 'Smart Calculations',
-                  description: 'Performs complex calculations and analysis in real-time',
+                  title: 'Dosage Calculations',
+                  description: 'Calculates chemotherapy dosing and treatment schedules',
                 },
                 {
                   icon: GraduationCap,
-                  title: 'Research Assistant',
-                  description: 'Helps find and explain academic research',
+                  title: 'Evidence-Based Insights',
+                  description: 'Provides latest oncology research and clinical guidelines',
                 },
                 {
                   icon: Sparkles,
-                  title: 'Natural Conversations',
-                  description: 'Responds in a clear, conversational way',
+                  title: 'Patient-Friendly Explanations',
+                  description: 'Translates complex medical terms clearly',
                 },
               ].map((feature, i) => (
                 <motion.div
@@ -874,176 +608,6 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section className="py-24 px-4 bg-background border-y border-border">
-        <div className="container max-w-screen-xl mx-auto">
-          <motion.div
-            className="max-w-4xl mx-auto space-y-12"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <div className="text-center space-y-4">
-              <h2 className="text-3xl font-medium tracking-tight">Pricing Plans</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">Choose the plan that works best for you</p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-              {/* Free Plan */}
-              <div className="bg-card border border-border rounded-xl p-8 relative hover:border-border/80 transition-colors duration-200">
-                <div className="mb-8">
-                  <h3 className="text-lg font-medium text-card-foreground mb-3 tracking-[-0.01em]">Free</h3>
-                  <p className="text-muted-foreground text-sm mb-6 leading-relaxed">
-                    Get started with essential features
-                  </p>
-                  <div className="flex items-baseline mb-2">
-                    <span className="text-3xl font-light text-card-foreground tracking-tight">$0</span>
-                    <span className="text-muted-foreground ml-2 text-sm">/month</span>
-                  </div>
-                </div>
-
-                <div className="mb-6">
-                  <ul className="space-y-3">
-                    <li className="flex items-center text-[15px]">
-                      <div className="w-1 h-1 bg-muted rounded-full mr-4 flex-shrink-0"></div>
-                      <span className="text-muted-foreground">10 searches per day (other models)</span>
-                    </li>
-                    <li className="flex items-center text-[15px]">
-                      <div className="w-1 h-1 bg-muted rounded-full mr-4 flex-shrink-0"></div>
-                      <span className="text-muted-foreground">5 extreme searches per month</span>
-                    </li>
-                    <li className="flex items-center text-[15px]">
-                      <div className="w-1 h-1 bg-muted rounded-full mr-4 flex-shrink-0"></div>
-                      <span className="text-muted-foreground">Basic AI models</span>
-                    </li>
-                    <li className="flex items-center text-[15px]">
-                      <div className="w-1 h-1 bg-muted rounded-full mr-4 flex-shrink-0"></div>
-                      <span className="text-muted-foreground">Search history</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <Button
-                  variant="outline"
-                  className="w-full h-9 border-border text-muted-foreground hover:bg-accent font-normal text-sm tracking-[-0.01em]"
-                  onClick={() => router.push('/')}
-                >
-                  Get Started
-                </Button>
-              </div>
-
-              {/* Pro Plan */}
-              <div className="bg-card border-[1.5px] border-foreground rounded-xl p-8 relative shadow-sm">
-                <div className="absolute -top-3 right-8 z-10">
-                  <Badge className="bg-foreground text-background px-3 py-1 text-xs font-normal tracking-wide">
-                    POPULAR
-                  </Badge>
-                </div>
-
-                <div className="mb-8">
-                  <h3 className="text-lg font-medium text-card-foreground mb-3 tracking-[-0.01em]">OncoBot Pro</h3>
-                  <p className="text-muted-foreground text-sm mb-6 leading-relaxed">
-                    Everything you need for unlimited usage
-                  </p>
-                  <div className="flex items-baseline mb-2">
-                    <span className="text-3xl font-light text-card-foreground tracking-tight">$15</span>
-                    <span className="text-muted-foreground ml-2 text-sm">/month</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground tracking-wide">CANCEL ANYTIME</p>
-                </div>
-
-                <div className="mb-6">
-                  <ul className="space-y-3">
-                    <li className="flex items-center text-[15px]">
-                      <div className="w-1 h-1 bg-foreground rounded-full mr-4 flex-shrink-0"></div>
-                      <span className="text-card-foreground">Unlimited searches</span>
-                    </li>
-                    <li className="flex items-center text-[15px]">
-                      <div className="w-1 h-1 bg-foreground rounded-full mr-4 flex-shrink-0"></div>
-                      <span className="text-card-foreground">All AI models</span>
-                    </li>
-                    <li className="flex items-center text-[15px]">
-                      <div className="w-1 h-1 bg-foreground rounded-full mr-4 flex-shrink-0"></div>
-                      <span className="text-card-foreground">PDF document analysis</span>
-                    </li>
-                    <li className="flex items-center text-[15px]">
-                      <div className="w-1 h-1 bg-foreground rounded-full mr-4 flex-shrink-0"></div>
-                      <span className="text-card-foreground">Priority support</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <Button
-                  className="w-full h-9 bg-foreground hover:bg-foreground/90 text-background font-normal text-sm tracking-[-0.01em] transition-colors duration-200"
-                  onClick={() => router.push('/pricing')}
-                >
-                  Upgrade to Pro
-                </Button>
-              </div>
-            </div>
-
-            {/* Student Discount */}
-            <div className="max-w-3xl mx-auto bg-muted/50 border border-border rounded-xl p-6 mt-8">
-              <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
-                <div className="p-2 rounded-md bg-muted flex-shrink-0">
-                  <GraduationCap className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div className="flex-1 space-y-2 text-center sm:text-left">
-                  <h3 className="font-medium text-base">Student Discount: $10 off Pro Plan</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Students can get the Pro plan for just $5/month. Email zaid@onco.bot with your student ID and a
-                    brief description of how you use OncoBot for your studies.
-                  </p>
-                  <div className="pt-1">
-                    <a
-                      href="mailto:zaid@onco.bot?subject=Student%20Discount%20Request"
-                      className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-border bg-background hover:bg-accent h-9 px-4 py-2"
-                    >
-                      Request Student Discount
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Free Unlimited Models Highlight */}
-            <div className="max-w-3xl mx-auto bg-muted/50 border border-border rounded-xl p-6 mt-8">
-              <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
-                <div className="p-2 rounded-md bg-muted flex-shrink-0">
-                  <Sparkles className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div className="flex-1 space-y-2 text-center sm:text-left">
-                  <h3 className="font-medium text-base">Free Unlimited Access to Advanced Models</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Free users get 10 searches per day and 5 extreme searches per month. Perfect for getting started
-                    with AI-powered search and research assistance.
-                  </p>
-                  <div className="pt-1">
-                    <Button
-                      variant="outline"
-                      className="border-border text-card-foreground hover:bg-accent"
-                      onClick={() => router.push('/sign-up')}
-                    >
-                      Create Free Account
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <Link
-                href="/pricing"
-                className="inline-flex items-center gap-2 font-medium hover:text-primary transition-colors"
-              >
-                View full pricing details
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
       {/* FAQ Section */}
       <section className="py-24 px-4 bg-accent/10">
         <div className="container max-w-screen-xl mx-auto">
@@ -1062,33 +626,35 @@ export default function AboutPage() {
               <ProAccordionItem value="item-1">
                 <ProAccordionTrigger>What is OncoBot?</ProAccordionTrigger>
                 <ProAccordionContent>
-                  OncoBot is a minimalistic open-source AI-powered search engine that uses RAG (Retrieval-Augmented
-                  Generation) and search grounding to provide accurate, up-to-date answers from reliable sources.
+                  OncoBot is an open-source AI-powered medical oncology assistant that provides evidence-based information
+                  about cancer treatments, clinical trials, and patient care using advanced AI models and medical databases.
                 </ProAccordionContent>
               </ProAccordionItem>
 
               <ProAccordionItem value="item-2">
-                <ProAccordionTrigger>What&apos;s the difference between Free and Pro plans?</ProAccordionTrigger>
+                <ProAccordionTrigger>Is OncoBot suitable for medical decision-making?</ProAccordionTrigger>
                 <ProAccordionContent>
-                  The Free plan offers limited daily searches with basic AI models, while the Pro plan ($15/month)
-                  provides unlimited searches, access to all AI models, PDF document analysis, and priority support.
+                  OncoBot is designed to assist healthcare professionals by providing information from medical databases
+                  and research. However, it should not replace professional medical judgment. Always verify information
+                  and consult appropriate medical resources for clinical decisions.
                 </ProAccordionContent>
               </ProAccordionItem>
 
               <ProAccordionItem value="item-3">
-                <ProAccordionTrigger>Is there a student discount?</ProAccordionTrigger>
+                <ProAccordionTrigger>What medical databases does OncoBot access?</ProAccordionTrigger>
                 <ProAccordionContent>
-                  Yes, students can get $10 off the Pro plan, bringing it down to $5/month. To apply, email
-                  zaid@onco.bot with your student verification details and a brief description of how you use OncoBot for
-                  your academic work or studies.
+                  OncoBot accesses multiple medical databases including ClinicalTrials.gov for trial information,
+                  academic research papers through advanced search APIs, and integrates with current oncology guidelines. 
+                  It also uses AI models trained on medical literature.
                 </ProAccordionContent>
               </ProAccordionItem>
 
               <ProAccordionItem value="item-4">
-                <ProAccordionTrigger>Can I cancel my subscription anytime?</ProAccordionTrigger>
+                <ProAccordionTrigger>How does the health profile feature work?</ProAccordionTrigger>
                 <ProAccordionContent>
-                  Yes, you can cancel your Pro subscription at any time. Your benefits will continue until the end of
-                  your current billing period.
+                  The health profile feature allows users to input patient characteristics, cancer type, stage,
+                  and molecular markers. This information is used to provide personalized clinical trial matching
+                  and treatment recommendations based on current guidelines.
                 </ProAccordionContent>
               </ProAccordionItem>
 
@@ -1162,7 +728,7 @@ export default function AboutPage() {
                   <XLogo className="h-4 w-4" />
                 </Link>
                 <Link
-                  href="https://git.new/oncobot"
+                  href="https://github.com/metamonk/oncobot-v3"
                   className="p-2 text-muted-foreground hover:text-foreground transition-colors"
                   target="_blank"
                   rel="noopener noreferrer"

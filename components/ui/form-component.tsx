@@ -9,15 +9,15 @@ import { Textarea } from '../ui/textarea';
 import {
   models,
   requiresAuthentication,
-  requiresProSubscription,
   hasVisionSupport,
   hasPdfSupport,
   getAcceptedFileTypes,
   shouldBypassRateLimits,
 } from '@/ai/providers';
-import { TelescopeIcon, X, Check, ChevronsUpDown, Globe } from 'lucide-react';
+import { X, Check, ChevronsUpDown, Globe } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { cn, SearchGroup, SearchGroupId, searchGroups } from '@/lib/utils';
+import { isSearchModeEnabled } from '@/lib/feature-toggles';
 import { Upload } from 'lucide-react';
 import { UIMessage } from '@ai-sdk/ui-utils';
 import { track } from '@vercel/analytics';
@@ -25,7 +25,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { UserWithProStatus } from '@/hooks/use-user-data';
 import { useSession } from '@/lib/auth-client';
 import { checkImageModeration } from '@/app/actions';
-import { Crown, LockIcon, MicrophoneIcon, CpuIcon } from '@phosphor-icons/react';
+import { LockIcon, MicrophoneIcon, CpuIcon } from '@phosphor-icons/react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -63,9 +63,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
     const availableModels = useMemo(() => models, []);
 
-    const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
     const [showSignInDialog, setShowSignInDialog] = useState(false);
-    const [selectedProModel, setSelectedProModel] = useState<(typeof models)[0] | null>(null);
     const [selectedAuthModel, setSelectedAuthModel] = useState<(typeof models)[0] | null>(null);
     const [open, setOpen] = useState(false);
 
@@ -108,7 +106,6 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         if (!model) return;
 
         const requiresAuth = requiresAuthentication(model.value) && !user;
-        const requiresPro = requiresProSubscription(model.value) && !isProUser;
 
         if (isSubscriptionLoading) {
           return;
@@ -120,11 +117,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           return;
         }
 
-        if (requiresPro && !isProUser) {
-          setSelectedProModel(model);
-          setShowUpgradeDialog(true);
-          return;
-        }
+        // Pro system removed - all auth users can use all models
 
         console.log('Selected model:', model.value);
         setSelectedModel(model.value.trim());
@@ -133,7 +126,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           onModelSelect(model);
         }
       },
-      [availableModels, user, isProUser, isSubscriptionLoading, setSelectedModel, onModelSelect],
+      [availableModels, user, isSubscriptionLoading, setSelectedModel, onModelSelect],
     );
 
     return (
@@ -171,7 +164,8 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
               className="rounded-lg"
               filter={(value, search) => {
                 const model = availableModels.find((m) => m.value === value);
-                if (!model || !search) return 1;
+                if (!model) return 0;
+                if (!search) return 1;
 
                 const searchTerm = search.toLowerCase();
                 const searchableFields = [
@@ -200,46 +194,32 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
                     <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground">{category} Models</div>
                     {categoryModels.map((model) => {
                       const requiresAuth = requiresAuthentication(model.value) && !user;
-                      const requiresPro = requiresProSubscription(model.value) && !isProUser;
-                      const isLocked = requiresAuth || requiresPro;
 
-                      if (isLocked) {
+                      if (requiresAuth) {
                         return (
-                          <div
+                          <CommandItem
                             key={model.value}
+                            value={model.value}
+                            onSelect={() => {
+                              setSelectedAuthModel(model);
+                              setShowSignInDialog(true);
+                            }}
                             className={cn(
-                              'flex items-center justify-between px-2 py-1.5 mb-0.5 rounded-lg text-xs cursor-pointer',
+                              'flex items-center justify-between px-2 py-1.5 mb-0.5 rounded-lg text-xs',
                               'transition-all duration-200',
                               'opacity-50 hover:opacity-70 hover:bg-accent',
                             )}
-                            onClick={() => {
-                              if (isSubscriptionLoading) {
-                                return;
-                              }
-
-                              if (requiresAuth) {
-                                setSelectedAuthModel(model);
-                                setShowSignInDialog(true);
-                              } else if (requiresPro && !isProUser) {
-                                setSelectedProModel(model);
-                                setShowUpgradeDialog(true);
-                              }
-                            }}
                           >
                             <div className="flex flex-col min-w-0 flex-1">
                               <div className="font-medium truncate text-[11px] flex items-center gap-1">
                                 {model.label}
-                                {requiresAuth ? (
-                                  <LockIcon className="size-3 text-muted-foreground" />
-                                ) : (
-                                  <Crown className="size-3 text-muted-foreground" />
-                                )}
+                                <LockIcon className="size-3 text-muted-foreground" />
                               </div>
                               <div className="text-[9px] text-muted-foreground truncate leading-tight">
                                 {model.description}
                               </div>
                             </div>
-                          </div>
+                          </CommandItem>
                         );
                       }
 
@@ -263,12 +243,9 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
                               {model.label}
                               {(() => {
                                 const requiresAuth = requiresAuthentication(model.value) && !user;
-                                const requiresPro = requiresProSubscription(model.value) && !isProUser;
-
+                        
                                 if (requiresAuth) {
                                   return <LockIcon className="size-3 text-muted-foreground" />;
-                                } else if (requiresPro) {
-                                  return <Crown className="size-3 text-muted-foreground" />;
                                 }
                                 return null;
                               })()}
@@ -293,73 +270,6 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           </PopoverContent>
         </Popover>
 
-        <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
-          <DialogContent className="sm:max-w-md p-0 gap-0 border !shadow-none">
-            <div className="p-6 space-y-5">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                    <Crown className="w-4 h-4 text-primary-foreground" weight="fill" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-medium text-foreground">{selectedProModel?.label} requires Pro</h2>
-                    <p className="text-sm text-muted-foreground">Upgrade to access premium AI models</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground mt-2 flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Unlimited searches</p>
-                    <p className="text-xs text-muted-foreground">No daily limits or restrictions</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground mt-2 flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Premium AI models</p>
-                    <p className="text-xs text-muted-foreground">Claude 4 Sonnet, Grok 4, advanced reasoning</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground mt-2 flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">PDF analysis</p>
-                    <p className="text-xs text-muted-foreground">Upload and analyze documents</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-muted rounded-lg p-4 space-y-2">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-medium text-foreground">$15</span>
-                  <span className="text-sm text-muted-foreground">/month</span>
-                </div>
-                <p className="text-xs text-muted-foreground">Cancel anytime</p>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowUpgradeDialog(false)}
-                  className="flex-1 h-9 text-sm font-normal"
-                >
-                  Maybe later
-                </Button>
-                <Button
-                  onClick={() => {
-                    window.location.href = '/pricing';
-                  }}
-                  className="flex-1 h-9 text-sm font-normal"
-                >
-                  Upgrade now
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
           <DialogContent className="sm:max-w-[420px] p-0 gap-0 border !shadow-none">
@@ -738,22 +648,6 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(({ selectedGrou
     [visibleGroups, selectedGroup],
   );
 
-  const handleToggleExtreme = useCallback(() => {
-    if (isExtreme) {
-      // Switch back to web mode
-      const webGroup = searchGroups.find((group) => group.id === 'web');
-      if (webGroup) {
-        onGroupSelect(webGroup);
-      }
-    } else {
-      // Switch to extreme mode
-      const extremeGroup = searchGroups.find((group) => group.id === 'extreme');
-      if (extremeGroup) {
-        onGroupSelect(extremeGroup);
-      }
-    }
-  }, [isExtreme, onGroupSelect]);
-
   const handleGroupChange = useCallback(
     (value: string) => {
       const group = visibleGroups.find((g) => g.id === value);
@@ -880,25 +774,27 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(({ selectedGrou
           </PopoverContent>
         </Popover>
 
-        {/* Extreme Mode Side */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleToggleExtreme}
-              className={cn(
-                'flex items-center gap-1.5 px-3 h-6 rounded-md transition-all',
-                isExtreme ? 'bg-accent text-foreground hover:bg-accent/80' : 'text-muted-foreground hover:bg-accent',
-              )}
-            >
-              <TelescopeIcon className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>{isExtreme ? 'extreme mode on' : 'Switch to extreme mode'}</p>
-          </TooltipContent>
-        </Tooltip>
+        {/* Extreme Mode Side - Only show if extreme mode is enabled */}
+        {isSearchModeEnabled('extreme') && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {}}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 h-6 rounded-md transition-all',
+                  isExtreme ? 'bg-accent text-foreground hover:bg-accent/80' : 'text-muted-foreground hover:bg-accent',
+                )}
+              >
+                <Globe className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>{isExtreme ? 'extreme mode on' : 'Switch to extreme mode'}</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </div>
   );
@@ -1657,10 +1553,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
       const shouldBypassLimitsForThisModel = shouldBypassRateLimits(selectedModel, user);
 
-      if (isLimitBlocked && !shouldBypassLimitsForThisModel) {
-        toast.error('Daily search limit reached. Please upgrade to Pro for unlimited searches.');
-        return;
-      }
+      // No more rate limits - all auth users have unlimited access
 
       if (input.length > MAX_INPUT_CHARS) {
         toast.error(`Your input exceeds the maximum of ${MAX_INPUT_CHARS} characters. Please shorten your message.`);
@@ -1701,7 +1594,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       status,
       selectedModel,
       setHasSubmitted,
-      isLimitBlocked,
       user,
       isRecording,
       chatId,
@@ -1740,7 +1632,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
           const shouldBypassLimitsForThisModel = shouldBypassRateLimits(selectedModel, user);
 
           if (isLimitBlocked && !shouldBypassLimitsForThisModel) {
-            toast.error('Daily search limit reached. Please upgrade to Pro for unlimited searches.');
+            // No rate limits - this shouldn't happen anymore
           } else {
             submitForm();
             setTimeout(() => {

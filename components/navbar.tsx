@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import React, { useState, memo, useCallback, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, GlobeHemisphereWest, Lock, Copy, Check, Crown, Lightning, Share, X } from '@phosphor-icons/react';
+import { Plus, GlobeHemisphereWest, Lock, Copy, Check, Share, X } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { UserProfile } from '@/components/user-profile';
@@ -12,7 +12,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { User } from '@/lib/db/schema';
-import { LinkedinLogo, RedditLogo, XLogo } from '@phosphor-icons/react';
 import { ClassicLoader } from '@/components/ui/loading';
 import { useRouter } from 'next/navigation';
 import { config } from '@/lib/config';
@@ -28,9 +27,6 @@ interface NavbarProps {
   user: User | null;
   onHistoryClick: () => void;
   isOwner?: boolean;
-  subscriptionData?: any;
-  isProUser?: boolean;
-  isProStatusLoading?: boolean;
   isCustomInstructionsEnabled?: boolean;
   setIsCustomInstructionsEnabled?: (value: boolean | ((val: boolean) => boolean)) => void;
 }
@@ -45,9 +41,6 @@ const Navbar = memo(
     user,
     onHistoryClick,
     isOwner = true,
-    subscriptionData,
-    isProUser,
-    isProStatusLoading,
     isCustomInstructionsEnabled,
     setIsCustomInstructionsEnabled,
   }: NavbarProps) => {
@@ -66,9 +59,6 @@ const Navbar = memo(
       }
     }, []);
 
-    // Use passed Pro status directly
-    const hasActiveSubscription = isProUser;
-    const showProLoading = isProStatusLoading;
 
     const handleCopyLink = (e: React.MouseEvent) => {
       e.preventDefault();
@@ -87,24 +77,6 @@ const Navbar = memo(
     // Generate the share URL
     const shareUrl = chatId ? `${config.app.url}/search/${chatId}` : '';
 
-    // Social media share handlers
-    const handleShareLinkedIn = (e: React.MouseEvent) => {
-      e.preventDefault();
-      const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
-      window.open(linkedInUrl, '_blank', 'noopener,noreferrer');
-    };
-
-    const handleShareTwitter = (e: React.MouseEvent) => {
-      e.preventDefault();
-      const twitterUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`;
-      window.open(twitterUrl, '_blank', 'noopener,noreferrer');
-    };
-
-    const handleShareReddit = (e: React.MouseEvent) => {
-      e.preventDefault();
-      const redditUrl = `https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}`;
-      window.open(redditUrl, '_blank', 'noopener,noreferrer');
-    };
 
     const handleVisibilityChange = async (newVisibility: VisibilityType) => {
       setIsChangingVisibility(true);
@@ -167,27 +139,6 @@ const Navbar = memo(
             </Link>
           </div>
 
-          {/* Centered Upgrade Button */}
-          {user && !hasActiveSubscription && !showProLoading && (
-            <div
-              className={cn(
-                'flex items-center justify-center absolute left-1/2 transform -translate-x-1/2',
-                isDialogOpen ? 'pointer-events-auto' : '',
-              )}
-            >
-              <div className="flex items-center bg-muted/50 rounded-lg border border-border">
-                <span className="px-2 py-1.5 text-sm font-medium text-muted-foreground">Free Plan</span>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="rounded-md mr-1.5 h-6"
-                  onClick={() => router.push('/pricing')}
-                >
-                  Upgrade
-                </Button>
-              </div>
-            </div>
-          )}
           <div className={cn('flex items-center gap-2', isDialogOpen ? 'pointer-events-auto' : '')}>
             {/* Visibility indicator or toggle based on authentication and ownership */}
             {chatId && (
@@ -299,33 +250,6 @@ const Navbar = memo(
                                     <Share size={16} />
                                   </Button>
                                 )}
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="size-8"
-                                  onClick={handleShareLinkedIn}
-                                  title="Share on LinkedIn"
-                                >
-                                  <LinkedinLogo size={16} />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="size-8"
-                                  onClick={handleShareTwitter}
-                                  title="Share on X (Twitter)"
-                                >
-                                  <XLogo size={16} />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="size-8"
-                                  onClick={handleShareReddit}
-                                  title="Share on Reddit"
-                                >
-                                  <RedditLogo size={16} />
-                                </Button>
                               </div>
                             </footer>
                           </div>
@@ -440,36 +364,6 @@ const Navbar = memo(
               </>
             )}
 
-            {/* Subscription Status - show loading or Pro status only */}
-            {user && (
-              <>
-                {showProLoading ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="rounded-md pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 border border-border">
-                        <div className="size-4 rounded-full bg-muted animate-pulse" />
-                        <div className="w-8 h-3 bg-muted rounded animate-pulse hidden sm:block" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={4}>
-                      Loading subscription status...
-                    </TooltipContent>
-                  </Tooltip>
-                ) : subscriptionData && hasActiveSubscription ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="rounded-md pointer-events-auto flex items-center gap-1.5 p-1.5 bg-muted/50 border border-border">
-                        <Crown size={14} className="text-foreground" />
-                        <span className="text-xs font-medium text-foreground hidden sm:inline">Pro</span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={4}>
-                      Pro Subscribed - Unlimited access
-                    </TooltipContent>
-                  </Tooltip>
-                ) : null}
-              </>
-            )}
 
             {/* Chat History Button */}
             <ChatHistoryButton onClickAction={onHistoryClick} />
@@ -477,9 +371,6 @@ const Navbar = memo(
             {/* Memoized UserProfile component */}
             <UserProfile
               user={user}
-              subscriptionData={subscriptionData}
-              isProUser={isProUser}
-              isProStatusLoading={isProStatusLoading}
               isCustomInstructionsEnabled={isCustomInstructionsEnabled}
               setIsCustomInstructionsEnabled={setIsCustomInstructionsEnabled}
             />

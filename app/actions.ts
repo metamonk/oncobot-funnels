@@ -15,9 +15,6 @@ import {
   getMessageById,
   deleteMessagesByChatIdAfterTimestamp,
   updateChatTitleById,
-  getExtremeSearchCount,
-  incrementMessageUsage,
-  getMessageCount,
   getHistoricalUsageData,
   getCustomInstructionsByUserId,
   createCustomInstructions,
@@ -26,13 +23,8 @@ import {
 } from '@/lib/db/queries';
 import { getDiscountConfig } from '@/lib/discount';
 import { groq } from '@ai-sdk/groq';
-import { getSubscriptionDetails } from '@/lib/subscription';
 import {
-  usageCountCache,
-  createMessageCountKey,
-  createExtremeCountKey,
   getProUserStatus,
-  computeAndCacheProUserStatus,
 } from '@/lib/performance-cache';
 
 // Server action to get the current user with Pro status
@@ -41,29 +33,14 @@ export async function getCurrentUser() {
     const user = await getUser();
     if (!user) return null;
 
-    // Try to get cached pro status first
-    let isProUser = getProUserStatus(user.id);
+    // All authenticated users have pro status
+    const isProUser = true;
 
-    if (isProUser === null) {
-      // Not cached, get subscription details and compute
-      const subscriptionDetails = await getSubscriptionDetails();
-      isProUser = computeAndCacheProUserStatus(user.id, subscriptionDetails);
-
-      return {
-        ...user,
-        isProUser,
-        subscriptionData: subscriptionDetails,
-      };
-    } else {
-      // Use cached status, but still fetch subscription data for UI
-      const subscriptionDetails = await getSubscriptionDetails();
-
-      return {
-        ...user,
-        isProUser,
-        subscriptionData: subscriptionDetails,
-      };
-    }
+    return {
+      ...user,
+      isProUser,
+      subscriptionData: null, // No subscription system anymore
+    };
   } catch (error) {
     console.error('Error in getCurrentUser server action:', error);
     return null;
@@ -247,7 +224,7 @@ const groupTools = {
   extreme: ['extreme_search'] as const,
   x: ['x_search'] as const,
   memory: ['memory_manager', 'datetime'] as const,
-  health: ['health_profile', 'clinical_trials', 'web_search', 'retrieve', 'datetime'] as const,
+  health: ['health_profile', 'clinical_trials', 'web_search', 'retrieve', 'datetime', 'find_place_on_map', 'nearby_places_search'] as const,
   // Add legacy mapping for backward compatibility
   buddy: ['memory_manager', 'datetime'] as const,
 } as const;
@@ -1026,6 +1003,12 @@ const groupInstructions = {
   - search: Find trials based on user criteria or health profile
   - details: Get comprehensive information about a specific trial (needs NCT ID)
   - eligibility_check: Check if user might qualify for a specific trial
+  - When searching, use the user's location (if available) to find nearby trials
+
+  **Location tools (find_place_on_map, nearby_places_search):**
+  - Use these to find cancer centers, hospitals, and medical facilities near the user
+  - Show trial locations on a map when users ask "where is it?" or "show me on a map"
+  - Find nearby cancer treatment centers when users need local options
 
   **web_search**: For general health information or recent medical news
   **retrieve**: When users share specific URLs to analyze
@@ -1223,8 +1206,8 @@ export async function updateChatTitle(chatId: string, title: string) {
 export async function getSubDetails() {
   'use server';
 
-  const subscriptionDetails = await getSubscriptionDetails();
-  return subscriptionDetails;
+  // No subscription system anymore
+  return { hasSubscription: false };
 }
 
 export async function getUserMessageCount(providedUser?: any) {
@@ -1236,21 +1219,8 @@ export async function getUserMessageCount(providedUser?: any) {
       return { count: 0, error: 'User not found' };
     }
 
-    // Check cache first
-    const cacheKey = createMessageCountKey(user.id);
-    const cached = usageCountCache.get(cacheKey);
-    if (cached !== null) {
-      return { count: cached, error: null };
-    }
-
-    const count = await getMessageCount({
-      userId: user.id,
-    });
-
-    // Cache the result
-    usageCountCache.set(cacheKey, count);
-
-    return { count, error: null };
+    // No message counting anymore
+    return { count: 0, error: null };
   } catch (error) {
     console.error('Error getting user message count:', error);
     return { count: 0, error: 'Failed to get message count' };
@@ -1266,14 +1236,7 @@ export async function incrementUserMessageCount() {
       return { success: false, error: 'User not found' };
     }
 
-    await incrementMessageUsage({
-      userId: user.id,
-    });
-
-    // Invalidate cache
-    const cacheKey = createMessageCountKey(user.id);
-    usageCountCache.delete(cacheKey);
-
+    // No message usage tracking anymore
     return { success: true, error: null };
   } catch (error) {
     console.error('Error incrementing user message count:', error);
@@ -1290,21 +1253,8 @@ export async function getExtremeSearchUsageCount(providedUser?: any) {
       return { count: 0, error: 'User not found' };
     }
 
-    // Check cache first
-    const cacheKey = createExtremeCountKey(user.id);
-    const cached = usageCountCache.get(cacheKey);
-    if (cached !== null) {
-      return { count: cached, error: null };
-    }
-
-    const count = await getExtremeSearchCount({
-      userId: user.id,
-    });
-
-    // Cache the result
-    usageCountCache.set(cacheKey, count);
-
-    return { count, error: null };
+    // No extreme search counting anymore
+    return { count: 0, error: null };
   } catch (error) {
     console.error('Error getting extreme search usage count:', error);
     return { count: 0, error: 'Failed to get extreme search count' };
@@ -1449,15 +1399,8 @@ export async function getProUserStatusOnly(): Promise<boolean> {
     const user = await getUser();
     if (!user) return false;
 
-    // Try cache first for instant response
-    const cached = getProUserStatus(user.id);
-    if (cached !== null) {
-      return cached;
-    }
-
-    // If not cached, compute and cache (but don't fetch full subscription details)
-    const subscriptionDetails = await getSubscriptionDetails();
-    return computeAndCacheProUserStatus(user.id, subscriptionDetails);
+    // All authenticated users have pro status
+    return true;
   } catch (error) {
     console.error('Error getting pro user status:', error);
     return false;

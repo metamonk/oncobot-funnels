@@ -15,18 +15,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import {
   getUserMessageCount,
-  getSubDetails,
   getExtremeSearchUsageCount,
   getHistoricalUsage,
   getCustomInstructions,
   saveCustomInstructions,
   deleteCustomInstructionsAction,
 } from '@/app/actions';
-import { SEARCH_LIMITS } from '@/lib/constants';
 import { authClient } from '@/lib/auth-client';
 import {
   Gear,
-  Crown,
   MagnifyingGlass,
   Lightning,
   TrendUp,
@@ -37,8 +34,6 @@ import {
   NotePencil,
   Heart,
 } from '@phosphor-icons/react';
-import { ExternalLink } from 'lucide-react';
-import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
@@ -49,25 +44,18 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { useTheme } from 'next-themes';
 import { Switch } from '@/components/ui/switch';
-import { useFastProStatus } from '@/hooks/use-user-data';
 import { HealthProfileSection } from '@/components/health-profile/HealthProfileSection';
 
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user: any;
-  subscriptionData?: any;
-  isProUser?: boolean;
-  isProStatusLoading?: boolean;
   isCustomInstructionsEnabled?: boolean;
   setIsCustomInstructionsEnabled?: (value: boolean | ((val: boolean) => boolean)) => void;
 }
 
 // Component for Profile Information
-function ProfileSection({ user, subscriptionData, isProUser, isProStatusLoading }: any) {
-  const { isProUser: fastProStatus, isLoading: fastProLoading } = useFastProStatus();
-  const isProUserActive = user ? fastProStatus : user?.isProUser;
-  const showProLoading = user ? fastProLoading : isProStatusLoading;
+function ProfileSection({ user }: any) {
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   return (
@@ -88,16 +76,6 @@ function ProfileSection({ user, subscriptionData, isProUser, isProStatusLoading 
         <div className="space-y-1">
           <h3 className={cn('font-semibold', isMobile ? 'text-base' : 'text-lg')}>{user?.name}</h3>
           <p className={cn('text-muted-foreground', isMobile ? 'text-xs' : 'text-sm')}>{user?.email}</p>
-          {showProLoading ? (
-            <Skeleton className="h-5 w-16 mx-auto" />
-          ) : (
-            isProUserActive && (
-              <Badge className="bg-primary text-primary-foreground border-0 text-xs font-medium">
-                <Crown className="h-3 w-3 mr-1" />
-                PRO USER
-              </Badge>
-            )
-          )}
         </div>
       </div>
 
@@ -215,7 +193,6 @@ function UsageBarChart({ data, className }: { data: any[]; className?: string })
 function UsageSection({ user }: any) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
-  const isProUser = user?.isProUser;
 
   const {
     data: usageData,
@@ -225,16 +202,14 @@ function UsageSection({ user }: any) {
   } = useQuery({
     queryKey: ['usageData'],
     queryFn: async () => {
-      const [searchCount, extremeSearchCount, subscriptionDetails] = await Promise.all([
+      const [searchCount, extremeSearchCount] = await Promise.all([
         getUserMessageCount(),
         getExtremeSearchUsageCount(),
-        getSubDetails(),
       ]);
 
       return {
         searchCount,
         extremeSearchCount,
-        subscriptionDetails,
       };
     },
     staleTime: 1000 * 60 * 3,
@@ -254,7 +229,6 @@ function UsageSection({ user }: any) {
 
   const searchCount = usageData?.searchCount;
   const extremeSearchCount = usageData?.extremeSearchCount;
-  const subscriptionDetails = usageData?.subscriptionDetails;
 
   const handleRefreshUsage = async () => {
     try {
@@ -268,13 +242,11 @@ function UsageSection({ user }: any) {
     }
   };
 
-  const searchLimit = isProUser ? Infinity : SEARCH_LIMITS.DAILY_SEARCH_LIMIT;
-  const usagePercentage = isProUser
-    ? 0
-    : Math.min(((searchCount?.count || 0) / SEARCH_LIMITS.DAILY_SEARCH_LIMIT) * 100, 100);
+  const searchLimit = 100; // Default display limit for UI purposes
+  const usagePercentage = Math.min(((searchCount?.count || 0) / searchLimit) * 100, 100);
 
   return (
-    <div className={cn(isMobile ? 'space-y-3' : 'space-y-4', isMobile && !isProUser ? 'pb-4' : '')}>
+    <div className={cn(isMobile ? 'space-y-3' : 'space-y-4', isMobile ? 'pb-4' : '')}>
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold">Daily Search Usage</h3>
         <Button
@@ -318,51 +290,36 @@ function UsageSection({ user }: any) {
         </div>
       </div>
 
-      {!isProUser && (
-        <div className={isMobile ? 'space-y-2' : 'space-y-3'}>
-          <div className={cn('bg-muted/30 rounded-lg space-y-2', isMobile ? 'p-2.5' : 'p-3')}>
-            {usageLoading ? (
-              <>
-                <div className="flex justify-between text-xs">
-                  <Skeleton className="h-3 w-16" />
-                  <Skeleton className="h-3 w-12" />
-                </div>
-                <Skeleton className="h-1.5 w-full" />
-              </>
-            ) : (
-              <>
-                <div className="flex justify-between text-xs">
-                  <span className="font-medium">Daily Limit</span>
-                  <span className="text-muted-foreground">{usagePercentage.toFixed(0)}%</span>
-                </div>
-                <Progress value={usagePercentage} className="h-1.5 [&>div]:transition-none" />
-                <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>
-                    {searchCount?.count || 0} / {SEARCH_LIMITS.DAILY_SEARCH_LIMIT}
-                  </span>
-                  <span>{Math.max(0, SEARCH_LIMITS.DAILY_SEARCH_LIMIT - (searchCount?.count || 0))} left</span>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className={cn('bg-card rounded-lg border border-border', isMobile ? 'p-3' : 'p-4')}>
-            <div className={cn('flex items-center gap-2', isMobile ? 'mb-1.5' : 'mb-2')}>
-              <Crown className={isMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
-              <span className={cn('font-semibold', isMobile ? 'text-xs' : 'text-sm')}>Upgrade to Pro</span>
-            </div>
-            <p className={cn('text-muted-foreground mb-3', isMobile ? 'text-[11px]' : 'text-xs')}>
-              Get unlimited searches and premium features
-            </p>
-            <Button asChild size="sm" className={cn('w-full', isMobile ? 'h-7 text-xs' : 'h-8')}>
-              <Link href="/pricing">Upgrade Now</Link>
-            </Button>
-          </div>
+      <div className={isMobile ? 'space-y-2' : 'space-y-3'}>
+        <div className={cn('bg-muted/30 rounded-lg space-y-2', isMobile ? 'p-2.5' : 'p-3')}>
+          {usageLoading ? (
+            <>
+              <div className="flex justify-between text-xs">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-3 w-12" />
+              </div>
+              <Skeleton className="h-1.5 w-full" />
+            </>
+          ) : (
+            <>
+              <div className="flex justify-between text-xs">
+                <span className="font-medium">Daily Limit</span>
+                <span className="text-muted-foreground">{usagePercentage.toFixed(0)}%</span>
+              </div>
+              <Progress value={usagePercentage} className="h-1.5 [&>div]:transition-none" />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>
+                  {searchCount?.count || 0} searches today
+                </span>
+                <span>Unlimited access</span>
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
 
       {!usageLoading && (
-        <div className={cn('space-y-2', isMobile && !isProUser ? 'pb-4' : '')}>
+        <div className={cn('space-y-2', isMobile ? 'pb-4' : '')}>
           <h4 className={cn('font-semibold text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>
             Activity (Past 14 days)
           </h4>
@@ -387,173 +344,6 @@ function UsageSection({ user }: any) {
   );
 }
 
-// Component for Subscription Information
-function SubscriptionSection({ subscriptionData, isProUser }: any) {
-  const [orders, setOrders] = useState<any>(null);
-  const [ordersLoading, setOrdersLoading] = useState(true);
-  const [isManagingSubscription, setIsManagingSubscription] = useState(false);
-  const isMobile = useMediaQuery('(max-width: 768px)');
-
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        setOrdersLoading(true);
-        const ordersResponse = await authClient.customer.orders.list({
-          query: {
-            page: 1,
-            limit: 10,
-            productBillingType: 'recurring',
-          },
-        });
-
-        if (ordersResponse.data) {
-          setOrders(ordersResponse.data);
-        } else {
-          console.log('No orders found or customer not created yet');
-          setOrders(null);
-        }
-      } catch (error) {
-        console.log('Orders fetch failed - customer may not exist in Polar yet:', error);
-        setOrders(null);
-      } finally {
-        setOrdersLoading(false);
-      }
-    };
-
-    fetchOrders();
-  }, []);
-
-  const handleManageSubscription = async () => {
-    try {
-      setIsManagingSubscription(true);
-      await authClient.customer.portal();
-    } catch (error) {
-      toast.error('Failed to open subscription management');
-    } finally {
-      setIsManagingSubscription(false);
-    }
-  };
-
-  // Use subscriptionData to determine active status and details
-  const hasActiveSubscription =
-    subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active';
-  const subscription = subscriptionData?.subscription;
-
-  return (
-    <div className={isMobile ? 'space-y-3' : 'space-y-4'}>
-      {hasActiveSubscription ? (
-        <div className={isMobile ? 'space-y-2' : 'space-y-3'}>
-          <div className={cn('bg-primary text-primary-foreground rounded-lg', isMobile ? 'p-3' : 'p-4')}>
-            <div className={cn('flex items-start justify-between', isMobile ? 'mb-2' : 'mb-3')}>
-              <div className="flex items-center gap-2">
-                <div className={cn('bg-primary-foreground/20 rounded', isMobile ? 'p-1' : 'p-1.5')}>
-                  <Crown className={isMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
-                </div>
-                <div>
-                  <h3 className={cn('font-semibold', isMobile ? 'text-xs' : 'text-sm')}>PRO Subscription</h3>
-                  <p className={cn('opacity-90', isMobile ? 'text-[10px]' : 'text-xs')}>
-                    {subscription?.status === 'active' ? 'Active' : subscription?.status || 'Unknown'}
-                  </p>
-                </div>
-              </div>
-              <Badge
-                className={cn(
-                  'bg-primary-foreground/20 text-primary-foreground border-0',
-                  isMobile ? 'text-[10px] px-1.5 py-0.5' : 'text-xs',
-                )}
-              >
-                {subscription?.status?.toUpperCase() || 'ACTIVE'}
-              </Badge>
-            </div>
-            <div className={cn('opacity-90 mb-3', isMobile ? 'text-[11px]' : 'text-xs')}>
-              <p className="mb-1">Unlimited access to all premium features</p>
-              {subscription && (
-                <div className="flex gap-4 text-[10px] opacity-75">
-                  <span>
-                    ${(subscription.amount / 100).toFixed(2)}/{subscription.recurringInterval}
-                  </span>
-                  <span>Next billing: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}</span>
-                </div>
-              )}
-            </div>
-            <Button
-              variant="secondary"
-              onClick={handleManageSubscription}
-              className={cn('w-full', isMobile ? 'h-7 text-xs' : 'h-8')}
-              disabled={isManagingSubscription}
-            >
-              {isManagingSubscription ? (
-                <Loader2 className={isMobile ? 'h-3 w-3 mr-1.5' : 'h-3.5 w-3.5 mr-2'} />
-              ) : (
-                <ExternalLink className={isMobile ? 'h-3 w-3 mr-1.5' : 'h-3.5 w-3.5 mr-2'} />
-              )}
-              {isManagingSubscription ? 'Opening...' : 'Manage Billing'}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className={isMobile ? 'space-y-2' : 'space-y-3'}>
-          <div className={cn('text-center border-2 border-dashed rounded-lg bg-muted/20', isMobile ? 'p-4' : 'p-6')}>
-            <Crown className={cn('mx-auto text-muted-foreground mb-3', isMobile ? 'h-6 w-6' : 'h-8 w-8')} />
-            <h3 className={cn('font-semibold mb-1', isMobile ? 'text-sm' : 'text-base')}>No Active Subscription</h3>
-            <p className={cn('text-muted-foreground mb-4', isMobile ? 'text-[11px]' : 'text-xs')}>
-              Upgrade to Pro for unlimited access
-            </p>
-            <div className="space-y-2">
-              <Button asChild size="sm" className={cn('w-full', isMobile ? 'h-8 text-xs' : 'h-9')}>
-                <Link href="/pricing">
-                  <Crown className={isMobile ? 'h-3 w-3 mr-1.5' : 'h-3.5 w-3.5 mr-2'} />
-                  Upgrade to Pro
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className={cn('w-full', isMobile ? 'h-7 text-xs' : 'h-8')}>
-                <Link href="/pricing">Compare Plans</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className={isMobile ? 'space-y-2' : 'space-y-3'}>
-        <h4 className={cn('font-semibold', isMobile ? 'text-xs' : 'text-sm')}>Billing History</h4>
-        {ordersLoading ? (
-          <div className={cn('border rounded-lg flex items-center justify-center', isMobile ? 'p-3 h-16' : 'p-4 h-20')}>
-            <Loader2 className={cn(isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4', 'animate-spin')} />
-          </div>
-        ) : orders?.result?.items && orders.result.items.length > 0 ? (
-          <div className="space-y-2">
-            {orders.result.items.slice(0, 3).map((order: any) => (
-              <div key={order.id} className={cn('bg-muted/30 rounded-lg', isMobile ? 'p-2.5' : 'p-3')}>
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className={cn('font-medium truncate', isMobile ? 'text-xs' : 'text-sm')}>
-                      {order.product?.name || 'Subscription'}
-                    </p>
-                    <p className={cn('text-muted-foreground', isMobile ? 'text-[10px]' : 'text-xs')}>
-                      {new Date(order.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <span className={cn('font-semibold ml-2', isMobile ? 'text-xs' : 'text-sm')}>
-                    ${(order.totalAmount / 100).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div
-            className={cn(
-              'border rounded-lg text-center bg-muted/20 flex items-center justify-center',
-              isMobile ? 'p-4 h-16' : 'p-6 h-20',
-            )}
-          >
-            <p className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>No billing history yet</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // Component for Custom Instructions
 function CustomInstructionsSection({
@@ -925,9 +715,6 @@ export function SettingsDialog({
   open,
   onOpenChange,
   user,
-  subscriptionData,
-  isProUser,
-  isProStatusLoading,
   isCustomInstructionsEnabled,
   setIsCustomInstructionsEnabled,
 }: SettingsDialogProps) {
@@ -938,7 +725,6 @@ export function SettingsDialog({
     { value: 'profile', label: 'Account', icon: User },
     { value: 'health', label: 'Health Profile', icon: Heart },
     { value: 'usage', label: 'Usage', icon: ChartLineUp },
-    { value: 'subscription', label: 'Subscription', icon: Crown },
     { value: 'instructions', label: 'Customize', icon: NotePencil },
     { value: 'memories', label: 'Memories', icon: Memory },
   ];
@@ -946,12 +732,7 @@ export function SettingsDialog({
   const contentSections = (
     <>
       <TabsContent value="profile" className="mt-0">
-        <ProfileSection
-          user={user}
-          subscriptionData={subscriptionData}
-          isProUser={isProUser}
-          isProStatusLoading={isProStatusLoading}
-        />
+        <ProfileSection user={user} />
       </TabsContent>
 
       <TabsContent value="health" className="mt-0">
@@ -960,10 +741,6 @@ export function SettingsDialog({
 
       <TabsContent value="usage" className="mt-0">
         <UsageSection user={user} />
-      </TabsContent>
-
-      <TabsContent value="subscription" className="mt-0">
-        <SubscriptionSection subscriptionData={subscriptionData} isProUser={isProUser} />
       </TabsContent>
 
       <TabsContent value="instructions" className="mt-0">
@@ -997,7 +774,7 @@ export function SettingsDialog({
 
               {/* Bottom tab navigation - compact and accessible */}
               <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-4 shrink-0">
-                <TabsList className="w-full h-14 p-1 bg-transparent rounded-none grid grid-cols-6 gap-1">
+                <TabsList className="w-full h-14 p-1 bg-transparent rounded-none grid grid-cols-5 gap-1">
                   {tabItems.map((item) => (
                     <TabsTrigger
                       key={item.value}

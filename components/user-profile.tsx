@@ -25,8 +25,6 @@ import {
   Shield,
   Bug,
   Sun,
-  Crown,
-  Lightning,
   Gear,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
@@ -42,17 +40,11 @@ const UserProfile = memo(
   ({
     className,
     user,
-    subscriptionData,
-    isProUser,
-    isProStatusLoading,
     isCustomInstructionsEnabled,
     setIsCustomInstructionsEnabled,
   }: {
     className?: string;
     user?: User | null;
-    subscriptionData?: any;
-    isProUser?: boolean;
-    isProStatusLoading?: boolean;
     isCustomInstructionsEnabled?: boolean;
     setIsCustomInstructionsEnabled?: (value: boolean | ((val: boolean) => boolean)) => void;
   }) => {
@@ -66,9 +58,6 @@ const UserProfile = memo(
     // Use passed user prop if available, otherwise fall back to session
     const currentUser = user || session?.user;
     const isAuthenticated = !!(user || session);
-
-    // Use passed Pro status instead of calculating it
-    const hasActiveSubscription = isProUser;
 
     if (isPending && !user) {
       return (
@@ -195,52 +184,6 @@ const UserProfile = memo(
             )}
             <DropdownMenuSeparator />
 
-            {/* Subscription Status - show loading or actual status */}
-            {isAuthenticated && (
-              <>
-                {isProStatusLoading ? (
-                  <div className="px-3 py-2">
-                    <div className="flex items-center gap-2.5 text-sm">
-                      <div className="size-6 rounded-md bg-muted/50 border border-border flex items-center justify-center">
-                        <div className="size-3 rounded-full bg-muted animate-pulse" />
-                      </div>
-                      <div className="flex flex-col">
-                        <div className="w-16 h-3 bg-muted rounded animate-pulse" />
-                        <div className="w-20 h-2 bg-muted/50 rounded animate-pulse mt-1" />
-                      </div>
-                    </div>
-                  </div>
-                ) : subscriptionData ? (
-                  hasActiveSubscription ? (
-                    <div className="px-3 py-2">
-                      <div className="flex items-center gap-2.5 text-sm">
-                        <div className="size-6 rounded-md bg-muted/50 border border-border flex items-center justify-center">
-                          <Crown size={14} className="text-foreground" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground text-sm">OncoBot Pro</span>
-                          <span className="text-[10px] text-muted-foreground">Unlimited access to all features</span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <DropdownMenuItem
-                      className="cursor-pointer flex items-center gap-2.5 py-1.5"
-                      onClick={() => router.push('/pricing')}
-                    >
-                      <div className="size-6 rounded-md bg-muted/50 border border-border flex items-center justify-center">
-                        <Lightning size={14} />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">Upgrade to Pro</span>
-                        <span className="text-[10px] text-muted-foreground">Unlimited searches & premium models</span>
-                      </div>
-                    </DropdownMenuItem>
-                  )
-                ) : null}
-                {(subscriptionData || isProStatusLoading) && <DropdownMenuSeparator />}
-              </>
-            )}
 
             {isAuthenticated && (
               <>
@@ -349,9 +292,6 @@ const UserProfile = memo(
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
           user={currentUser}
-          subscriptionData={subscriptionData}
-          isProUser={isProUser}
-          isProStatusLoading={isProStatusLoading}
           isCustomInstructionsEnabled={isCustomInstructionsEnabled}
           setIsCustomInstructionsEnabled={setIsCustomInstructionsEnabled}
         />
