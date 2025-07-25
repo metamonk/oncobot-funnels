@@ -5,7 +5,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Metadata, Viewport } from 'next';
-import { Inter, Merriweather, JetBrains_Mono } from 'next/font/google';
+import { Inter, Merriweather, JetBrains_Mono, Oxanium } from 'next/font/google';
 
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { Toaster } from 'sonner';
@@ -92,6 +92,14 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
+const oxanium = Oxanium({
+  subsets: ['latin'],
+  variable: '--font-logo',
+  preload: true,
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -99,7 +107,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${merriweather.variable} ${jetbrainsMono.variable} font-sans antialiased`} suppressHydrationWarning>
+      <body className={`${inter.variable} ${merriweather.variable} ${jetbrainsMono.variable} ${oxanium.variable} font-sans antialiased`} suppressHydrationWarning>
         <NuqsAdapter>
           <Providers>
             <Toaster position="top-center" />

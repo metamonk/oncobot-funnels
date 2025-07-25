@@ -70,7 +70,7 @@ export function OncoBotLogo({
     return (
       <span
         className={cn(
-          'font-semibold',
+          'font-logo font-semibold lowercase',
           size === 'xs' && 'text-sm',
           size === 'sm' && 'text-base',
           size === 'md' && 'text-lg',
@@ -83,7 +83,7 @@ export function OncoBotLogo({
         )}
         aria-label={ariaLabel}
       >
-        OncoBot
+        oncobot
       </span>
     );
   }
@@ -111,7 +111,7 @@ export function OncoBotLogo({
         {icon}
         <span
           className={cn(
-            'font-semibold',
+            'font-logo font-semibold lowercase',
             size === 'xs' && 'text-sm',
             size === 'sm' && 'text-base',
             size === 'md' && 'text-lg',
@@ -122,7 +122,7 @@ export function OncoBotLogo({
             variant === 'primary' && 'text-blue-600'
           )}
         >
-          OncoBot
+          oncobot
         </span>
       </div>
     );

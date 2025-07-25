@@ -41,13 +41,13 @@ interface MessagesProps {
 }
 
 const OncoBotLogoHeader = () => (
-  <div className="flex items-center gap-2 my-1.5">
+  <div className="flex items-center gap-1.5 my-1.5">
     <OncoBotLogo 
-      size="sm" 
+      size="xs" 
       variant="default" 
       className="text-foreground dark:text-gray-200"
     />
-    <h2 className="text-xl font-normal font-be-vietnam-pro text-foreground dark:text-foreground">OncoBot</h2>
+    <span className="text-lg font-logo font-semibold lowercase text-foreground dark:text-foreground">oncobot</span>
   </div>
 );
 
