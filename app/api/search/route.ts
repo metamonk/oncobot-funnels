@@ -73,6 +73,7 @@ import {
   redditSearchTool,
   extremeSearchTool,
   clinicalTrialsTool,
+  healthProfileTool,
 } from '@/lib/tools';
 
 type ResponseMessageWithoutId = CoreToolMessage | CoreAssistantMessage;
@@ -388,6 +389,7 @@ export async function POST(req: Request) {
           reddit_search: redditSearchTool,
           retrieve: retrieveTool,
           clinical_trials: clinicalTrialsTool(dataStream),
+          health_profile: healthProfileTool(dataStream),
 
           // Media & Entertainment
           movie_or_tv_search: movieTvSearchTool,
