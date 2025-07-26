@@ -197,8 +197,8 @@ export default function PrivacyPage() {
           <h2>Contact Us</h2>
           <p>If you have any questions about this Privacy Policy, please contact us at:</p>
           <p>
-            <a href="mailto:zaid@onco.bot" className="flex items-center gap-1">
-              zaid@onco.bot <ExternalLink className="h-4 w-4" />
+            <a href="mailto:zeno@ratlabs.xyz" className="flex items-center gap-1">
+              zeno@ratlabs.xyz <ExternalLink className="h-4 w-4" />
             </a>
           </p>
 
@@ -228,7 +228,7 @@ export default function PrivacyPage() {
                 />
               </div>
               <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                © {new Date().getFullYear()} OncoBot by Zaid Mukaddam
+                © {new Date().getFullYear()} OncoBot by Zeno Shin
               </div>
             </div>
             <div className="flex items-center gap-6 text-sm text-neutral-500 dark:text-neutral-400">

@@ -56,12 +56,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/raycast',
-        destination: 'https://www.raycast.com/zaidmukaddam/oncobot',
+        destination: 'https://www.raycast.com/metamonk/oncobot',
         permanent: true,
       },
       {
         source: '/plst',
-        destination: 'https://peerlist.io/zaidmukaddam/project/oncobot-ai-20',
+        destination: 'https://peerlist.io/zenoshin/project/oncobot',
         permanent: true,
       },
     ];

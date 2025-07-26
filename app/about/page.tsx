@@ -680,7 +680,7 @@ export default function AboutPage() {
               <p className="text-muted-foreground text-sm leading-relaxed">
                 Have more questions?{' '}
                 <a
-                  href="mailto:zaid@onco.bot"
+                  href="mailto:zeno@ratlabs.xyz"
                   className="text-foreground hover:underline underline-offset-4 decoration-muted-foreground transition-colors duration-200"
                 >
                   Get in touch

@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     'minimal ai search',
     'minimal ai search alternatives',
     'AI Search Engine',
-    'zaid mukaddam',
+    'zeno shin',
     'search engine',
     'AI',
     'perplexity',
