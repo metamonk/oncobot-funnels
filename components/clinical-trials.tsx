@@ -65,19 +65,99 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
   if (action === 'search' && result.matches) {
     const { matches, totalCount, searchCriteria } = result;
 
+    // Handle error responses with alternatives
+    if (result.error && result.alternativeActions) {
+      return (
+        <Card className="w-full my-4 border-blue-200 dark:border-blue-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              Clinical Trials Search
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                {result.error}
+              </p>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+                {result.suggestion}
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Alternative options:</p>
+              {result.alternativeActions.map((action: any, index: number) => (
+                <div key={index}>
+                  {action.url ? (
+                    <a
+                      href={action.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      {action.label}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : (
+                    <button
+                      className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      {action.label}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            {result.resources && (
+              <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                <p className="text-sm font-medium mb-2">Additional Resources:</p>
+                <div className="space-y-1">
+                  {result.resources.map((resource: any, index: number) => (
+                    <a
+                      key={index}
+                      href={resource.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      {resource.name} - {resource.description}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      );
+    }
+
+    // Handle empty results with message and suggestions
     if (matches.length === 0) {
       return (
         <Card className="w-full my-4 border-amber-200 dark:border-amber-800">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2 text-amber-600 dark:text-amber-400">
               <AlertCircle className="h-4 w-4" />
-              No Clinical Trials Found
+              {result.message || 'No Clinical Trials Found'}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              No clinical trials matched your search criteria. Try adjusting your search parameters or consult with your healthcare provider.
+              {result.message || 'No clinical trials matched your search criteria. Try adjusting your search parameters or consult with your healthcare provider.'}
             </p>
+            
+            {result.suggestedActions && (
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Try these suggestions:</p>
+                <ul className="list-disc list-inside text-sm text-neutral-600 dark:text-neutral-400">
+                  {result.suggestedActions.map((action: string, index: number) => (
+                    <li key={index}>{action}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
       );

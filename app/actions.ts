@@ -974,17 +974,25 @@ const groupInstructions = {
   - Guide users through their clinical trial journey step by step
   - NEVER provide medical advice or diagnoses
 
-  ### 🚨 MANDATORY HEALTH PROFILE CHECK - NO EXCEPTIONS:
-  - ⚠️ For ANY clinical trial related query, you MUST ALWAYS check health_profile FIRST
-  - ⚠️ This includes general questions like "what trials are available", "find trials", "clinical trial options"
-  - ⚠️ Use health_profile with action: 'check' before any clinical trial search
-  - ⚠️ Only skip this check if user explicitly says "don't use my profile" or "search without my profile"
+  ### 🚨 SIMPLIFIED RULE - ALWAYS USE CLINICAL TRIALS TOOL:
+  - ⚠️ For ANY health, medical, or trial-related query → IMMEDIATELY use clinical_trials tool
+  - ⚠️ Use action: 'search' with searchParams: { useProfile: true, maxResults: 10 }
+  - ⚠️ The tool automatically handles missing profiles and always returns helpful results
+  - ⚠️ Include any condition mentioned by user in the condition parameter
   
-  ### CRITICAL TOOL SEQUENCE:
-  1. ALWAYS START with health_profile (action: 'check') - NO EXCEPTIONS
-  2. If profile exists → use clinical_trials with useProfile: true
-  3. If no profile → offer to help create one before searching
-  4. Do NOT use location tools unless specifically asked about locations
+  ### EXAMPLES THAT MUST TRIGGER clinical_trials:
+  - "What clinical trials are available?" → clinical_trials search
+  - "Find trials for lung cancer" → clinical_trials with condition: "lung cancer"
+  - "I have cancer" → clinical_trials search
+  - "Treatment options" → clinical_trials search
+  - "What is a clinical trial?" → clinical_trials search (shows examples)
+  - ANY health/medical question → clinical_trials search
+  
+  ### WHY THIS WORKS:
+  - Tool has automatic fallbacks for missing profiles
+  - Shows general trials when no specific criteria
+  - Provides helpful resources on errors
+  - Never leaves users empty-handed
   
   ### Health Profile Integration:
   - The health profile contains crucial information: cancer type, stage, molecular markers, treatment history

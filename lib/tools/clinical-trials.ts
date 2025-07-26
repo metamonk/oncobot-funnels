@@ -9,6 +9,34 @@ import { serverEnv } from '@/env/server';
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
 const STUDIES_ENDPOINT = `${BASE_URL}/studies`;
 
+// Helpful resources for users
+const CLINICAL_TRIAL_RESOURCES = [
+  {
+    name: 'National Cancer Institute Clinical Trials',
+    description: 'Comprehensive database of NCI-supported clinical trials',
+    url: 'https://www.cancer.gov/about-cancer/treatment/clinical-trials/search',
+    type: 'search'
+  },
+  {
+    name: 'ClinicalTrials.gov',
+    description: 'Official U.S. government database of clinical trials',
+    url: 'https://clinicaltrials.gov',
+    type: 'search'
+  },
+  {
+    name: 'Cancer.Net Clinical Trials',
+    description: 'Patient-friendly clinical trial information from ASCO',
+    url: 'https://www.cancer.net/navigating-cancer-care/how-cancer-treated/clinical-trials',
+    type: 'education'
+  },
+  {
+    name: 'Find a Cancer Center',
+    description: 'Locate NCI-designated cancer centers near you',
+    url: 'https://www.cancer.gov/research/infrastructure/cancer-centers/find',
+    type: 'centers'
+  }
+];
+
 // Types for API responses
 interface ClinicalTrial {
   protocolSection: {
@@ -542,14 +570,32 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             const hasSearchCriteria = conditionQuery || params.otherTerms || params.intervention;
             
             if (!hasSearchCriteria && !params.location) {
-              return {
-                success: false,
-                error: 'No search criteria available. Please complete your health profile or provide specific search criteria.',
-                totalCount: 0,
-                matches: [],
-                searchCriteria: searchCriteria,
-                query: conditionQuery || ''
-              };
+              // Provide fallback search instead of error
+              if (!params.useProfile) {
+                // User explicitly didn't use profile, show general trials
+                conditionQuery = 'cancer';
+                apiParams.append('query.cond', conditionQuery);
+                
+                dataStream?.writeMessageAnnotation({
+                  type: 'search_status',
+                  data: {
+                    status: 'fallback',
+                    message: 'Showing general cancer trials. For personalized results, try: adding specific cancer type, location, or completing your health profile.'
+                  }
+                });
+              } else {
+                // Profile was requested but no data available
+                conditionQuery = 'cancer clinical trials';
+                apiParams.append('query.cond', conditionQuery);
+                
+                dataStream?.writeMessageAnnotation({
+                  type: 'search_status',
+                  data: {
+                    status: 'no_profile',
+                    message: 'No health profile found. Showing general cancer trials. Complete your health profile for personalized matches.'
+                  }
+                });
+              }
             }
             
             // Add location filters if provided
@@ -666,6 +712,65 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             
             // Sort by match score
             matches.sort((a, b) => b.matchScore - a.matchScore);
+            
+            // If no matches, try a broader search
+            if (matches.length === 0 && trials.length === 0 && hasSearchCriteria) {
+              console.log('No matches found, trying broader search...');
+              
+              // Try a simpler, broader search
+              const broaderParams = new URLSearchParams({
+                'pageSize': '10',
+                'query.cond': 'cancer', // Simplest possible search
+                'filter.overallStatus': 'RECRUITING,ENROLLING_BY_INVITATION',
+                'countTotal': 'true'
+              });
+              
+              try {
+                const broaderResponse = await fetch(`${STUDIES_ENDPOINT}?${broaderParams}`);
+                if (broaderResponse.ok) {
+                  const broaderData = await broaderResponse.json();
+                  const broaderTrials = broaderData.studies || [];
+                  
+                  if (broaderTrials.length > 0) {
+                    const broaderMatches = broaderTrials.slice(0, 5).map((study: any) => ({
+                      trial: study,
+                      matchScore: 0,
+                      matchingCriteria: ['General cancer trial'],
+                      eligibilityAnalysis: {
+                        likelyEligible: false,
+                        inclusionMatches: [],
+                        exclusionConcerns: [],
+                        uncertainFactors: ['No specific matching criteria available']
+                      }
+                    }));
+                    
+                    dataStream?.writeMessageAnnotation({
+                      type: 'search_status',
+                      data: {
+                        status: 'fallback_results',
+                        message: 'No exact matches found. Showing general cancer trials instead.'
+                      }
+                    });
+                    
+                    return {
+                      success: true,
+                      totalCount: broaderData.totalCount,
+                      matches: broaderMatches,
+                      searchCriteria: searchCriteria,
+                      query: conditionQuery || params.otherTerms || params.intervention || '',
+                      message: 'No exact matches found. Showing general cancer trials that are currently recruiting.',
+                      suggestedActions: [
+                        'Try adding your location for nearby trials',
+                        'Specify your cancer type for better matches',
+                        'Complete your health profile for personalized results'
+                      ]
+                    };
+                  }
+                }
+              } catch (broaderError) {
+                console.error('Broader search failed:', broaderError);
+              }
+            }
             
             // Stream results
             dataStream?.writeMessageAnnotation({
@@ -819,27 +924,69 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
       } catch (error) {
         console.error('Clinical trials tool error:', error);
         
-        // Extract error details
-        let errorMessage = 'Failed to search clinical trials';
+        // User-friendly error messages
+        let userMessage = 'Unable to search clinical trials at this moment.';
+        let fallbackSuggestion = 'Try searching with simpler terms or visit ClinicalTrials.gov directly.';
+        
         if (error instanceof Error) {
-          errorMessage = error.message;
-          
-          // Check for specific API errors
-          if (error.message.includes('400')) {
-            errorMessage = 'Invalid search parameters. Please check your location or search criteria.';
+          if (error.message.includes('400') || error.message.includes('Invalid')) {
+            userMessage = 'Search parameters need adjustment.';
+            fallbackSuggestion = 'Try searching with just a cancer type (e.g., "lung cancer") or remove special characters.';
+          } else if (error.message.includes('500') || error.message.includes('timeout')) {
+            userMessage = 'ClinicalTrials.gov is temporarily unavailable.';
+            fallbackSuggestion = 'Please try again in a few moments, or visit ClinicalTrials.gov directly.';
           } else if (error.message.includes('filter.geo')) {
-            errorMessage = 'Location search is currently unavailable. Please try searching without location filters.';
+            userMessage = 'Location search is currently unavailable.';
+            fallbackSuggestion = 'Try searching without location, or specify the state/city differently.';
+          } else if (error.message.includes('Health profile required')) {
+            userMessage = error.message;
+            fallbackSuggestion = 'Please complete your health profile first, or search without using profile data.';
           }
         }
         
         dataStream?.writeMessageAnnotation({
           type: 'error',
           data: {
-            message: error instanceof Error ? error.message : 'An error occurred',
+            message: userMessage,
+            suggestion: fallbackSuggestion,
             action: action
           }
         });
         
+        // Return helpful response instead of throwing for search action
+        if (action === 'search') {
+          const searchQuery = searchParams?.condition || 
+                            searchParams?.otherTerms || 
+                            searchParams?.intervention || 
+                            'cancer';
+          
+          return {
+            success: true, // Mark as success to show helpful UI
+            totalCount: 0,
+            matches: [],
+            searchCriteria: {},
+            query: searchQuery,
+            error: userMessage,
+            suggestion: fallbackSuggestion,
+            alternativeActions: [
+              {
+                label: 'Search ClinicalTrials.gov directly',
+                url: `https://clinicaltrials.gov/search?cond=${encodeURIComponent(searchQuery)}`
+              },
+              {
+                label: 'Find cancer centers near you',
+                action: 'find_cancer_centers'
+              },
+              {
+                label: 'Learn about clinical trials',
+                url: 'https://www.cancer.gov/about-cancer/treatment/clinical-trials/what-are-trials'
+              }
+            ],
+            resources: CLINICAL_TRIAL_RESOURCES
+          };
+        }
+        
+        // For other actions, still throw the error
         throw error;
       }
     },
