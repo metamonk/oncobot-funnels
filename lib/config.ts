@@ -1,7 +1,6 @@
 export const config = {
   app: {
     url: process.env.NEXT_PUBLIC_APP_URL || 'https://onco.bot',
-    apiUrl: process.env.NEXT_PUBLIC_API_URL || 'https://api.onco.bot',
   },
   isDevelopment: process.env.NODE_ENV === 'development',
   isProduction: process.env.NODE_ENV === 'production',

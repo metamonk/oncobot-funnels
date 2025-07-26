@@ -3,10 +3,8 @@ export interface ChatState {
   hasSubmitted: boolean;
   hasManuallyScrolled: boolean;
   showSignInPrompt: boolean;
-  showAnnouncementDialog: boolean;
   showHealthProfilePrompt: boolean;
   hasShownSignInPrompt: boolean;
-  hasShownAnnouncementDialog: boolean;
   hasShownHealthProfilePrompt: boolean;
   commandDialogOpen: boolean;
   anyDialogOpen: boolean;
@@ -28,10 +26,8 @@ export type ChatAction =
   | { type: 'SET_HAS_SUBMITTED'; payload: boolean }
   | { type: 'SET_HAS_MANUALLY_SCROLLED'; payload: boolean }
   | { type: 'SET_SHOW_SIGNIN_PROMPT'; payload: boolean }
-  | { type: 'SET_SHOW_ANNOUNCEMENT_DIALOG'; payload: boolean }
   | { type: 'SET_SHOW_HEALTH_PROFILE_PROMPT'; payload: boolean }
   | { type: 'SET_HAS_SHOWN_SIGNIN_PROMPT'; payload: boolean }
-  | { type: 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG'; payload: boolean }
   | { type: 'SET_HAS_SHOWN_HEALTH_PROFILE_PROMPT'; payload: boolean }
   | { type: 'SET_COMMAND_DIALOG_OPEN'; payload: boolean }
   | { type: 'SET_ANY_DIALOG_OPEN'; payload: boolean }
@@ -52,17 +48,11 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
     case 'SET_SHOW_SIGNIN_PROMPT':
       return { ...state, showSignInPrompt: action.payload };
 
-    case 'SET_SHOW_ANNOUNCEMENT_DIALOG':
-      return { ...state, showAnnouncementDialog: action.payload };
-
     case 'SET_SHOW_HEALTH_PROFILE_PROMPT':
       return { ...state, showHealthProfilePrompt: action.payload };
 
     case 'SET_HAS_SHOWN_SIGNIN_PROMPT':
       return { ...state, hasShownSignInPrompt: action.payload };
-
-    case 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG':
-      return { ...state, hasShownAnnouncementDialog: action.payload };
 
     case 'SET_HAS_SHOWN_HEALTH_PROFILE_PROMPT':
       return { ...state, hasShownHealthProfilePrompt: action.payload };
@@ -91,7 +81,6 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         hasSubmitted: false,
         hasManuallyScrolled: false,
         showSignInPrompt: false,
-        showAnnouncementDialog: false,
         showHealthProfilePrompt: false,
       };
 
@@ -103,16 +92,13 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
 export const createInitialState = (
   initialVisibility: 'public' | 'private' = 'private',
   hasShownSignInPrompt: boolean = false,
-  hasShownAnnouncementDialog: boolean = false,
   hasShownHealthProfilePrompt: boolean = false,
 ): ChatState => ({
   hasSubmitted: false,
   hasManuallyScrolled: false,
   showSignInPrompt: false,
-  showAnnouncementDialog: false,
   showHealthProfilePrompt: false,
   hasShownSignInPrompt,
-  hasShownAnnouncementDialog,
   hasShownHealthProfilePrompt,
   commandDialogOpen: false,
   anyDialogOpen: false,
