@@ -7,7 +7,10 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "next lint",
-    "knip": "knip"
+    "knip": "knip",
+    "test:unit": "vitest",
+    "test:integration": "tsx scripts/test-clinical-trials-tool.ts",
+    "test:scoring": "tsx scripts/test-clinical-trials-scoring.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",
@@ -136,8 +139,10 @@
     "eslint-config-next": "15.4.2",
     "postcss": ">=8.5.5",
     "tailwindcss": "^4.1.11",
+    "tsx": "^4.20.3",
     "tw-animate-css": "^1.3.5",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
