@@ -2,202 +2,172 @@
 
 ![OncoBot](/app/opengraph-image.png)
 
-A minimalistic AI-powered search engine that helps you find information on the internet.
+OncoBot is an AI-powered medical oncology assistant specializing in clinical trial search and matching for cancer patients. Built with compassion and cutting-edge technology, OncoBot helps patients navigate their cancer journey by finding relevant clinical trials and providing comprehensive health information.
 
-🔗 **[Try OncoBot at onco.bot](https://onco.bot)**
+## Core Features
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/zaidmukaddam/oncobot)
+### Clinical Trial Search & Matching
 
-## Powered By
+- **Personalized Trial Matching**: Find clinical trials that match your specific cancer type, stage, and molecular markers
+- **Health Profile Integration**: Create a comprehensive health profile to get personalized trial recommendations
+- **Location-Based Search**: Find trials near you with customizable distance filtering
+- **Eligibility Analysis**: Get AI-powered analysis of trial eligibility based on your health profile
+- **Real-Time Data**: Access up-to-date information from ClinicalTrials.gov
 
-<div align="center">
+### Health Profile Management
 
-| [Vercel AI SDK](https://sdk.vercel.ai/docs) | [Exa AI](https://exa.ai) |
-|:---:|:---:|
-| <img src="/public/one.svg" alt="Vercel AI SDK" height="40" /> | <img src="/public/exa.png" alt="Exa AI" height="40" /> |
-| For AI model integration and streaming | For web search and content retrieval |
+- **Comprehensive Questionnaire**: Answer detailed questions about your cancer diagnosis, treatment history, and current health status
+- **Molecular Marker Tracking**: Record genetic mutations and biomarkers for precise trial matching
+- **Treatment History**: Document previous therapies to identify suitable next-line options
+- **Performance Status**: Track ECOG performance status for eligibility assessment
 
-</div>
+### AI-Powered Assistance
 
-## Special Thanks
+- **Multiple AI Models**: Access various AI models including xAI's Grok, Anthropic's Claude, Google's Gemini, and OpenAI's GPT models
+- **Conversational Interface**: Natural language interaction for easy information access
+- **Memory System**: Remember your health information and preferences across conversations
+- **Multi-Modal Support**: Upload medical documents and images for analysis
 
-<div align="center" markdown="1">
+### Research & Information Tools
 
-[![Warp](https://github.com/user-attachments/assets/2bda420d-4211-4900-a37e-e3c7056d799c)](https://www.warp.dev/?utm_source=github&utm_medium=referral&utm_campaign=oncobot)<br>
+- **Medical Literature Search**: Find relevant academic papers and research studies
+- **Web Search**: Access current medical information and news
+- **Treatment Center Locator**: Find nearby cancer treatment centers and hospitals
+- **Clinical Trial Site Mapping**: View trial locations on interactive maps
 
-### **[Warp, the intelligent terminal](https://www.warp.dev/?utm_source=github&utm_medium=referral&utm_campaign=oncobot)**<br>
+## Search Modes
 
-[Available for MacOS, Linux, & Windows](https://www.warp.dev/?utm_source=github&utm_medium=referral&utm_campaign=oncobot)<br>
-[Visit warp.dev to learn more](https://www.warp.dev/?utm_source=github&utm_medium=referral&utm_campaign=oncobot)
+- **Health**: Specialized mode for clinical trial search and health information
+- **Web**: General medical information and research
+- **Academic**: Access to peer-reviewed medical literature
+- **Analysis**: Data visualization and interpretation tools
+- **Memory**: Personal health information management
 
-</div>
+## Supported AI Models
 
-## Features
+### Free Models (Authentication Required)
+- **xAI**: Grok 3 Mini, Grok 2 Vision
+- **OpenAI**: GPT-4o Mini, GPT 4.1 Mini
+- **Google**: Gemini 2.5 Flash
+- **Groq**: Qwen 3 32B, Meta Llama 4
 
-### Core Search & Information
-
-- **AI-powered search**: Get answers to your questions using multiple AI models including xAI's Grok, Anthropic's Claude, Google's Gemini, and OpenAI's GPT models
-- **Web search**: Search the web using Exa's API with support for multiple queries, search depths, and topics
-- **URL content retrieval**: Extract and analyze content from any URL using Exa AI with live crawling capabilities
-- **Reddit search**: Search Reddit content with time range filtering using Tavily API
-- **X (Twitter) search**: Search X posts with date ranges and specific handle filtering using xAI Live Search
-- **Extreme search**: Advanced multi-step search capability for complex queries
-
-### Academic & Research
-
-- **Academic search**: Search for academic papers and research using Exa AI with abstracts and summaries
-- **YouTube search**: Find YouTube videos with detailed information, captions, and timestamps powered by Exa AI
-
-### Entertainment & Media
-
-- **Movie & TV show search**: Get detailed information about movies and TV shows using TMDB API
-- **Trending movies**: Discover trending movies with cast, ratings, and detailed information
-- **Trending TV shows**: Find popular TV shows with comprehensive metadata
-
-### Financial & Data Analysis
-
-- **Stock charts**: Generate interactive stock charts with news integration using yfinance and Tavily
-- **Currency converter**: Convert between currencies with real-time exchange rates using yfinance
-- **Code interpreter**: Write and execute Python code with chart generation capabilities using Daytona sandbox
-
-### Location & Travel
-
-- **Weather information**: Get current weather and forecasts for any location using OpenWeather API
-- **Maps & geocoding**: Find places and get coordinates using Google Maps API
-- **Nearby places search**: Discover nearby restaurants, attractions, and services with Google Places API
-- **Flight tracking**: Track real-time flight information using Aviation Stack API
-
-### Productivity & Utilities
-
-- **Text translation**: Translate text between languages using AI models
-- **Date & time**: Get current date and time in user's timezone with multiple format options
-- **Memory management**: Add and search personal memories using Mem0 AI
-- **MCP server search**: Search for Model Context Protocol servers using Smithery Registry
-
-### Search Groups
-
-- **Web**: Search across the entire internet powered by Tavily
-- **Memory**: Your personal memory companion (requires authentication)
-- **Analysis**: Code execution, stock charts, and currency conversion
-- **Chat**: Direct conversation with AI models
-- **X**: Search X (Twitter) posts
-- **Reddit**: Search Reddit posts
-- **Academic**: Search academic papers powered by Exa
-- **YouTube**: Search YouTube videos powered by Exa
-- **Extreme**: Deep research with multiple sources and analysis
-
-## LLM Models Supported
-
-- **xAI**: Grok 3, Grok 3 Mini, Grok 2 Vision
-- **Google**: Gemini 2.5 Flash (Preview), Gemini 2.5 Pro (Preview)
+### Premium Models
+- **xAI**: Grok 3, Grok 4
 - **Anthropic**: Claude 4 Sonnet
-- **OpenAI**: GPT-4o, o4-mini, o3 (with reasoning capabilities)
-- **Groq**: Qwen QwQ 32B, Qwen 3 32B, Meta's Llama 4 Maverick
+- **OpenAI**: o4-mini, o3 (with reasoning capabilities)
+- **Google**: Gemini 2.5 Pro
 
-## Built with
+## Built With
 
 - [Next.js](https://nextjs.org/) - React framework
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
 - [Vercel AI SDK](https://sdk.vercel.ai/docs) - AI model integration
 - [Shadcn/UI](https://ui.shadcn.com/) - UI components
-- [Exa.AI](https://exa.ai/) - Web search and content retrieval
-- [Tavily](https://tavily.com/) - Search grounding for reddit search
-- [OpenWeather](https://openweathermap.org/) - Weather data
-- [Daytona](https://daytona.io/) - Code execution sandbox
-- [Google Maps](https://developers.google.com/maps) - Location services
-- [Aviation Stack](https://aviationstack.com/) - Flight tracking
-- [TMDB](https://www.themoviedb.org/) - Movie and TV data
-- [Mem0](https://mem0.ai/) - Memory management
+- [ClinicalTrials.gov API](https://clinicaltrials.gov/data-api/api) - Clinical trial data
 - [Better Auth](https://github.com/better-auth/better-auth) - Authentication
 - [Drizzle ORM](https://orm.drizzle.team/) - Database management
+- [Google Maps](https://developers.google.com/maps) - Location services
 
-### Deploy your own
+## Privacy & Security
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fzaidmukaddam%2Foncobot&env=XAI_API_KEY,OPENAI_API_KEY,ANTHROPIC_API_KEY,GROQ_API_KEY,GOOGLE_GENERATIVE_AI_API_KEY,DAYTONA_API_KEY,DATABASE_URL,BETTER_AUTH_SECRET,GITHUB_CLIENT_ID,GITHUB_CLIENT_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,TWITTER_CLIENT_ID,TWITTER_CLIENT_SECRET,REDIS_URL,ELEVENLABS_API_KEY,TAVILY_API_KEY,EXA_API_KEY,TMDB_API_KEY,YT_ENDPOINT,FIRECRAWL_API_KEY,OPENWEATHER_API_KEY,GOOGLE_MAPS_API_KEY,MAPBOX_ACCESS_TOKEN,AVIATION_STACK_API_KEY,CRON_SECRET,BLOB_READ_WRITE_TOKEN,MEM0_API_KEY,MEM0_ORG_ID,MEM0_PROJECT_ID,SMITHERY_API_KEY,NEXT_PUBLIC_MAPBOX_TOKEN,NEXT_PUBLIC_POSTHOG_KEY,NEXT_PUBLIC_POSTHOG_HOST,NEXT_PUBLIC_ONCOBOT_PUBLIC_API_KEY,ONCOBOT_API_KEY&envDescription=API%20keys%20and%20configuration%20required%20for%20OncoBot%20to%20function)
+- **HIPAA Considerations**: While OncoBot helps organize health information, always consult with healthcare providers for medical decisions
+- **Data Protection**: Your health profile is securely stored and only accessible to you
+- **No Medical Advice**: OncoBot provides information only and does not replace professional medical consultation
 
-## Set OncoBot as your default search engine
+## Deploy Your Own
 
-1. **Open the Chrome browser settings**:
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmetamonk%2Foncobot-v3&env=XAI_API_KEY,OPENAI_API_KEY,ANTHROPIC_API_KEY,GROQ_API_KEY,GOOGLE_GENERATIVE_AI_API_KEY,DATABASE_URL,BETTER_AUTH_SECRET,GITHUB_CLIENT_ID,GITHUB_CLIENT_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_MAPS_API_KEY,OPENWEATHER_API_KEY&envDescription=API%20keys%20and%20configuration%20required%20for%20OncoBot%20to%20function)
 
-   - Click on the three vertical dots in the upper right corner of the browser.
-   - Select "Settings" from the dropdown menu.
+## Local Development
 
-2. **Go to the search engine settings**:
+### Prerequisites
 
-   - In the left sidebar, click on "Search engine."
-   - Then select "Manage search engines and site search."
+1. Node.js 18+ and pnpm
+2. PostgreSQL database
+3. API keys for:
+   - At least one AI provider (xAI, OpenAI, Anthropic, or Google)
+   - Google Maps (for location services)
+   - Authentication providers (GitHub, Google, or Twitter/X)
 
-3. **Add a new search engine**:
+### Setup
 
-   - Click on "Add" next to "Site search."
-
-4. **Set the search engine name**:
-
-   - Enter `OncoBot` in the "Search engine" field.
-
-5. **Set the search engine URL**:
-
-   - Enter `https://onco.bot?q=%s` in the "URL with %s in place of query" field.
-
-6. **Set the search engine shortcut**:
-
-   - Enter `sh` in the "Shortcut" field.
-
-7. **Set Default**:
-   - Click on the three dots next to the search engine you just added.
-   - Select "Make default" from the dropdown menu.
-
-After completing these steps, you should be able to use OncoBot as your default search engine in Chrome.
-
-### Local development
-
-#### Run via Docker
-
-The application can be run using Docker in two ways:
-
-##### Using Docker Compose (Recommended)
-
-1. Make sure you have Docker and Docker Compose installed on your system
-2. Create a `.env` file based on `.env.example` with your API keys
-3. Run the following command in the project root:
+1. Clone the repository:
    ```bash
-   docker compose up
-   ```
-4. The application will be available at `http://localhost:3000`
-
-##### Using Docker Directly
-
-1. Create a `.env` file based on `.env.example` with your API keys
-2. Build the Docker image:
-   ```bash
-   docker build -t onco.bot .
-   ```
-3. Run the container:
-   ```bash
-   docker run --env-file .env -p 3000:3000 onco.bot
+   git clone https://github.com/metamonk/oncobot-v3.git
+   cd oncobot-v3
    ```
 
-The application uses a multi-stage build process to minimize the final image size and implements security best practices. The production image runs on Node.js LTS with Alpine Linux for a minimal footprint.
+2. Copy `.env.example` to `.env.local` and fill in your API keys:
+   ```bash
+   cp .env.example .env.local
+   ```
 
-#### Run with Node.js
-
-To run the application locally without Docker:
-
-1. Sign up for accounts with the required AI providers:
-   - OpenAI (required)
-   - Anthropic (required)
-   - Exa (required for web search feature)
-2. Copy `.env.example` to `.env.local` and fill in your API keys
 3. Install dependencies:
    ```bash
    pnpm install
    ```
-4. Start the development server:
+
+4. Set up the database:
+   ```bash
+   pnpm drizzle-kit generate
+   pnpm drizzle-kit migrate
+   ```
+
+5. Start the development server:
    ```bash
    pnpm dev
    ```
-5. Open `http://localhost:3000` in your browser
 
-# License
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+### Docker Support
+
+Run OncoBot using Docker:
+
+```bash
+docker compose up
+```
+
+Or build and run manually:
+
+```bash
+docker build -t oncobot .
+docker run --env-file .env -p 3000:3000 oncobot
+```
+
+## Set OncoBot as Your Default Search Engine
+
+1. **Open Chrome browser settings**:
+   - Click the three dots in the upper right corner
+   - Select "Settings"
+
+2. **Navigate to search engine settings**:
+   - Click "Search engine" in the left sidebar
+   - Select "Manage search engines and site search"
+
+3. **Add OncoBot**:
+   - Click "Add" next to "Site search"
+   - Search engine: `OncoBot`
+   - Shortcut: `onco`
+   - URL: `https://oncobot.app?q=%s`
+
+4. **Set as default**:
+   - Click the three dots next to OncoBot
+   - Select "Make default"
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/metamonk/oncobot-v3/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/metamonk/oncobot-v3/discussions)
+
+## Disclaimer
+
+OncoBot is an information tool designed to help patients find clinical trials and access medical information. It does not provide medical advice, diagnoses, or treatment recommendations. Always consult with qualified healthcare professionals for medical decisions.
+
+## License
 
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
