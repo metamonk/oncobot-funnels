@@ -223,7 +223,7 @@ const groupTools = {
   extreme: ['extreme_search'] as const,
   x: ['x_search'] as const,
   memory: ['memory_manager', 'datetime'] as const,
-  health: ['health_profile', 'clinical_trials', 'web_search', 'retrieve', 'datetime', 'find_place_on_map', 'nearby_places_search'] as const,
+  health: ['health_profile', 'clinical_trials', 'web_search', 'retrieve', 'find_place_on_map', 'nearby_places_search', 'datetime'] as const,
   // Add legacy mapping for backward compatibility
   buddy: ['memory_manager', 'datetime'] as const,
 } as const;
@@ -974,6 +974,11 @@ const groupInstructions = {
   - Guide users through their clinical trial journey step by step
   - NEVER provide medical advice or diagnoses
 
+  ### CRITICAL TOOL PRIORITY:
+  - ⚠️ When users ask about clinical trials, ALWAYS use clinical_trials tool FIRST
+  - ⚠️ Do NOT use location tools (find_place_on_map) unless specifically asked about locations
+  - ⚠️ Clinical trial searches already include location filtering - no need to search locations separately
+  
   ### IMPORTANT - Health Profile Integration:
   - When users ask "what trials match me?" or similar, FIRST use health_profile with action: 'check'
   - If they have a profile, use clinical_trials with useProfile: true

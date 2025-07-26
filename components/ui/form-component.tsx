@@ -102,8 +102,20 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
     const handleModelChange = useCallback(
       (value: string) => {
-        const model = availableModels.find((m) => m.value === value);
-        if (!model) return;
+        // Trim the value to handle any whitespace issues
+        const trimmedValue = value.trim();
+        console.log('Model selection attempt:', { raw: value, trimmed: trimmedValue });
+        
+        // Command component converts values to lowercase, so we need to find by case-insensitive comparison
+        const model = availableModels.find((m) => 
+          m.value.toLowerCase() === trimmedValue.toLowerCase() || 
+          m.value === trimmedValue || 
+          m.value === value
+        );
+        if (!model) {
+          console.error('Model not found for value:', trimmedValue);
+          return;
+        }
 
         const requiresAuth = requiresAuthentication(model.value) && !user;
 
@@ -120,10 +132,10 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         // Pro system removed - all auth users can use all models
 
         console.log('Selected model:', model.value);
-        setSelectedModel(model.value.trim());
+        setSelectedModel(model.value);
 
         if (onModelSelect) {
-          onModelSelect(model);
+          onModelSelect(model.value);
         }
       },
       [availableModels, user, isSubscriptionLoading, setSelectedModel, onModelSelect],
@@ -163,9 +175,11 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
             <Command
               className="rounded-lg"
               filter={(value, search) => {
-                const model = availableModels.find((m) => m.value === value);
-                if (!model) return 0;
+                // Always return 1 if no search term to show all models
                 if (!search) return 1;
+                
+                const model = availableModels.find((m) => m.value === value || m.value === value.trim());
+                if (!model) return 0;
 
                 const searchTerm = search.toLowerCase();
                 const searchableFields = [
@@ -200,7 +214,8 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
                           <CommandItem
                             key={model.value}
                             value={model.value}
-                            onSelect={() => {
+                            onSelect={(currentValue) => {
+                              console.log('Locked model selected:', currentValue);
                               setSelectedAuthModel(model);
                               setShowSignInDialog(true);
                             }}
@@ -1869,6 +1884,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     messages={messages}
                     status={status}
                     onModelSelect={(model) => {
+                      console.log('onModelSelect called with:', model);
                       setSelectedModel(model.value);
                       const isVisionModel = hasVisionSupport(model.value);
                       toast.message(`Switched to ${model.label}`, {
