@@ -135,7 +135,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         setSelectedModel(model.value);
 
         if (onModelSelect) {
-          onModelSelect(model.value);
+          onModelSelect(model);
         }
       },
       [availableModels, user, isSubscriptionLoading, setSelectedModel, onModelSelect],
