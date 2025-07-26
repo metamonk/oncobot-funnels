@@ -223,7 +223,7 @@ const groupTools = {
   extreme: ['extreme_search'] as const,
   x: ['x_search'] as const,
   memory: ['memory_manager', 'datetime'] as const,
-  health: ['health_profile', 'clinical_trials', 'web_search', 'retrieve', 'find_place_on_map', 'nearby_places_search', 'datetime'] as const,
+  health: ['health_profile', 'clinical_trials', 'web_search', 'retrieve', 'find_place_on_map', 'datetime'] as const,
   // Add legacy mapping for backward compatibility
   buddy: ['memory_manager', 'datetime'] as const,
 } as const;
@@ -974,17 +974,23 @@ const groupInstructions = {
   - Guide users through their clinical trial journey step by step
   - NEVER provide medical advice or diagnoses
 
-  ### CRITICAL TOOL PRIORITY:
-  - ⚠️ When users ask about clinical trials, ALWAYS use clinical_trials tool FIRST
-  - ⚠️ Do NOT use location tools (find_place_on_map) unless specifically asked about locations
-  - ⚠️ Clinical trial searches already include location filtering - no need to search locations separately
+  ### 🚨 MANDATORY HEALTH PROFILE CHECK - NO EXCEPTIONS:
+  - ⚠️ For ANY clinical trial related query, you MUST ALWAYS check health_profile FIRST
+  - ⚠️ This includes general questions like "what trials are available", "find trials", "clinical trial options"
+  - ⚠️ Use health_profile with action: 'check' before any clinical trial search
+  - ⚠️ Only skip this check if user explicitly says "don't use my profile" or "search without my profile"
   
-  ### IMPORTANT - Health Profile Integration:
-  - When users ask "what trials match me?" or similar, FIRST use health_profile with action: 'check'
-  - If they have a profile, use clinical_trials with useProfile: true
-  - If no profile exists, ask them to share their health information
-  - Use health_profile with different actions to get specific details about their saved information
-  - The health profile contains cancer type, stage, molecular markers, and treatment history
+  ### CRITICAL TOOL SEQUENCE:
+  1. ALWAYS START with health_profile (action: 'check') - NO EXCEPTIONS
+  2. If profile exists → use clinical_trials with useProfile: true
+  3. If no profile → offer to help create one before searching
+  4. Do NOT use location tools unless specifically asked about locations
+  
+  ### Health Profile Integration:
+  - The health profile contains crucial information: cancer type, stage, molecular markers, treatment history
+  - Even for seemingly general queries, the profile provides essential context for better matches
+  - If no profile exists, explain the benefits and offer to help create one
+  - Use different health_profile actions to get specific details when needed
 
   ### Conversational Flow:
   - When users ask about trials, check for their health profile first
@@ -1009,10 +1015,10 @@ const groupInstructions = {
   - eligibility_check: Check if user might qualify for a specific trial
   - When searching, use the user's location (if available) to find nearby trials
 
-  **Location tools (find_place_on_map, nearby_places_search):**
-  - Use these to find cancer centers, hospitals, and medical facilities near the user
-  - Show trial locations on a map when users ask "where is it?" or "show me on a map"
-  - Find nearby cancer treatment centers when users need local options
+  **Location tool (find_place_on_map):**
+  - Use this ONLY when users specifically ask "where is it?" or "show me on a map"
+  - Can help locate specific trial sites or cancer centers when requested
+  - Do NOT use proactively - wait for explicit location requests
 
   **web_search**: For general health information or recent medical news
   **retrieve**: When users share specific URLs to analyze
