@@ -168,10 +168,11 @@ function mapHealthProfileToSearchCriteria(
     // Extract markers from the JSON field
     Object.entries(profile.molecularMarkers).forEach(([key, value]) => {
       if (value && key !== 'testingStatus') {
-        if (Array.isArray(value)) {
+        // Only add the marker name if it's positive or has a specific mutation
+        if (value === 'POSITIVE' || (typeof value === 'string' && value !== 'NEGATIVE' && value !== 'UNKNOWN')) {
+          molecularMarkers.push(key);
+        } else if (Array.isArray(value)) {
           molecularMarkers.push(...value as string[]);
-        } else if (typeof value === 'string' && value !== 'UNKNOWN') {
-          molecularMarkers.push(value);
         }
       }
     });
@@ -340,6 +341,9 @@ function analyzeEligibility(
     if (treatments.immunotherapy === 'YES' && criteriaLower.includes('no prior immunotherapy')) {
       analysis.exclusionConcerns.push('Prior immunotherapy may be exclusionary');
     }
+    if (treatments.targetedTherapy === 'YES' && (criteriaLower.includes('no prior targeted therapy') || criteriaLower.includes('no prior egfr'))) {
+      analysis.exclusionConcerns.push('Prior targeted therapy may be exclusionary');
+    }
   }
   
   // Performance status check
@@ -430,7 +434,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
         .optional()
         .describe('ID of previous search to refine (for refine action)'),
     }),
-    execute: async ({ action, searchParams, trialId }) => {
+    execute: async ({ action, searchParams, trialId, previousSearchId }) => {
       try {
         switch (action) {
           case 'search': {
@@ -460,7 +464,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             
             // Build search queries using specific API parameters
             const apiParams = new URLSearchParams({
-              'pageSize': params.maxResults.toString(),
+              'pageSize': (params.maxResults || 20).toString(),
               'countTotal': 'true',
               'sort': 'StartDate:desc'
             });

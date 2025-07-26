@@ -5,6 +5,9 @@
  * This verifies the tool correctly scores and ranks trials based on profiles
  */
 
+// Mock environment variables for testing
+process.env.GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'test-key';
+
 import { clinicalTrialsTool } from '@/lib/tools/clinical-trials';
 import type { HealthProfile, HealthProfileResponse } from '@/lib/db/schema';
 
