@@ -364,33 +364,71 @@ function analyzeEligibility(
 // Main tool export
 export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
   tool({
-    description: 'Search and match clinical trials based on user health profile or custom criteria. Can search for trials, get trial details, or check eligibility.',
+    description: 'Search and match clinical trials based on user health profile or custom criteria. Can search for trials, get trial details, check eligibility, or refine previous searches.',
     parameters: z.object({
-      action: z.enum(['search', 'details', 'eligibility_check'])
-        .describe('Action to perform: search for trials, get details of a specific trial, or check eligibility'),
+      action: z.enum(['search', 'details', 'eligibility_check', 'refine'])
+        .describe('Action to perform: search for trials, get details, check eligibility, or refine previous search'),
       searchParams: z.object({
         useProfile: z.boolean()
           .describe('Whether to use the user health profile for searching')
           .default(true),
-        customQuery: z.string()
+        condition: z.string()
           .optional()
-          .describe('Custom search query to override or supplement profile-based search'),
+          .describe('Specific condition or disease to search for'),
+        otherTerms: z.string()
+          .optional()
+          .describe('Additional search terms or keywords'),
+        intervention: z.string()
+          .optional()
+          .describe('Specific intervention, treatment, or drug name'),
         location: z.object({
           city: z.string().optional(),
           state: z.string().optional(),
           country: z.string().optional(),
           distance: z.number().optional().describe('Distance in miles from location')
         }).optional(),
-        phases: z.array(z.enum(['PHASE1', 'PHASE2', 'PHASE3', 'PHASE4']))
+        studyStatus: z.array(z.enum([
+          'RECRUITING',
+          'ENROLLING_BY_INVITATION',
+          'ACTIVE_NOT_RECRUITING',
+          'NOT_YET_RECRUITING',
+          'SUSPENDED',
+          'TERMINATED',
+          'COMPLETED',
+          'WITHDRAWN'
+        ]))
+          .optional()
+          .describe('Study recruitment statuses to include'),
+        studyType: z.array(z.enum([
+          'INTERVENTIONAL',
+          'OBSERVATIONAL',
+          'EXPANDED_ACCESS'
+        ]))
+          .optional()
+          .describe('Types of studies to include'),
+        phases: z.array(z.enum(['EARLY_PHASE1', 'PHASE1', 'PHASE2', 'PHASE3', 'PHASE4', 'NOT_APPLICABLE']))
           .optional()
           .describe('Trial phases to include'),
+        eligibilityCriteria: z.object({
+          sex: z.enum(['ALL', 'FEMALE', 'MALE']).optional(),
+          minAge: z.number().optional().describe('Minimum age in years'),
+          maxAge: z.number().optional().describe('Maximum age in years'),
+          healthyVolunteers: z.boolean().optional()
+        }).optional()
+          .describe('Eligibility criteria filters'),
+        funderType: z.array(z.enum(['NIH', 'OTHER_USG', 'INDUSTRY', 'OTHER']))
+          .optional()
+          .describe('Types of study funders'),
         maxResults: z.number()
-          .default(10)
+          .default(20)
           .describe('Maximum number of results to return')
       }).optional(),
       trialId: z.string()
         .optional()
         .describe('NCT ID of a specific trial for details or eligibility check'),
+      previousSearchId: z.string()
+        .optional()
+        .describe('ID of previous search to refine (for refine action)'),
     }),
     execute: async ({ action, searchParams, trialId }) => {
       try {
@@ -420,34 +458,95 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
               }
             }
             
-            // Build search query
-            let query = '';
-            if (params.customQuery) {
-              query = params.customQuery;
-            } else if (searchCriteria) {
-              query = buildSearchQuery(searchCriteria);
-            }
-            
-            if (!query) {
-              // If no query can be built, return a helpful message instead of throwing an error
-              return {
-                success: false,
-                error: 'No search criteria available. Please complete your health profile or provide a specific search query (e.g., "lung cancer", "breast cancer stage 3", etc.).',
-                totalCount: 0,
-                matches: [],
-                searchCriteria: searchCriteria,
-                query: ''
-              };
-            }
-            
-            // Build API parameters
+            // Build search queries using specific API parameters
             const apiParams = new URLSearchParams({
-              'query.cond': query,
-              'filter.overallStatus': 'RECRUITING,ENROLLING_BY_INVITATION,ACTIVE_NOT_RECRUITING',
               'pageSize': params.maxResults.toString(),
               'countTotal': 'true',
               'sort': 'StartDate:desc'
             });
+            
+            // Build condition query from profile or explicit parameter
+            let conditionQuery = '';
+            if (params.condition) {
+              conditionQuery = params.condition;
+            } else if (searchCriteria && !params.condition) {
+              conditionQuery = buildSearchQuery(searchCriteria);
+            }
+            
+            if (conditionQuery) {
+              apiParams.append('query.cond', conditionQuery);
+            }
+            
+            // Add other search terms
+            if (params.otherTerms) {
+              apiParams.append('query.term', params.otherTerms);
+            }
+            
+            // Add intervention/treatment search
+            if (params.intervention) {
+              apiParams.append('query.intr', params.intervention);
+            }
+            
+            // Add molecular markers as interventions if from profile
+            if (searchCriteria.molecularMarkers && searchCriteria.molecularMarkers.length > 0) {
+              const markerQuery = searchCriteria.molecularMarkers
+                .map(m => m.replace(/_/g, ' '))
+                .join(' OR ');
+              if (!params.intervention) {
+                apiParams.append('query.intr', markerQuery);
+              }
+            }
+            
+            // Set study status filter
+            if (params.studyStatus && params.studyStatus.length > 0) {
+              apiParams.append('filter.overallStatus', params.studyStatus.join(','));
+            } else {
+              // Default to recruiting studies
+              apiParams.append('filter.overallStatus', 'RECRUITING,ENROLLING_BY_INVITATION,ACTIVE_NOT_RECRUITING');
+            }
+            
+            // Add study type filter
+            if (params.studyType && params.studyType.length > 0) {
+              apiParams.append('filter.studyType', params.studyType.join(','));
+            }
+            
+            // Add eligibility filters
+            if (params.eligibilityCriteria) {
+              const { sex, minAge, maxAge, healthyVolunteers } = params.eligibilityCriteria;
+              
+              if (sex && sex !== 'ALL') {
+                apiParams.append('filter.sex', sex);
+              }
+              
+              if (minAge !== undefined || maxAge !== undefined) {
+                // API expects age in format: MIN_AGE,MAX_AGE
+                const ageFilter = `${minAge || 0},${maxAge || 999}`;
+                apiParams.append('filter.age', ageFilter);
+              }
+              
+              if (healthyVolunteers !== undefined) {
+                apiParams.append('filter.healthy', healthyVolunteers.toString());
+              }
+            }
+            
+            // Add funder type filter
+            if (params.funderType && params.funderType.length > 0) {
+              apiParams.append('filter.funderType', params.funderType.join(','));
+            }
+            
+            // Check if we have any search criteria
+            const hasSearchCriteria = conditionQuery || params.otherTerms || params.intervention;
+            
+            if (!hasSearchCriteria && !params.location) {
+              return {
+                success: false,
+                error: 'No search criteria available. Please complete your health profile or provide specific search criteria.',
+                totalCount: 0,
+                matches: [],
+                searchCriteria: searchCriteria,
+                query: conditionQuery || ''
+              };
+            }
             
             // Add location filters if provided
             if (params.location && params.location.city) {
@@ -511,12 +610,14 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             // Log the URL for debugging
             const apiUrl = `${STUDIES_ENDPOINT}?${apiParams}`;
             console.log('Clinical Trials API URL:', apiUrl);
-            console.log('Query being sent:', query);
+            console.log('Condition query:', conditionQuery);
+            console.log('Other terms:', params.otherTerms);
+            console.log('Intervention:', params.intervention);
             
             // Stream search start
             const searchStatusData: any = {
               status: 'started',
-              query: query,
+              query: conditionQuery || params.otherTerms || params.intervention || '',
               message: 'Searching ClinicalTrials.gov...'
             };
             
@@ -578,7 +679,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
               totalCount: data.totalCount || trials.length,
               matches: matches.slice(0, params.maxResults),
               searchCriteria: searchCriteria,
-              query: query
+              query: conditionQuery || params.otherTerms || params.intervention || ''
             };
           }
           
@@ -692,6 +793,20 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
                 'Based on your health profile, you appear to meet the basic eligibility criteria for this trial. However, final eligibility must be determined by the trial team.' :
                 'Based on your health profile, there may be some eligibility concerns. Please discuss with your healthcare provider or the trial team.'
             };
+          }
+          
+          case 'refine': {
+            // Implement progressive filtering for refining search results
+            if (!previousSearchId) {
+              throw new Error('Previous search ID required for refine action');
+            }
+            
+            // For now, we'll treat refine as a new search with additional parameters
+            // In a full implementation, we'd cache previous results and filter them
+            return await clinicalTrialsTool(dataStream).execute({
+              action: 'search',
+              searchParams: searchParams
+            });
           }
           
           default:

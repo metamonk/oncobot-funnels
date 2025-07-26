@@ -144,7 +144,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           onModelSelect(model);
         }
       },
-      [availableModels, user, setSelectedModel, onModelSelect],
+      [availableModels, user, setSelectedModel, onModelSelect, selectedModel],
     );
 
     return (
