@@ -102,7 +102,12 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       (value: string) => {
         // Trim the value to handle any whitespace issues
         const trimmedValue = value.trim();
-        console.log('Model selection attempt:', { raw: value, trimmed: trimmedValue });
+        console.log('Model selection attempt:', { 
+          raw: value, 
+          trimmed: trimmedValue,
+          user: !!user,
+          currentModel: selectedModel
+        });
         
         // Command component converts values to lowercase, so we need to find by case-insensitive comparison
         const model = availableModels.find((m) => 
@@ -117,8 +122,14 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         }
 
         const requiresAuth = requiresAuthentication(model.value) && !user;
+        console.log('Auth check:', { 
+          modelRequiresAuth: requiresAuthentication(model.value), 
+          hasUser: !!user, 
+          requiresAuth 
+        });
 
         if (requiresAuth) {
+          console.log('Model requires auth, showing sign-in dialog');
           setSelectedAuthModel(model);
           setShowSignInDialog(true);
           return;
@@ -126,7 +137,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
         // Pro system removed - all auth users can use all models
 
-        console.log('Selected model:', model.value);
+        console.log('Setting selected model:', model.value);
         setSelectedModel(model.value);
 
         if (onModelSelect) {
