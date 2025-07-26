@@ -26,22 +26,24 @@ export function useLocalStorage<T>(key: string, defaultValue: T): [T, (value: T 
   const setValue = useCallback(
     (value: T | ((val: T) => T)) => {
       try {
-        const nextValue = value instanceof Function ? value(storedValue) : value;
         // Update React state
-        setStoredValue(nextValue);
-        // Update localStorage
-        if (typeof window !== 'undefined') {
-          if (nextValue === undefined) {
-            localStorage.removeItem(key);
-          } else {
-            localStorage.setItem(key, JSON.stringify(nextValue));
+        setStoredValue((prevValue) => {
+          const nextValue = value instanceof Function ? value(prevValue) : value;
+          // Update localStorage
+          if (typeof window !== 'undefined') {
+            if (nextValue === undefined) {
+              localStorage.removeItem(key);
+            } else {
+              localStorage.setItem(key, JSON.stringify(nextValue));
+            }
           }
-        }
+          return nextValue;
+        });
       } catch (error) {
         console.warn(`Error saving to localStorage key "${key}":`, error);
       }
     },
-    [key, storedValue],
+    [key],
   );
 
   return [storedValue, setValue];

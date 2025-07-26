@@ -114,6 +114,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         );
         if (!model) {
           console.error('Model not found for value:', trimmedValue);
+          console.error('Available models:', availableModels.map(m => m.value));
           return;
         }
 
@@ -1885,7 +1886,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     status={status}
                     onModelSelect={(model) => {
                       console.log('onModelSelect called with:', model);
-                      setSelectedModel(model.value);
                       const isVisionModel = hasVisionSupport(model.value);
                       toast.message(`Switched to ${model.label}`, {
                         description: isVisionModel ? 'You can now upload images to the model.' : undefined,
