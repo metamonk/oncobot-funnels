@@ -59,8 +59,6 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       [user?.isProUser, subscriptionData?.hasSubscription, subscriptionData?.subscription?.status],
     );
 
-    const isSubscriptionLoading = useMemo(() => user && !subscriptionData, [user, subscriptionData]);
-
     const availableModels = useMemo(() => models, []);
 
     const [showSignInDialog, setShowSignInDialog] = useState(false);
@@ -120,10 +118,6 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
         const requiresAuth = requiresAuthentication(model.value) && !user;
 
-        if (isSubscriptionLoading) {
-          return;
-        }
-
         if (requiresAuth) {
           setSelectedAuthModel(model);
           setShowSignInDialog(true);
@@ -139,7 +133,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           onModelSelect(model);
         }
       },
-      [availableModels, user, isSubscriptionLoading, setSelectedModel, onModelSelect],
+      [availableModels, user, setSelectedModel, onModelSelect],
     );
 
     return (
