@@ -166,7 +166,9 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
               )}
             >
               <CpuIcon className="h-4 w-4" />
-              <span className="text-xs font-medium sm:block hidden">{currentModel?.label || 'Select Model'}</span>
+              <span className="text-xs font-medium sm:block hidden" suppressHydrationWarning>
+                {currentModel?.label || 'Select Model'}
+              </span>
               <ChevronsUpDown className="h-4 w-4 opacity-50" />
             </Button>
           </PopoverTrigger>

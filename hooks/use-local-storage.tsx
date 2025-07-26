@@ -1,49 +1,53 @@
-import { useState, useCallback } from 'react';
-
-// Get the initial value synchronously during initialization
-function getStoredValue<T>(key: string, defaultValue: T): T {
-  // Always return defaultValue on server-side
-  if (typeof window === 'undefined') return defaultValue;
-
-  try {
-    const item = localStorage.getItem(key);
-    if (!item) return defaultValue;
-
-    // Handle special case for undefined
-    if (item === 'undefined') return defaultValue;
-
-    return JSON.parse(item);
-  } catch {
-    // If error, return default value
-    return defaultValue;
-  }
-}
+import { useState, useCallback, useEffect } from 'react';
 
 export function useLocalStorage<T>(key: string, defaultValue: T): [T, (value: T | ((val: T) => T)) => void] {
-  // Initialize with the stored value immediately
-  const [storedValue, setStoredValue] = useState<T>(() => getStoredValue(key, defaultValue));
+  // Always initialize with defaultValue to avoid hydration mismatch
+  const [storedValue, setStoredValue] = useState<T>(defaultValue);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Only read from localStorage after hydration
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const item = localStorage.getItem(key);
+      if (item && item !== 'undefined') {
+        setStoredValue(JSON.parse(item));
+      }
+    } catch (error) {
+      console.warn(`Error reading localStorage key "${key}":`, error);
+    }
+    
+    setIsHydrated(true);
+  }, [key]);
 
   const setValue = useCallback(
     (value: T | ((val: T) => T)) => {
       try {
-        // Update React state
-        setStoredValue((prevValue) => {
-          const nextValue = value instanceof Function ? value(prevValue) : value;
-          // Update localStorage
-          if (typeof window !== 'undefined') {
-            if (nextValue === undefined) {
-              localStorage.removeItem(key);
-            } else {
-              localStorage.setItem(key, JSON.stringify(nextValue));
+        // Update React state immediately
+        const newValue = value instanceof Function ? value(storedValue) : value;
+        setStoredValue(newValue);
+        
+        // Defer localStorage update to avoid hydration issues
+        if (typeof window !== 'undefined') {
+          // Use setTimeout to ensure this happens after render
+          setTimeout(() => {
+            try {
+              if (newValue === undefined) {
+                localStorage.removeItem(key);
+              } else {
+                localStorage.setItem(key, JSON.stringify(newValue));
+              }
+            } catch (error) {
+              console.warn(`Error writing to localStorage key "${key}":`, error);
             }
-          }
-          return nextValue;
-        });
+          }, 0);
+        }
       } catch (error) {
         console.warn(`Error saving to localStorage key "${key}":`, error);
       }
     },
-    [key],
+    [key, storedValue],
   );
 
   return [storedValue, setValue];
