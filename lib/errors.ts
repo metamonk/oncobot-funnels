@@ -156,10 +156,6 @@ export function isSignInRequired(error: ChatSDKError): boolean {
   );
 }
 
-export function isProRequired(error: ChatSDKError): boolean {
-  // Pro system removed - return false for all
-  return false;
-}
 
 export function isRateLimited(error: ChatSDKError): boolean {
   return error.type === 'rate_limit';

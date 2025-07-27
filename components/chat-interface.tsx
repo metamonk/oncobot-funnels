@@ -29,7 +29,6 @@ import FormComponent from '@/components/ui/form-component';
 import { useAutoResume } from '@/hooks/use-auto-resume';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useValidatedSearchMode } from '@/hooks/use-validated-search-mode';
-import { useUsageData } from '@/hooks/use-usage-data';
 import { useProUserStatus } from '@/hooks/use-user-data';
 import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
 
@@ -124,7 +123,6 @@ const ChatInterface = memo(
     });
 
     // Use clean React Query hooks for all data fetching
-    const { data: usageData, refetch: refetchUsage } = useUsageData(user || null);
 
     // Sign-in prompt timer
     const signInTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -251,9 +249,6 @@ const ChatInterface = memo(
           console.log('[finish reason]:', finishReason);
 
           // Refresh usage data after message completion for authenticated users
-          if (user) {
-            refetchUsage();
-          }
 
           // Only generate suggested questions if authenticated user or private chat
           if (
@@ -309,7 +304,6 @@ const ChatInterface = memo(
         initialMessages,
         chatState.selectedVisibilityType,
         isCustomInstructionsEnabled,
-        refetchUsage,
         user,
       ],
     );

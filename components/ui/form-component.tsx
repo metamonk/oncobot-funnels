@@ -12,7 +12,6 @@ import {
   hasVisionSupport,
   hasPdfSupport,
   getAcceptedFileTypes,
-  shouldBypassRateLimits,
 } from '@/ai/providers';
 import { X, Check, ChevronsUpDown, Globe, Lock, Mic, Cpu, Upload } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -1572,8 +1571,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
         return;
       }
 
-      const shouldBypassLimitsForThisModel = shouldBypassRateLimits(selectedModel, user);
-
       // No more rate limits - all auth users have unlimited access
 
       if (input.length > MAX_INPUT_CHARS) {
@@ -1650,20 +1647,14 @@ const FormComponent: React.FC<FormComponentProps> = ({
         } else if (isRecording) {
           toast.error('Please stop recording before submitting!');
         } else {
-          const shouldBypassLimitsForThisModel = shouldBypassRateLimits(selectedModel, user);
-
-          if (isLimitBlocked && !shouldBypassLimitsForThisModel) {
-            // No rate limits - this shouldn't happen anymore
-          } else {
-            submitForm();
-            setTimeout(() => {
-              inputRef.current?.focus();
-            }, 100);
-          }
+          submitForm();
+          setTimeout(() => {
+            inputRef.current?.focus();
+          }, 100);
         }
       }
     },
-    [isProcessing, isRecording, selectedModel, user, isLimitBlocked, submitForm, inputRef],
+    [isProcessing, isRecording, submitForm, inputRef],
   );
 
   const resizeTextarea = useCallback(() => {
@@ -1734,11 +1725,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
             ref={fileInputRef}
             multiple
             onChange={handleFileChange}
-            accept={getAcceptedFileTypes(
-              selectedModel,
-              user?.isProUser ||
-                (subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active'),
-            )}
+            accept={getAcceptedFileTypes(selectedModel)}
             tabIndex={-1}
           />
           <input
@@ -1747,11 +1734,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
             ref={postSubmitFileInputRef}
             multiple
             onChange={handleFileChange}
-            accept={getAcceptedFileTypes(
-              selectedModel,
-              user?.isProUser ||
-                (subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active'),
-            )}
+            accept={getAcceptedFileTypes(selectedModel)}
             tabIndex={-1}
           />
 

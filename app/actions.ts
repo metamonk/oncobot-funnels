@@ -1221,63 +1221,6 @@ export async function updateChatTitle(chatId: string, title: string) {
   }
 }
 
-export async function getSubDetails() {
-  'use server';
-
-  // No subscription system anymore
-  return { hasSubscription: false };
-}
-
-export async function getUserMessageCount(providedUser?: any) {
-  'use server';
-
-  try {
-    const user = providedUser || (await getUser());
-    if (!user) {
-      return { count: 0, error: 'User not found' };
-    }
-
-    // No message counting anymore
-    return { count: 0, error: null };
-  } catch (error) {
-    console.error('Error getting user message count:', error);
-    return { count: 0, error: 'Failed to get message count' };
-  }
-}
-
-export async function incrementUserMessageCount() {
-  'use server';
-
-  try {
-    const user = await getUser();
-    if (!user) {
-      return { success: false, error: 'User not found' };
-    }
-
-    // No message usage tracking anymore
-    return { success: true, error: null };
-  } catch (error) {
-    console.error('Error incrementing user message count:', error);
-    return { success: false, error: 'Failed to increment message count' };
-  }
-}
-
-export async function getExtremeSearchUsageCount(providedUser?: any) {
-  'use server';
-
-  try {
-    const user = providedUser || (await getUser());
-    if (!user) {
-      return { count: 0, error: 'User not found' };
-    }
-
-    // No extreme search counting anymore
-    return { count: 0, error: null };
-  } catch (error) {
-    console.error('Error getting extreme search usage count:', error);
-    return { count: 0, error: 'Failed to get extreme search count' };
-  }
-}
 
 
 export async function getHistoricalUsage(providedUser?: any) {

@@ -329,10 +329,6 @@ export function requiresAuthentication(modelValue: string): boolean {
   return model?.requiresAuth || false;
 }
 
-export function requiresProSubscription(modelValue: string): boolean {
-  // Pro subscription system removed - all features available to authenticated users
-  return false;
-}
 
 export function isFreeUnlimited(modelValue: string): boolean {
   const model = getModelConfig(modelValue);
@@ -365,7 +361,7 @@ export function getMaxOutputTokens(modelValue: string): number {
 }
 
 // Access control helper
-export function canUseModel(modelValue: string, user: any, isProUser: boolean): { canUse: boolean; reason?: string } {
+export function canUseModel(modelValue: string, user: any): { canUse: boolean; reason?: string } {
   const model = getModelConfig(modelValue);
 
   if (!model) {
@@ -380,14 +376,9 @@ export function canUseModel(modelValue: string, user: any, isProUser: boolean): 
   return { canUse: true };
 }
 
-// Helper to check if user should bypass rate limits
-export function shouldBypassRateLimits(modelValue: string, user: any): boolean {
-  // All authenticated users bypass rate limits (no more pro system)
-  return !!user;
-}
 
 // Get acceptable file types for a model
-export function getAcceptedFileTypes(modelValue: string, isProUser: boolean): string {
+export function getAcceptedFileTypes(modelValue: string): string {
   const model = getModelConfig(modelValue);
   // PDF support now available to all authenticated users
   if (model?.pdf) {

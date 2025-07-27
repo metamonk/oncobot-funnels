@@ -2,8 +2,6 @@
 import {
   generateTitleFromUserMessage,
   getGroupConfig,
-  getUserMessageCount,
-  getExtremeSearchUsageCount,
   getCurrentUser,
   getCustomInstructions,
 } from '@/app/actions';
@@ -22,8 +20,6 @@ import {
   oncobot,
   getMaxOutputTokens,
   requiresAuthentication,
-  requiresProSubscription,
-  shouldBypassRateLimits,
 } from '@/ai/providers';
 import {
   createStreamId,

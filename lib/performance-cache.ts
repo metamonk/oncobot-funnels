@@ -115,9 +115,6 @@ export function getProUserStatus(userId: string): boolean | null {
 }
 
 // Cache invalidation helpers
-export function invalidateUserCaches(userId: string) {
-  // No user-specific caches to invalidate anymore
-}
 
 export function invalidateAllCaches() {
   sessionCache.clear();
