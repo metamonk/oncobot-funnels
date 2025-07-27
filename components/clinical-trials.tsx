@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ import {
   Copy,
   Check
 } from 'lucide-react';
+import { useAnalytics } from '@/hooks/use-analytics';
 
 interface ClinicalTrialResult {
   success: boolean;
@@ -80,12 +81,14 @@ interface ClinicalTrialsProps {
 // Component for NCT ID badge with copy functionality
 function NCTBadge({ nctId }: { nctId: string }) {
   const [copied, setCopied] = useState(false);
+  const { trackTrialCopy } = useAnalytics();
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       await navigator.clipboard.writeText(nctId);
       setCopied(true);
+      trackTrialCopy(nctId);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
@@ -109,6 +112,29 @@ function NCTBadge({ nctId }: { nctId: string }) {
 }
 
 export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) {
+  const { trackExternalView, trackContactView, trackContactInitiated, trackEligibilityCheck, trackTrialSearch } = useAnalytics();
+  
+  // Track search results
+  useEffect(() => {
+    if (action === 'search' && result.matches && result.matches.length > 0 && result.totalCount) {
+      trackTrialSearch(
+        result.searchCriteria?.condition ? 'condition' : 'general',
+        !!result.searchCriteria?.cancerType,
+        result.totalCount
+      );
+    }
+  }, [action, result, trackTrialSearch]);
+  
+  // Track eligibility check
+  useEffect(() => {
+    if (action === 'eligibility_check' && result.trialId && result.eligibilityAnalysis) {
+      trackEligibilityCheck(
+        result.trialId,
+        result.eligibilityAnalysis.likelyEligible,
+        result.eligibilityAnalysis.inclusionMatches.length * 10
+      );
+    }
+  }, [action, result, trackEligibilityCheck]);
   if (!result.success) {
     return (
       <Card className="w-full my-4 border-red-200 dark:border-red-800">
@@ -428,16 +454,28 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                               {trial.contactsLocationsModule.centralContacts.map((contact: any, i: number) => (
                                 <div key={i} className="flex items-center gap-4 text-sm">
                                   {contact.phone && (
-                                    <div className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400">
+                                    <a
+                                      href={`tel:${contact.phone}`}
+                                      className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
+                                      onClick={() => {
+                                        trackContactInitiated(trial.identificationModule.nctId, 'phone');
+                                      }}
+                                    >
                                       <Phone className="h-3 w-3" />
                                       <span>{contact.phone}</span>
-                                    </div>
+                                    </a>
                                   )}
                                   {contact.email && (
-                                    <div className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400">
+                                    <a
+                                      href={`mailto:${contact.email}`}
+                                      className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
+                                      onClick={() => {
+                                        trackContactInitiated(trial.identificationModule.nctId, 'email');
+                                      }}
+                                    >
                                       <Mail className="h-3 w-3" />
                                       <span>{contact.email}</span>
-                                    </div>
+                                    </a>
                                   )}
                                 </div>
                               ))}
@@ -451,7 +489,10 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                         <div className="flex justify-end">
                           <Button
                             size="sm"
-                            onClick={() => window.open(`https://clinicaltrials.gov/study/${trial.identificationModule.nctId}`, '_blank')}
+                            onClick={() => {
+                              trackExternalView(trial.identificationModule.nctId);
+                              window.open(`https://clinicaltrials.gov/study/${trial.identificationModule.nctId}`, '_blank');
+                            }}
                           >
                             <ExternalLink className="h-3 w-3 mr-1" />
                             View on ClinicalTrials.gov
@@ -722,16 +763,28 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                     )}
                     <div className="flex flex-wrap gap-4 text-sm">
                       {contact.phone && (
-                        <div className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400">
+                        <a
+                          href={`tel:${contact.phone}`}
+                          className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
+                          onClick={() => {
+                            trackContactInitiated(trial.identificationModule.nctId, 'phone', trial.contactsLocationsModule?.locations?.[0]?.facility);
+                          }}
+                        >
                           <Phone className="h-3 w-3" />
                           <span>{contact.phone}</span>
-                        </div>
+                        </a>
                       )}
                       {contact.email && (
-                        <div className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400">
+                        <a
+                          href={`mailto:${contact.email}`}
+                          className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
+                          onClick={() => {
+                            trackContactInitiated(trial.identificationModule.nctId, 'email', trial.contactsLocationsModule?.locations?.[0]?.facility);
+                          }}
+                        >
                           <Mail className="h-3 w-3" />
                           <span>{contact.email}</span>
-                        </div>
+                        </a>
                       )}
                     </div>
                   </div>
@@ -745,7 +798,10 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
           {/* Action Button */}
           <div className="flex justify-end">
             <Button
-              onClick={() => window.open(`https://clinicaltrials.gov/study/${trial.identificationModule.nctId}`, '_blank')}
+              onClick={() => {
+                trackExternalView(trial.identificationModule.nctId);
+                window.open(`https://clinicaltrials.gov/study/${trial.identificationModule.nctId}`, '_blank');
+              }}
             >
               <ExternalLink className="h-4 w-4 mr-2" />
               View on ClinicalTrials.gov
@@ -851,7 +907,12 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
           
           <div className="flex justify-end">
             <Button
-              onClick={() => window.open(`https://clinicaltrials.gov/study/${result.trialId}`, '_blank')}
+              onClick={() => {
+                if (result.trialId) {
+                  trackExternalView(result.trialId);
+                  window.open(`https://clinicaltrials.gov/study/${result.trialId}`, '_blank');
+                }
+              }}
             >
               <ExternalLink className="h-4 w-4 mr-2" />
               View Full Trial Details
