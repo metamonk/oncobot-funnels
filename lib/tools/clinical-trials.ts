@@ -393,8 +393,11 @@ function analyzeEligibility(
   return analysis;
 }
 
+// Type for the tool function return
+type ClinicalTrialsToolReturn = any;
+
 // Main tool export
-export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
+export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrialsToolReturn =>
   tool({
     description: 'Search and match clinical trials based on user health profile or custom criteria. Can search for trials, get trial details, check eligibility, or refine previous searches.',
     parameters: z.object({
@@ -912,10 +915,15 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter) =>
             
             // For now, we'll treat refine as a new search with additional parameters
             // In a full implementation, we'd cache previous results and filter them
-            return await clinicalTrialsTool(dataStream).execute({
-              action: 'search',
-              searchParams: searchParams
-            });
+            // Simply return a message that refine is not yet implemented
+            return {
+              success: true,
+              totalCount: 0,
+              matches: [],
+              message: 'Refine action is not yet fully implemented. Please perform a new search instead.',
+              searchCriteria: {},
+              query: ''
+            };
           }
           
           default:

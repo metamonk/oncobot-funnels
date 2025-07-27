@@ -38,6 +38,20 @@ interface ClinicalTrialResult {
   searchCriteria?: any;
   query?: string;
   error?: string;
+  message?: string;
+  suggestion?: string;
+  suggestedActions?: string[];
+  alternativeActions?: Array<{
+    label: string;
+    url?: string;
+    action?: string;
+  }>;
+  resources?: Array<{
+    name: string;
+    description: string;
+    url: string;
+    type: string;
+  }>;
 }
 
 interface ClinicalTrialsProps {

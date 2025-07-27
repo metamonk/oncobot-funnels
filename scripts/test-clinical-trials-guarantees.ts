@@ -64,7 +64,7 @@ async function testScenario(name: string, testFn: () => Promise<void>) {
     await testFn();
     console.log('✅ PASSED - Always returned helpful results');
   } catch (error) {
-    console.error('❌ FAILED:', error.message);
+    console.error('❌ FAILED:', error instanceof Error ? error.message : String(error));
   }
 }
 
