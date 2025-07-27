@@ -98,14 +98,14 @@ function NCTBadge({ nctId }: { nctId: string }) {
   return (
     <Badge 
       variant="outline" 
-      className="text-xs cursor-pointer flex items-center gap-1 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+      className="text-xs cursor-pointer flex items-center gap-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full px-2 py-0.5"
       onClick={handleCopy}
     >
       {nctId}
       {copied ? (
         <Check className="h-3 w-3 text-green-600" />
       ) : (
-        <Copy className="h-3 w-3" />
+        <Copy className="h-3 w-3 opacity-60" />
       )}
     </Badge>
   );
@@ -253,32 +253,29 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
     }
 
     return (
-      <div className="w-full my-4 space-y-4">
-        {/* Summary Card */}
-        <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <FlaskConical className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              Clinical Trials Search Results
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
-                {totalCount} total trials found
-              </Badge>
-              <Badge variant="secondary" className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
-                {matches.length} best matches shown
-              </Badge>
-              {searchCriteria?.cancerType && (
-                <Badge variant="outline">{searchCriteria.cancerType.replace(/_/g, ' ')}</Badge>
-              )}
-              {searchCriteria?.stage && (
-                <Badge variant="outline">{searchCriteria.stage.replace(/_/g, ' ')}</Badge>
-              )}
+      <div className="w-full my-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4 px-4 py-3 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-neutral-100 dark:bg-neutral-800">
+              <FlaskConical className="h-3.5 w-3.5 text-neutral-500" />
             </div>
-          </CardContent>
-        </Card>
+            <h2 className="font-medium text-sm">Clinical Trials Search Results</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="rounded-full text-xs px-2.5 py-0.5">
+              {totalCount} total trials found
+            </Badge>
+            <Badge variant="secondary" className="rounded-full text-xs px-2.5 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
+              {matches.length} best matches shown
+            </Badge>
+            {searchCriteria?.location && (
+              <Badge variant="outline" className="rounded-full text-xs px-2.5 py-0.5">
+                LOCALIZED
+              </Badge>
+            )}
+          </div>
+        </div>
 
         {/* Trial Results */}
         <div className="space-y-3">
@@ -287,83 +284,84 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
             const isEligible = match.eligibilityAnalysis.likelyEligible;
             
             return (
-              <Card key={trial.identificationModule.nctId} className="overflow-hidden">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <CardTitle className="text-sm font-medium leading-tight">
-                        {trial.identificationModule.briefTitle}
-                      </CardTitle>
-                      <div className="flex items-center gap-2 mt-2">
-                        <NCTBadge nctId={trial.identificationModule.nctId} />
-                        <Badge 
-                          variant={trial.statusModule.overallStatus === 'RECRUITING' ? 'default' : 'secondary'}
-                          className="text-xs"
-                        >
-                          {trial.statusModule.overallStatus.replace(/_/g, ' ')}
+              <div 
+                key={trial.identificationModule.nctId} 
+                className="group relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4 transition-all duration-200 hover:shadow-sm hover:border-neutral-300 dark:hover:border-neutral-700"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="flex-1">
+                    <h3 className="font-medium text-sm text-neutral-900 dark:text-neutral-100 line-clamp-2 mb-2">
+                      {trial.identificationModule.briefTitle}
+                    </h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <NCTBadge nctId={trial.identificationModule.nctId} />
+                      <Badge 
+                        variant={trial.statusModule.overallStatus === 'RECRUITING' ? 'default' : 'secondary'}
+                        className="text-xs rounded-full px-2 py-0.5"
+                      >
+                        {trial.statusModule.overallStatus.replace(/_/g, ' ')}
+                      </Badge>
+                      {match.matchScore > 70 && (
+                        <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 text-xs rounded-full px-2 py-0.5">
+                          {match.matchScore}% match
                         </Badge>
-                        {match.matchScore > 70 && (
-                          <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 text-xs">
-                            {match.matchScore}% match
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {isEligible ? (
-                        <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                          <CheckCircle2 className="h-4 w-4" />
-                          <span className="text-xs font-medium">Potentially Eligible</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="text-xs font-medium">Review Eligibility</span>
-                        </div>
                       )}
                     </div>
                   </div>
-                </CardHeader>
-                
-                <CardContent className="pt-0">
-                  {/* Contact Summary - Always visible */}
-                  {trial.contactsLocationsModule?.centralContacts && trial.contactsLocationsModule.centralContacts.length > 0 && (
-                    <div className="mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-800">
-                      <p className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-2">Contact Information</p>
-                      <div className="space-y-1">
-                        {trial.contactsLocationsModule.centralContacts.slice(0, 2).map((contact: any, i: number) => (
-                          <div key={i} className="flex flex-wrap gap-3 text-xs">
-                            {contact.phone && (
-                              <a
-                                href={`tel:${contact.phone}`}
-                                className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  trackContactInitiated(trial.identificationModule.nctId, 'phone');
-                                }}
-                              >
-                                <Phone className="h-3 w-3" />
-                                <span>{contact.phone}</span>
-                              </a>
-                            )}
-                            {contact.email && (
-                              <a
-                                href={`mailto:${contact.email}`}
-                                className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  trackContactInitiated(trial.identificationModule.nctId, 'email');
-                                }}
-                              >
-                                <Mail className="h-3 w-3" />
-                                <span>{contact.email}</span>
-                              </a>
-                            )}
-                          </div>
-                        ))}
+                  <div className="shrink-0">
+                    {isEligible ? (
+                      <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span className="text-xs font-medium">Potentially Eligible</span>
                       </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                        <AlertCircle className="h-4 w-4" />
+                        <span className="text-xs font-medium">Review Eligibility</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Contact Summary - Always visible */}
+                {trial.contactsLocationsModule?.centralContacts && trial.contactsLocationsModule.centralContacts.length > 0 && (
+                  <div className="mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-800">
+                    <p className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-2">Contact Information</p>
+                    <div className="space-y-1">
+                      {trial.contactsLocationsModule.centralContacts.slice(0, 2).map((contact: any, i: number) => (
+                        <div key={i} className="flex flex-wrap gap-3 text-xs">
+                          {contact.phone && (
+                            <a
+                              href={`tel:${contact.phone}`}
+                              className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                trackContactInitiated(trial.identificationModule.nctId, 'phone');
+                              }}
+                            >
+                              <Phone className="h-3 w-3" />
+                              <span>{contact.phone}</span>
+                            </a>
+                          )}
+                          {contact.email && (
+                            <a
+                              href={`mailto:${contact.email}`}
+                              className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                trackContactInitiated(trial.identificationModule.nctId, 'email');
+                              }}
+                            >
+                              <Mail className="h-3 w-3" />
+                              <span>{contact.email}</span>
+                            </a>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                )}
                   
                   <Accordion type="single" collapsible>
                     <AccordionItem value="details" className="border-0">
@@ -540,8 +538,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
-                </CardContent>
-              </Card>
+              </div>
             );
           })}
         </div>

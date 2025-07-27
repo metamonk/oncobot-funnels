@@ -2,6 +2,7 @@
 'use client';
 
 import React, { memo, useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { ToolInvocation } from 'ai';
 import { motion } from 'framer-motion';
 import { Wave } from '@foobar404/wave';
@@ -1738,7 +1739,11 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'clinical_trials') {
           if (!result) {
-            return <SearchLoadingState icon={FlaskConical} text="Searching clinical trials..." color="blue" />;
+            const ClinicalTrialsLoading = dynamic(() => import('@/components/clinical-trials-loading').then(mod => ({ default: mod.ClinicalTrialsLoadingState })), {
+              ssr: false,
+              loading: () => <ComponentLoader />,
+            });
+            return <ClinicalTrialsLoading />;
           }
 
           return (
