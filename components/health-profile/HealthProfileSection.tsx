@@ -12,9 +12,10 @@ import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { calculateProgress } from '@/lib/health-profile-flow';
 import { HealthProfileQuestionnaireModal } from './HealthProfileQuestionnaireModal';
+import type { User } from '@/lib/db/schema';
 
 interface HealthProfileSectionProps {
-  user: any;
+  user: User | null;
 }
 
 export function HealthProfileSection({ user }: HealthProfileSectionProps) {
@@ -41,7 +42,7 @@ export function HealthProfileSection({ user }: HealthProfileSectionProps) {
   // Calculate completion progress
   const progress = profile?.cancerRegion 
     ? calculateProgress(
-        responses.reduce((acc: any, r: any) => ({ ...acc, [r.questionId]: r.response }), {}),
+        responses.reduce((acc: Record<string, unknown>, r: { questionId: string; response: unknown }) => ({ ...acc, [r.questionId]: r.response }), {}),
         profile.cancerRegion
       )
     : 0;

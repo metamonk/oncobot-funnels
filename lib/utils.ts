@@ -1,7 +1,8 @@
 // /lib/utils.ts
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Globe, Book, TelescopeIcon, DollarSign, Heart, MessageCircle, Code, Brain, Youtube, X } from 'lucide-react';
+import { Globe, Book, TelescopeIcon, DollarSign, Heart, MessageCircle, Code, Brain, X } from 'lucide-react';
+import { YoutubeIcon } from '@/components/icons/youtube-icon';
 import { isSearchModeEnabled } from './feature-toggles';
 
 export function cn(...inputs: ClassValue[]) {
@@ -83,7 +84,7 @@ export const searchGroups = [
     id: 'youtube' as const,
     name: 'YouTube',
     description: 'Search YouTube videos powered by Exa',
-    icon: Youtube,
+    icon: YoutubeIcon,
     show: isSearchModeEnabled('youtube'),
   },
   {

@@ -46,12 +46,12 @@ import {
   TrendingUpIcon,
   Tv,
   XCircle,
-  Youtube,
   Brain,
   Clock,
   Route,
   X,
 } from 'lucide-react';
+import { YoutubeIcon } from '@/components/icons/youtube-icon';
 
 // Type definitions for YouTube components
 interface VideoDetails {
@@ -313,7 +313,7 @@ const YouTubeCard: React.FC<YouTubeCardProps> = ({ video, index }) => {
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Youtube className="h-8 w-8 text-red-500" />
+            <YoutubeIcon className="h-8 w-8 text-red-500" />
           </div>
         )}
         <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -856,7 +856,7 @@ const ToolInvocationListView = memo(
               <div className="rounded-xl overflow-hidden border dark:border-neutral-800 border-neutral-200 bg-white dark:bg-neutral-900 shadow-xs p-4 text-center">
                 <div className="flex flex-col items-center gap-3 py-6">
                   <div className="flex items-center justify-center h-12 w-12 rounded-full bg-red-50 dark:bg-red-950/30">
-                    <Youtube className="h-6 w-6 text-red-600" />
+                    <YoutubeIcon className="h-6 w-6 text-red-600" />
                   </div>
                   <div className="text-center">
                     <h2 className="text-base font-medium text-neutral-900 dark:text-neutral-100 mb-1">
@@ -881,7 +881,7 @@ const ToolInvocationListView = memo(
                   <AccordionTrigger className="px-4 py-3 hover:no-underline">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center h-9 w-9 rounded-full bg-red-50 dark:bg-red-950/30">
-                        <Youtube className="h-5 w-5 text-red-600" />
+                        <YoutubeIcon className="h-5 w-5 text-red-600" />
                       </div>
                       <div>
                         <h2 className="text-base font-medium text-neutral-900 dark:text-neutral-100 text-left">

@@ -7,7 +7,47 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ExternalLink, ArrowUpRight, ArrowDownRight, Activity, AlertCircle, DollarSign } from 'lucide-react';
 
 interface CoinDataProps {
-  result: any;
+  result: {
+    success: boolean;
+    error?: string;
+    data?: {
+      name?: string;
+      symbol?: string;
+      market_cap_rank?: number | null;
+      image?: {
+        small?: string;
+      };
+      description?: {
+        en?: string;
+      };
+      links?: {
+        homepage?: string[];
+      };
+      market_data?: {
+        current_price?: {
+          usd?: number;
+        };
+        price_change_percentage_24h?: number;
+        price_change_percentage_7d?: number;
+        price_change_percentage_30d?: number;
+        market_cap?: {
+          usd?: number;
+        };
+        total_volume?: {
+          usd?: number;
+        };
+        ath?: {
+          usd?: number;
+        };
+        ath_change_percentage?: {
+          usd?: number;
+        };
+        circulating_supply?: number;
+        max_supply?: number;
+      };
+    };
+    url?: string;
+  };
   coinId?: string;
   contractAddress?: string;
 }
