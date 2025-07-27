@@ -6,6 +6,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Metadata, Viewport } from 'next';
 import { Inter, Merriweather, JetBrains_Mono, Oxanium } from 'next/font/google';
+import Script from 'next/script';
 
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { Toaster } from 'sonner';
@@ -121,6 +122,14 @@ export default function RootLayout({
         </NuqsAdapter>
         <Analytics />
         <SpeedInsights />
+        <Script 
+          defer 
+          data-domain="onco.bot" 
+          src="https://plausible.io/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"
+        />
+        <Script id="plausible-init">
+          {`window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }`}
+        </Script>
       </body>
     </html>
   );
