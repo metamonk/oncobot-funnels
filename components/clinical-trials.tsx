@@ -326,6 +326,45 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                 </CardHeader>
                 
                 <CardContent className="pt-0">
+                  {/* Contact Summary - Always visible */}
+                  {trial.contactsLocationsModule?.centralContacts && trial.contactsLocationsModule.centralContacts.length > 0 && (
+                    <div className="mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-800">
+                      <p className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-2">Contact Information</p>
+                      <div className="space-y-1">
+                        {trial.contactsLocationsModule.centralContacts.slice(0, 2).map((contact: any, i: number) => (
+                          <div key={i} className="flex flex-wrap gap-3 text-xs">
+                            {contact.phone && (
+                              <a
+                                href={`tel:${contact.phone}`}
+                                className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  trackContactInitiated(trial.identificationModule.nctId, 'phone');
+                                }}
+                              >
+                                <Phone className="h-3 w-3" />
+                                <span>{contact.phone}</span>
+                              </a>
+                            )}
+                            {contact.email && (
+                              <a
+                                href={`mailto:${contact.email}`}
+                                className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  trackContactInitiated(trial.identificationModule.nctId, 'email');
+                                }}
+                              >
+                                <Mail className="h-3 w-3" />
+                                <span>{contact.email}</span>
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   <Accordion type="single" collapsible>
                     <AccordionItem value="details" className="border-0">
                       <AccordionTrigger className="text-sm hover:no-underline py-2">
