@@ -52,6 +52,22 @@ interface ClinicalTrialResult {
     url: string;
     type: string;
   }>;
+  // For details action
+  trial?: any;
+  eligibilityAnalysis?: {
+    likelyEligible: boolean;
+    inclusionMatches: string[];
+    exclusionConcerns: string[];
+    uncertainFactors: string[];
+  };
+  // For eligibility_check action
+  trialId?: string;
+  trialTitle?: string;
+  recommendation?: string;
+  detailedCriteria?: {
+    inclusion: string[];
+    exclusion: string[];
+  };
 }
 
 interface ClinicalTrialsProps {
@@ -422,7 +438,400 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
     );
   }
 
-  // Handle other action types (details, eligibility_check)
+  // Handle details action
+  if (action === 'details' && 'trial' in result) {
+    const trial = result.trial.protocolSection;
+    const eligibilityAnalysis = result.eligibilityAnalysis;
+    
+    return (
+      <Card className="w-full my-4">
+        <CardHeader>
+          <div className="space-y-2">
+            <CardTitle className="text-base">{trial.identificationModule.briefTitle}</CardTitle>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">{trial.identificationModule.nctId}</Badge>
+              <Badge 
+                variant={trial.statusModule.overallStatus === 'RECRUITING' ? 'default' : 'secondary'}
+              >
+                {trial.statusModule.overallStatus.replace(/_/g, ' ')}
+              </Badge>
+              {trial.designModule?.phases && (
+                <Badge variant="secondary">
+                  {trial.designModule.phases.join(', ').replace(/PHASE/g, 'Phase ')}
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Summary */}
+          {trial.descriptionModule?.briefSummary && (
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Summary</h3>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 whitespace-pre-wrap">
+                {trial.descriptionModule.briefSummary}
+              </p>
+            </div>
+          )}
+          
+          {/* Detailed Description */}
+          {trial.descriptionModule?.detailedDescription && (
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Detailed Description</h3>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 whitespace-pre-wrap">
+                {trial.descriptionModule.detailedDescription}
+              </p>
+            </div>
+          )}
+          
+          {/* Study Design */}
+          {trial.designModule && (
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Study Design</h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {trial.designModule.studyType && (
+                  <div>
+                    <span className="font-medium">Type:</span>
+                    <span className="ml-2 text-neutral-600 dark:text-neutral-400">
+                      {trial.designModule.studyType}
+                    </span>
+                  </div>
+                )}
+                {trial.designModule.designInfo?.primaryPurpose && (
+                  <div>
+                    <span className="font-medium">Purpose:</span>
+                    <span className="ml-2 text-neutral-600 dark:text-neutral-400">
+                      {trial.designModule.designInfo.primaryPurpose}
+                    </span>
+                  </div>
+                )}
+                {trial.designModule.designInfo?.allocation && (
+                  <div>
+                    <span className="font-medium">Allocation:</span>
+                    <span className="ml-2 text-neutral-600 dark:text-neutral-400">
+                      {trial.designModule.designInfo.allocation}
+                    </span>
+                  </div>
+                )}
+                {trial.designModule.designInfo?.maskingInfo?.masking && (
+                  <div>
+                    <span className="font-medium">Masking:</span>
+                    <span className="ml-2 text-neutral-600 dark:text-neutral-400">
+                      {trial.designModule.designInfo.maskingInfo.masking}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Conditions */}
+          {trial.conditionsModule?.conditions && (
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Conditions</h3>
+              <div className="flex flex-wrap gap-2">
+                {trial.conditionsModule.conditions.map((condition: string, i: number) => (
+                  <Badge key={i} variant="secondary">{condition}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Interventions */}
+          {trial.armsInterventionsModule?.interventions && (
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Interventions</h3>
+              <div className="space-y-3">
+                {trial.armsInterventionsModule.interventions.map((intervention: any, i: number) => (
+                  <div key={i} className="border-l-2 border-neutral-200 dark:border-neutral-800 pl-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{intervention.name}</span>
+                      <Badge variant="outline" className="text-xs">{intervention.type}</Badge>
+                    </div>
+                    {intervention.description && (
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+                        {intervention.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Eligibility */}
+          {trial.eligibilityModule && (
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Eligibility</h3>
+              <div className="space-y-2 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  {trial.eligibilityModule.sex && (
+                    <div>
+                      <span className="font-medium">Sex:</span>
+                      <span className="ml-2 text-neutral-600 dark:text-neutral-400">
+                        {trial.eligibilityModule.sex}
+                      </span>
+                    </div>
+                  )}
+                  {trial.eligibilityModule.minimumAge && (
+                    <div>
+                      <span className="font-medium">Age:</span>
+                      <span className="ml-2 text-neutral-600 dark:text-neutral-400">
+                        {trial.eligibilityModule.minimumAge} - {trial.eligibilityModule.maximumAge || 'No limit'}
+                      </span>
+                    </div>
+                  )}
+                  {trial.eligibilityModule.healthyVolunteers && (
+                    <div>
+                      <span className="font-medium">Healthy Volunteers:</span>
+                      <span className="ml-2 text-neutral-600 dark:text-neutral-400">
+                        {trial.eligibilityModule.healthyVolunteers}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {trial.eligibilityModule.eligibilityCriteria && (
+                  <div className="mt-3">
+                    <p className="font-medium mb-1">Criteria:</p>
+                    <pre className="text-xs text-neutral-600 dark:text-neutral-400 whitespace-pre-wrap font-sans">
+                      {trial.eligibilityModule.eligibilityCriteria}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Eligibility Analysis if available */}
+          {eligibilityAnalysis && (
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold mb-2">Your Eligibility Analysis</h3>
+              <div className="space-y-2">
+                {eligibilityAnalysis.inclusionMatches.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-green-700 dark:text-green-300">Matching Criteria:</p>
+                      <ul className="mt-1 space-y-0.5">
+                        {eligibilityAnalysis.inclusionMatches.map((item: string, i: number) => (
+                          <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+                
+                {eligibilityAnalysis.exclusionConcerns.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-red-700 dark:text-red-300">Potential Concerns:</p>
+                      <ul className="mt-1 space-y-0.5">
+                        {eligibilityAnalysis.exclusionConcerns.map((item: string, i: number) => (
+                          <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+                
+                {eligibilityAnalysis.uncertainFactors.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-amber-700 dark:text-amber-300">Uncertain Factors:</p>
+                      <ul className="mt-1 space-y-0.5">
+                        {eligibilityAnalysis.uncertainFactors.map((item: string, i: number) => (
+                          <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Locations */}
+          {trial.contactsLocationsModule?.locations && trial.contactsLocationsModule.locations.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Study Locations</h3>
+              <ScrollArea className="h-[200px]">
+                <div className="space-y-3 pr-4">
+                  {trial.contactsLocationsModule.locations.map((location: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-neutral-500 mt-0.5" />
+                      <div>
+                        <p className="font-medium">{location.facility}</p>
+                        <p className="text-neutral-600 dark:text-neutral-400">
+                          {[location.city, location.state, location.country].filter(Boolean).join(', ')}
+                        </p>
+                        {location.status && (
+                          <Badge variant="outline" className="text-xs mt-1">
+                            {location.status}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+          
+          {/* Contact Information */}
+          {trial.contactsLocationsModule?.centralContacts && trial.contactsLocationsModule.centralContacts.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Contact Information</h3>
+              <div className="space-y-2">
+                {trial.contactsLocationsModule.centralContacts.map((contact: any, i: number) => (
+                  <div key={i} className="space-y-1">
+                    {contact.name && (
+                      <p className="text-sm font-medium">{contact.name} {contact.role && `(${contact.role})`}</p>
+                    )}
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      {contact.phone && (
+                        <div className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400">
+                          <Phone className="h-3 w-3" />
+                          <span>{contact.phone}</span>
+                        </div>
+                      )}
+                      {contact.email && (
+                        <div className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400">
+                          <Mail className="h-3 w-3" />
+                          <span>{contact.email}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <Separator />
+          
+          {/* Action Button */}
+          <div className="flex justify-end">
+            <Button
+              onClick={() => window.open(`https://clinicaltrials.gov/study/${trial.identificationModule.nctId}`, '_blank')}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              View on ClinicalTrials.gov
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  // Handle eligibility_check action
+  if (action === 'eligibility_check' && 'eligibilityAnalysis' in result && result.eligibilityAnalysis) {
+    return (
+      <Card className="w-full my-4">
+        <CardHeader>
+          <CardTitle className="text-base">Eligibility Check: {result.trialTitle}</CardTitle>
+          <Badge variant="outline">{result.trialId}</Badge>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className={`p-4 rounded-lg ${
+            result.eligibilityAnalysis.likelyEligible 
+              ? 'bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800' 
+              : 'bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800'
+          }`}>
+            <p className="text-sm font-medium">
+              {result.recommendation}
+            </p>
+          </div>
+          
+          {/* Detailed Analysis */}
+          <div className="space-y-3">
+            {result.eligibilityAnalysis.inclusionMatches.length > 0 && (
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-green-700 dark:text-green-300">Matching Criteria:</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {result.eligibilityAnalysis.inclusionMatches.map((item: string, i: number) => (
+                      <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+            
+            {result.eligibilityAnalysis.exclusionConcerns.length > 0 && (
+              <div className="flex items-start gap-2">
+                <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-red-700 dark:text-red-300">Potential Concerns:</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {result.eligibilityAnalysis.exclusionConcerns.map((item: string, i: number) => (
+                      <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+            
+            {result.eligibilityAnalysis.uncertainFactors.length > 0 && (
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-amber-700 dark:text-amber-300">Uncertain Factors:</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {result.eligibilityAnalysis.uncertainFactors.map((item: string, i: number) => (
+                      <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Detailed Criteria */}
+          {result.detailedCriteria && (
+            <div className="space-y-4 border-t pt-4">
+              {result.detailedCriteria.inclusion.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Inclusion Criteria</h4>
+                  <ul className="space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+                    {result.detailedCriteria.inclusion.map((criterion: string, i: number) => (
+                      <li key={i}>• {criterion}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {result.detailedCriteria.exclusion.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Exclusion Criteria</h4>
+                  <ul className="space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+                    {result.detailedCriteria.exclusion.map((criterion: string, i: number) => (
+                      <li key={i}>• {criterion}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <Separator />
+          
+          <div className="flex justify-end">
+            <Button
+              onClick={() => window.open(`https://clinicaltrials.gov/study/${result.trialId}`, '_blank')}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              View Full Trial Details
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  // Fallback
   return (
     <Card className="w-full my-4">
       <CardHeader>
@@ -430,7 +839,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
       </CardHeader>
       <CardContent>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          Trial information will be displayed here.
+          No trial information available.
         </p>
       </CardContent>
     </Card>
