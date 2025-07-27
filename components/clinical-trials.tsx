@@ -37,6 +37,7 @@ interface ClinicalTrialResult {
       exclusionConcerns: string[];
       uncertainFactors: string[];
     };
+    locationSummary?: string;
   }>;
   searchCriteria?: any;
   query?: string;
@@ -55,6 +56,15 @@ interface ClinicalTrialResult {
     url: string;
     type: string;
   }>;
+  tokenBudget?: {
+    totalTokens: number;
+    budget: number;
+    originalCount: number;
+    returnedCount: number;
+    reducedLocationTrials: number;
+    withinBudget: boolean;
+  };
+  hasMore?: boolean;
   // For details action
   trial?: any;
   eligibilityAnalysis?: {
@@ -277,6 +287,18 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
           </div>
         </div>
 
+        {/* Token Budget Message */}
+        {result.tokenBudget && result.tokenBudget.returnedCount < result.tokenBudget.originalCount && (
+          <div className="mb-3 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              Showing {result.tokenBudget.returnedCount} of {result.tokenBudget.originalCount} most relevant trials
+              {result.tokenBudget.reducedLocationTrials > 0 && 
+                ` (${result.tokenBudget.reducedLocationTrials} trial${result.tokenBudget.reducedLocationTrials > 1 ? 's' : ''} have optimized location lists)`
+              }. Request additional results if needed.
+            </p>
+          </div>
+        )}
+
         {/* Trial Results */}
         <div className="space-y-3">
           {matches.map((match, index) => {
@@ -323,6 +345,14 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                     )}
                   </div>
                 </div>
+                
+                {/* Location Summary */}
+                {match.locationSummary && (
+                  <div className="flex items-center gap-2 mb-2 text-xs text-neutral-600 dark:text-neutral-400">
+                    <MapPin className="h-3 w-3" />
+                    <span>{match.locationSummary}</span>
+                  </div>
+                )}
                 
                 {/* Contact Summary - Always visible */}
                 {trial.contactsLocationsModule?.centralContacts && trial.contactsLocationsModule.centralContacts.length > 0 && (
@@ -464,10 +494,17 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                         {/* Locations */}
                         {trial.contactsLocationsModule?.locations && trial.contactsLocationsModule.locations.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-medium mb-2">Locations</h4>
+                            <h4 className="text-sm font-medium mb-2">
+                              Locations
+                              {trial.contactsLocationsModule.locationMetadata?.subset && (
+                                <span className="ml-2 text-xs font-normal text-neutral-500">
+                                  (showing {trial.contactsLocationsModule.locations.length} of {trial.contactsLocationsModule.locationMetadata.total} locations)
+                                </span>
+                              )}
+                            </h4>
                             <ScrollArea className="h-[120px]">
                               <div className="space-y-2 pr-4">
-                                {trial.contactsLocationsModule.locations.slice(0, 5).map((location: any, i: number) => (
+                                {trial.contactsLocationsModule.locations.map((location: any, i: number) => (
                                   <div key={i} className="flex items-start gap-2 text-sm">
                                     <MapPin className="h-3 w-3 text-neutral-500 mt-0.5" />
                                     <div>

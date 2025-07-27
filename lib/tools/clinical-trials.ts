@@ -147,6 +147,199 @@ interface TrialMatch {
   };
 }
 
+// Token estimation utilities
+const TOKEN_BUDGET = 100000; // Leave room for model's response
+const AVG_CHARS_PER_TOKEN = 4; // Rough estimate: 1 token ≈ 4 characters
+
+function estimateTokens(obj: any): number {
+  // Convert to JSON string and estimate tokens
+  try {
+    const jsonString = JSON.stringify(obj);
+    return Math.ceil(jsonString.length / AVG_CHARS_PER_TOKEN);
+  } catch {
+    // If JSON stringify fails, return a large number to be safe
+    return 50000;
+  }
+}
+
+// Strategic location selection for trials with many locations
+function selectStrategicLocations(
+  locations: any[],
+  userLat?: number,
+  userLng?: number,
+  maxLocations: number = 30
+): { locations: any[], metadata: { total: number, subset: boolean, strategy: string } } {
+  if (!locations || locations.length <= maxLocations) {
+    return {
+      locations,
+      metadata: {
+        total: locations?.length || 0,
+        subset: false,
+        strategy: 'all'
+      }
+    };
+  }
+
+  const strategicLocations: any[] = [];
+  const usedIndices = new Set<number>();
+
+  // 1. Add closest locations to user (if user location available)
+  if (userLat !== undefined && userLng !== undefined) {
+    const locationsWithDistance = locations.map((loc, index) => {
+      const lat = loc.geoPoint?.lat;
+      const lng = loc.geoPoint?.lon;
+      if (!lat || !lng) return { loc, index, distance: Infinity };
+      
+      // Simple distance calculation (not perfect but good enough for sorting)
+      const distance = Math.sqrt(
+        Math.pow(lat - userLat, 2) + Math.pow(lng - userLng, 2)
+      );
+      return { loc, index, distance };
+    });
+
+    // Sort by distance and take closest 10
+    locationsWithDistance
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 10)
+      .forEach(({ loc, index }) => {
+        if (index !== undefined && !usedIndices.has(index)) {
+          strategicLocations.push(loc);
+          usedIndices.add(index);
+        }
+      });
+  }
+
+  // 2. Add major cities (identified by facility name patterns)
+  const majorCityPatterns = [
+    /Mayo Clinic/i, /Cleveland Clinic/i, /Johns Hopkins/i, /MD Anderson/i,
+    /Memorial Sloan/i, /Dana.?Farber/i, /UCLA/i, /UCSF/i, /Stanford/i,
+    /Northwestern/i, /Mount Sinai/i, /Cedars.?Sinai/i
+  ];
+
+  locations.forEach((loc, index) => {
+    if (usedIndices.has(index)) return;
+    const facilityName = loc.facility || '';
+    if (majorCityPatterns.some(pattern => pattern.test(facilityName))) {
+      strategicLocations.push(loc);
+      usedIndices.add(index);
+      if (strategicLocations.length >= maxLocations) return;
+    }
+  });
+
+  // 3. Add geographically distributed locations
+  const stateMap = new Map<string, number>();
+  locations.forEach((loc, index) => {
+    if (usedIndices.has(index) || strategicLocations.length >= maxLocations) return;
+    
+    const state = loc.state || loc.country || 'Unknown';
+    const stateCount = stateMap.get(state) || 0;
+    
+    // Limit to 2 per state for diversity
+    if (stateCount < 2) {
+      strategicLocations.push(loc);
+      usedIndices.add(index);
+      stateMap.set(state, stateCount + 1);
+    }
+  });
+
+  // 4. Fill remaining slots with first locations
+  for (let i = 0; i < locations.length && strategicLocations.length < maxLocations; i++) {
+    if (!usedIndices.has(i)) {
+      strategicLocations.push(locations[i]);
+      usedIndices.add(i);
+    }
+  }
+
+  return {
+    locations: strategicLocations,
+    metadata: {
+      total: locations.length,
+      subset: true,
+      strategy: userLat !== undefined ? 'proximity_and_major_centers' : 'major_centers_and_distribution'
+    }
+  };
+}
+
+// Optimize trial selection based on token budget
+function optimizeTrialSelection(
+  trials: ClinicalTrial[],
+  matches: TrialMatch[],
+  userLat?: number,
+  userLng?: number
+): { optimizedMatches: TrialMatch[], tokenMetadata: any } {
+  const trialTokenEstimates = matches.map(match => ({
+    match,
+    baseTokens: estimateTokens(match.trial),
+    locationCount: match.trial.protocolSection.contactsLocationsModule?.locations?.length || 0
+  }));
+
+  // Sort by match score (primary) and token cost (secondary)
+  trialTokenEstimates.sort((a, b) => {
+    // Prioritize match score
+    if (Math.abs(a.match.matchScore - b.match.matchScore) > 10) {
+      return b.match.matchScore - a.match.matchScore;
+    }
+    // For similar scores, prefer trials with fewer tokens
+    return a.baseTokens - b.baseTokens;
+  });
+
+  const optimizedMatches: TrialMatch[] = [];
+  let totalTokens = 0;
+  let reducedLocationCount = 0;
+
+  for (const { match, baseTokens, locationCount } of trialTokenEstimates) {
+    // Create a copy to avoid modifying original
+    const optimizedMatch = JSON.parse(JSON.stringify(match));
+    
+    // Check if adding this trial would exceed budget
+    const projectedTokens = totalTokens + baseTokens;
+    
+    if (projectedTokens > TOKEN_BUDGET && optimizedMatches.length > 0) {
+      // Stop adding more trials
+      break;
+    }
+
+    // Optimize locations if needed
+    if (locationCount > 50) {
+      const locations = optimizedMatch.trial.protocolSection.contactsLocationsModule?.locations || [];
+      const { locations: strategicLocations, metadata } = selectStrategicLocations(
+        locations,
+        userLat,
+        userLng
+      );
+      
+      optimizedMatch.trial.protocolSection.contactsLocationsModule.locations = strategicLocations;
+      optimizedMatch.trial.protocolSection.contactsLocationsModule.locationMetadata = metadata;
+      reducedLocationCount++;
+    }
+
+    // Recalculate tokens after optimization
+    const optimizedTokens = estimateTokens(optimizedMatch);
+    
+    if (totalTokens + optimizedTokens <= TOKEN_BUDGET) {
+      optimizedMatches.push(optimizedMatch);
+      totalTokens += optimizedTokens;
+    } else if (optimizedMatches.length === 0) {
+      // Ensure at least one result
+      optimizedMatches.push(optimizedMatch);
+      totalTokens += optimizedTokens;
+      break;
+    }
+  }
+
+  return {
+    optimizedMatches,
+    tokenMetadata: {
+      totalTokens,
+      budget: TOKEN_BUDGET,
+      originalCount: matches.length,
+      returnedCount: optimizedMatches.length,
+      reducedLocationTrials: reducedLocationCount,
+      withinBudget: totalTokens <= TOKEN_BUDGET
+    }
+  };
+}
+
 // Helper function to map health profile to search criteria
 function mapHealthProfileToSearchCriteria(
   profile: HealthProfile | null,
@@ -455,7 +648,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
           .optional()
           .describe('Types of study funders'),
         maxResults: z.number()
-          .default(20)
+          .default(5)
           .describe('Maximum number of results to return')
       }).optional(),
       trialId: z.string()
@@ -735,7 +928,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
                   const broaderTrials = broaderData.studies || [];
                   
                   if (broaderTrials.length > 0) {
-                    const broaderMatches = broaderTrials.slice(0, 5).map((study: any) => ({
+                    const broaderMatches = broaderTrials.map((study: any) => ({
                       trial: study,
                       matchScore: 0,
                       matchingCriteria: ['General cancer trial'],
@@ -746,6 +939,16 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
                         uncertainFactors: ['No specific matching criteria available']
                       }
                     }));
+                    
+                    // Apply optimization to broader matches too
+                    const userLat = params.location?.lat;
+                    const userLng = params.location?.lng;
+                    const { optimizedMatches, tokenMetadata } = optimizeTrialSelection(
+                      broaderTrials,
+                      broaderMatches,
+                      userLat,
+                      userLng
+                    );
                     
                     dataStream?.writeMessageAnnotation({
                       type: 'search_status',
@@ -758,10 +961,11 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
                     return {
                       success: true,
                       totalCount: broaderData.totalCount,
-                      matches: broaderMatches,
+                      matches: optimizedMatches,
                       searchCriteria: searchCriteria,
                       query: conditionQuery || params.otherTerms || params.intervention || '',
                       message: 'No exact matches found. Showing general cancer trials that are currently recruiting.',
+                      tokenBudget: tokenMetadata,
                       suggestedActions: [
                         'Try adding your location for nearby trials',
                         'Specify your cancer type for better matches',
@@ -775,23 +979,62 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
               }
             }
             
-            // Stream results
+            // Optimize trial selection based on token budget
+            const userLat = params.location?.lat;
+            const userLng = params.location?.lng;
+            const { optimizedMatches, tokenMetadata } = optimizeTrialSelection(
+              trials,
+              matches,
+              userLat,
+              userLng
+            );
+            
+            // Stream results with token information
             dataStream?.writeMessageAnnotation({
               type: 'search_status',
               data: {
                 status: 'completed',
                 totalResults: data.totalCount || trials.length,
-                returnedResults: matches.length,
-                message: `Found ${data.totalCount || trials.length} trials`
+                returnedResults: optimizedMatches.length,
+                message: `Found ${data.totalCount || trials.length} trials, showing ${optimizedMatches.length}${
+                  tokenMetadata.returnedCount < matches.length ? ' (optimized for display)' : ''
+                }`
               }
+            });
+            
+            // Add location summary to matches
+            const matchesWithLocationSummary = optimizedMatches.map(match => {
+              const locations = match.trial.protocolSection.contactsLocationsModule?.locations || [];
+              const locationMetadata = match.trial.protocolSection.contactsLocationsModule?.locationMetadata;
+              
+              // Add location summary
+              let locationSummary = '';
+              if (locationMetadata?.total) {
+                locationSummary = `${locationMetadata.total} location${locationMetadata.total > 1 ? 's' : ''}`;
+                if (locationMetadata.subset) {
+                  locationSummary += ' (showing strategic subset)';
+                }
+              } else if (locations.length > 0) {
+                locationSummary = `${locations.length} location${locations.length > 1 ? 's' : ''}`;
+              }
+              
+              return {
+                ...match,
+                locationSummary
+              };
             });
             
             return {
               success: true,
               totalCount: data.totalCount || trials.length,
-              matches: matches.slice(0, params.maxResults),
+              matches: matchesWithLocationSummary,
               searchCriteria: searchCriteria,
-              query: conditionQuery || params.otherTerms || params.intervention || ''
+              query: conditionQuery || params.otherTerms || params.intervention || '',
+              tokenBudget: tokenMetadata,
+              hasMore: tokenMetadata.originalCount > tokenMetadata.returnedCount,
+              message: tokenMetadata.returnedCount < matches.length 
+                ? `Showing ${tokenMetadata.returnedCount} of ${matches.length} most relevant trials (limited to manage data size). Use 'show more trials' to see additional results.`
+                : undefined
             };
           }
           
