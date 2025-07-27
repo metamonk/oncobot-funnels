@@ -14,8 +14,6 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import {
-  getUserMessageCount,
-  getExtremeSearchUsageCount,
   getHistoricalUsage,
   getCustomInstructions,
   saveCustomInstructions,
@@ -183,28 +181,6 @@ function UsageSection({ user }: any) {
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   const {
-    data: usageData,
-    isLoading: usageLoading,
-    error: usageError,
-    refetch: refetchUsageData,
-  } = useQuery({
-    queryKey: ['usageData'],
-    queryFn: async () => {
-      const [searchCount, extremeSearchCount] = await Promise.all([
-        getUserMessageCount(),
-        getExtremeSearchUsageCount(),
-      ]);
-
-      return {
-        searchCount,
-        extremeSearchCount,
-      };
-    },
-    staleTime: 1000 * 60 * 3,
-    enabled: !!user,
-  });
-
-  const {
     data: historicalUsageData,
     isLoading: historicalLoading,
     refetch: refetchHistoricalData,
@@ -215,13 +191,10 @@ function UsageSection({ user }: any) {
     staleTime: 1000 * 60 * 10,
   });
 
-  const searchCount = usageData?.searchCount;
-  const extremeSearchCount = usageData?.extremeSearchCount;
-
   const handleRefreshUsage = async () => {
     try {
       setIsRefreshing(true);
-      await Promise.all([refetchUsageData(), refetchHistoricalData()]);
+      await refetchHistoricalData();
       toast.success('Usage data refreshed');
     } catch (error) {
       toast.error('Failed to refresh usage data');
@@ -230,13 +203,10 @@ function UsageSection({ user }: any) {
     }
   };
 
-  const searchLimit = 100; // Default display limit for UI purposes
-  const usagePercentage = Math.min(((searchCount?.count || 0) / searchLimit) * 100, 100);
-
   return (
     <div className={cn(isMobile ? 'space-y-3' : 'space-y-4', isMobile ? 'pb-4' : '')}>
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold">Daily Search Usage</h3>
+        <h3 className="text-sm font-semibold">Activity Overview</h3>
         <Button
           variant="ghost"
           size="sm"
@@ -248,86 +218,26 @@ function UsageSection({ user }: any) {
         </Button>
       </div>
 
-      <div className={cn('grid grid-cols-2', isMobile ? 'gap-2' : 'gap-3')}>
-        <div className={cn('bg-muted/50 rounded-lg space-y-1', isMobile ? 'p-2.5' : 'p-3')}>
-          <div className="flex items-center justify-between">
-            <span className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>Today</span>
-            <SearchIcon className={isMobile ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
-          </div>
-          {usageLoading ? (
-            <Skeleton className={cn('font-semibold', isMobile ? 'text-base h-4' : 'text-lg h-5')} />
+      <div className={cn('space-y-2', isMobile ? 'pb-4' : '')}>
+        <h4 className={cn('font-semibold text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>
+          Activity History
+        </h4>
+        <div className={cn('bg-muted/50 dark:bg-card rounded-lg overflow-hidden', isMobile ? 'p-2' : 'p-3')}>
+          {historicalLoading ? (
+            <div className="h-32 flex items-center justify-center">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : historicalUsageData && historicalUsageData.length > 0 ? (
+            <div className="h-32 overflow-hidden">
+              <UsageBarChart data={historicalUsageData} className="h-full w-full" />
+            </div>
           ) : (
-            <div className={cn('font-semibold', isMobile ? 'text-base' : 'text-lg')}>{searchCount?.count || 0}</div>
-          )}
-          <p className="text-[10px] text-muted-foreground">Regular searches</p>
-        </div>
-
-        <div className={cn('bg-muted/50 rounded-lg space-y-1', isMobile ? 'p-2.5' : 'p-3')}>
-          <div className="flex items-center justify-between">
-            <span className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>Extreme</span>
-            <Zap className={isMobile ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
-          </div>
-          {usageLoading ? (
-            <Skeleton className={cn('font-semibold', isMobile ? 'text-base h-4' : 'text-lg h-5')} />
-          ) : (
-            <div className={cn('font-semibold', isMobile ? 'text-base' : 'text-lg')}>
-              {extremeSearchCount?.count || 0}
+            <div className="h-32 flex items-center justify-center">
+              <p className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>No activity data</p>
             </div>
           )}
-          <p className="text-[10px] text-muted-foreground">This month</p>
         </div>
       </div>
-
-      <div className={isMobile ? 'space-y-2' : 'space-y-3'}>
-        <div className={cn('bg-muted/30 rounded-lg space-y-2', isMobile ? 'p-2.5' : 'p-3')}>
-          {usageLoading ? (
-            <>
-              <div className="flex justify-between text-xs">
-                <Skeleton className="h-3 w-16" />
-                <Skeleton className="h-3 w-12" />
-              </div>
-              <Skeleton className="h-1.5 w-full" />
-            </>
-          ) : (
-            <>
-              <div className="flex justify-between text-xs">
-                <span className="font-medium">Daily Limit</span>
-                <span className="text-muted-foreground">{usagePercentage.toFixed(0)}%</span>
-              </div>
-              <Progress value={usagePercentage} className="h-1.5 [&>div]:transition-none" />
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>
-                  {searchCount?.count || 0} searches today
-                </span>
-                <span>Unlimited access</span>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {!usageLoading && (
-        <div className={cn('space-y-2', isMobile ? 'pb-4' : '')}>
-          <h4 className={cn('font-semibold text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>
-            Activity (Past 14 days)
-          </h4>
-          <div className={cn('bg-muted/50 dark:bg-card rounded-lg overflow-hidden', isMobile ? 'p-2' : 'p-3')}>
-            {historicalLoading ? (
-              <div className="h-24 flex items-center justify-center">
-                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-              </div>
-            ) : historicalUsageData && historicalUsageData.length > 0 ? (
-              <div className="h-24 overflow-hidden">
-                <UsageBarChart data={historicalUsageData} className="h-full w-full" />
-              </div>
-            ) : (
-              <div className="h-24 flex items-center justify-center">
-                <p className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>No activity data</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

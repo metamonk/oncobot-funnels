@@ -840,7 +840,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'youtube_search') {
           if (!result) {
-            return <SearchLoadingState icon={Youtube} text="Searching YouTube videos..." color="red" />;
+            return <SearchLoadingState icon={YoutubeIcon} text="Searching YouTube videos..." color="red" />;
           }
 
           const youtubeResult = result as YouTubeSearchResponse;

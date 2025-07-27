@@ -308,7 +308,8 @@ function optimizeTrialSelection(
       );
       
       optimizedMatch.trial.protocolSection.contactsLocationsModule.locations = strategicLocations;
-      optimizedMatch.trial.protocolSection.contactsLocationsModule.locationMetadata = metadata;
+      // Add custom metadata using type assertion
+      (optimizedMatch.trial.protocolSection.contactsLocationsModule as any).locationMetadata = metadata;
       reducedLocationCount++;
     }
 
@@ -429,12 +430,14 @@ function buildSearchQuery(criteria: SearchCriteria): string {
   // Don't add cancer type if it's too similar to condition (avoid redundancy)
   if (criteria.cancerType && 
       criteria.cancerType !== 'OTHER' && 
-      criteria.cancerType !== 'UNKNOWN' &&
-      !queryParts.some(part => part.toLowerCase().includes(criteria.cancerType.toLowerCase()))) {
-    const cleanType = criteria.cancerType
-      .replace(/_/g, ' ')
-      .toLowerCase();
-    queryParts.push(cleanType);
+      criteria.cancerType !== 'UNKNOWN') {
+    const cancerType = criteria.cancerType; // Store in const for type safety
+    if (!queryParts.some(part => part.toLowerCase().includes(cancerType.toLowerCase()))) {
+      const cleanType = cancerType
+        .replace(/_/g, ' ')
+        .toLowerCase();
+      queryParts.push(cleanType);
+    }
   }
   
   // REMOVED: Stage from search query (use for eligibility analysis instead)
@@ -945,13 +948,12 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
                     );
                     
                     // Apply optimization to broader matches too
-                    const userLat = params.location?.lat;
-                    const userLng = params.location?.lng;
+                    // Note: We don't have access to user coordinates here, so pass undefined
                     const { optimizedMatches, tokenMetadata } = optimizeTrialSelection(
                       broaderTrials,
                       broaderMatches,
-                      userLat,
-                      userLng
+                      undefined,
+                      undefined
                     );
                     
                     dataStream?.writeMessageAnnotation({
@@ -984,13 +986,12 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
             }
             
             // Optimize trial selection based on token budget
-            const userLat = params.location?.lat;
-            const userLng = params.location?.lng;
+            // Note: We don't have access to user coordinates here, so pass undefined
             const { optimizedMatches, tokenMetadata } = optimizeTrialSelection(
               trials,
               matches,
-              userLat,
-              userLng
+              undefined,
+              undefined
             );
             
             // Stream results with token information
@@ -1009,7 +1010,9 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
             // Add location summary to matches
             const matchesWithLocationSummary = optimizedMatches.map(match => {
               const locations = match.trial.protocolSection.contactsLocationsModule?.locations || [];
-              const locationMetadata = match.trial.protocolSection.contactsLocationsModule?.locationMetadata;
+              // Type assertion for custom metadata we added during optimization
+              const contactsModule = match.trial.protocolSection.contactsLocationsModule as any;
+              const locationMetadata = contactsModule?.locationMetadata;
               
               // Add location summary
               let locationSummary = '';

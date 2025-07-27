@@ -98,7 +98,6 @@ const ChatInterface = memo(
       isProUser: isUserPro,
       isLoading: proStatusLoading,
       shouldCheckLimits: shouldCheckUserLimits,
-      shouldBypassLimitsForModel,
     } = useProUserStatus();
 
     const initialState = useMemo(
@@ -133,12 +132,8 @@ const ChatInterface = memo(
     // Generate a consistent ID for new chats
     const chatId = useMemo(() => initialChatId ?? uuidv4(), [initialChatId]);
 
-    // Pro users bypass all limit checks - much cleaner!
-    const shouldBypassLimits = shouldBypassLimitsForModel(selectedModel);
-    const hasExceededLimit =
-      shouldCheckUserLimits &&
-      !proStatusLoading &&
-      false; // Rate limiting removed - all authenticated users have unlimited access
+    // All authenticated users have unlimited access
+    const hasExceededLimit = false;
     const isLimitBlocked = false;
 
     // Timer for sign-in prompt for unauthenticated users
