@@ -14,18 +14,16 @@ import {
   getAcceptedFileTypes,
   shouldBypassRateLimits,
 } from '@/ai/providers';
-import { X, Check, ChevronsUpDown, Globe } from 'lucide-react';
+import { X, Check, ChevronsUpDown, Globe, Lock, Mic, Cpu, Upload } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { cn, SearchGroup, SearchGroupId, searchGroups } from '@/lib/utils';
 import { isSearchModeEnabled } from '@/lib/feature-toggles';
-import { Upload } from 'lucide-react';
 import { UIMessage } from '@ai-sdk/ui-utils';
 import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { UserWithProStatus } from '@/hooks/use-user-data';
 import { useSession } from '@/lib/auth-client';
 import { checkImageModeration } from '@/app/actions';
-import { LockIcon, MicrophoneIcon, CpuIcon } from '@phosphor-icons/react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -165,7 +163,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
                 className,
               )}
             >
-              <CpuIcon className="h-4 w-4" />
+              <Cpu className="h-4 w-4" />
               <span className="text-xs font-medium sm:block hidden" suppressHydrationWarning>
                 {currentModel?.label || 'Select Model'}
               </span>
@@ -236,7 +234,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
                             <div className="flex flex-col min-w-0 flex-1">
                               <div className="font-medium truncate text-[11px] flex items-center gap-1">
                                 {model.label}
-                                <LockIcon className="size-3 text-muted-foreground" />
+                                <Lock className="size-3 text-muted-foreground" />
                               </div>
                               <div className="text-[9px] text-muted-foreground truncate leading-tight">
                                 {model.description}
@@ -268,7 +266,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
                                 const requiresAuth = requiresAuthentication(model.value) && !user;
                         
                                 if (requiresAuth) {
-                                  return <LockIcon className="size-3 text-muted-foreground" />;
+                                  return <Lock className="size-3 text-muted-foreground" />;
                                 }
                                 return null;
                               })()}
@@ -1977,7 +1975,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           }}
                         >
                           <span className="block">
-                            <MicrophoneIcon size={16} />
+                            <Mic className="size-4" />
                           </span>
                         </button>
                       </TooltipTrigger>

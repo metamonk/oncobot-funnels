@@ -23,12 +23,13 @@ import {
   AlertCircle,
   RefreshCw,
   LogIn,
+  PlusCircle,
+  User,
 } from 'lucide-react';
 import { TextUIPart, ReasoningUIPart, ToolInvocationUIPart, SourceUIPart, StepStartUIPart } from '@ai-sdk/ui-utils';
 import { MarkdownRenderer, preprocessLaTeX } from '@/components/markdown';
 import { deleteTrailingMessages } from '@/app/actions';
 import { getErrorActions, getErrorIcon, isSignInRequired, isProRequired, isRateLimited } from '@/lib/errors';
-import { PlusCircle, User } from '@phosphor-icons/react';
 
 // Define MessagePart type
 type MessagePart = TextUIPart | ReasoningUIPart | ToolInvocationUIPart | SourceUIPart | StepStartUIPart;
@@ -91,7 +92,7 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
   const getIconComponent = () => {
     switch (errorIcon) {
       case 'auth':
-        return <User className="h-4 w-4 text-blue-500 dark:text-blue-300" weight="fill" />;
+        return <User className="h-4 w-4 text-blue-500 dark:text-blue-300" />;
       case 'warning':
         return <AlertCircle className="h-4 w-4 text-orange-500 dark:text-orange-300" />;
       default:
@@ -763,7 +764,7 @@ export const Message: React.FC<MessageProps> = ({
                   className="w-full py-2.5 px-1 text-left flex justify-between items-center border-b border-border dark:border-border hover:bg-muted/50 dark:hover:bg-muted/50 transition-colors"
                 >
                   <span className="text-foreground text-sm dark:text-foreground font-normal pr-3">{question}</span>
-                  <PlusCircle size={22} className="text-primary flex-shrink-0 pr-1" />
+                  <PlusCircle className="size-[22px] text-primary flex-shrink-0 pr-1" />
                 </button>
               ))}
             </div>

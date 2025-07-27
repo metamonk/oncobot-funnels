@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getUserHealthProfile, hasCompletedHealthProfile } from '@/lib/health-profile-actions';
-import { Heart, ChartLineUp, CalendarCheck, NotePencil, Plus, Info } from '@phosphor-icons/react';
+import { Heart, TrendingUp, CalendarCheck, NotebookPen, Plus, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { calculateProgress } from '@/lib/health-profile-flow';
@@ -71,9 +71,9 @@ export function HealthProfileSection({ user }: HealthProfileSectionProps) {
             isMobile ? "w-10 h-10" : "w-12 h-12"
           )}>
             <Heart className={cn(
-              profile ? "text-primary" : "text-muted-foreground",
+              profile ? "text-primary fill-primary" : "text-muted-foreground",
               isMobile ? "w-5 h-5" : "w-6 h-6"
-            )} weight="fill" />
+            )} />
           </div>
           <div>
             <h3 className={cn("font-semibold", isMobile ? "text-base" : "text-lg")}>
@@ -163,7 +163,7 @@ export function HealthProfileSection({ user }: HealthProfileSectionProps) {
               size={isMobile ? "sm" : "default"}
               className="flex-1"
             >
-              <NotePencil className={isMobile ? "w-3.5 h-3.5 mr-1.5" : "w-4 h-4 mr-2"} />
+              <NotebookPen className={isMobile ? "w-3.5 h-3.5 mr-1.5" : "w-4 h-4 mr-2"} />
               {isComplete ? 'Update Profile' : 'Continue Profile'}
             </Button>
           </div>

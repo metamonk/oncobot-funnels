@@ -46,9 +46,12 @@ import {
   TrendingUpIcon,
   Tv,
   XCircle,
-  YoutubeIcon,
+  Youtube,
+  Brain,
+  Clock,
+  Route,
+  X,
 } from 'lucide-react';
-import { Memory, Clock as PhosphorClock, RedditLogo, RoadHorizon, XLogo } from '@phosphor-icons/react';
 
 // Type definitions for YouTube components
 interface VideoDetails {
@@ -310,7 +313,7 @@ const YouTubeCard: React.FC<YouTubeCardProps> = ({ video, index }) => {
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <YoutubeIcon className="h-8 w-8 text-red-500" />
+            <Youtube className="h-8 w-8 text-red-500" />
           </div>
         )}
         <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -745,7 +748,7 @@ const ToolInvocationListView = memo(
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950 flex items-center justify-center">
                         {place.types?.[0] === 'street_address' || place.types?.[0] === 'route' ? (
-                          <RoadHorizon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          <Route className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                         ) : place.types?.[0] === 'locality' ? (
                           <Building className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                         ) : (
@@ -837,7 +840,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'youtube_search') {
           if (!result) {
-            return <SearchLoadingState icon={YoutubeIcon} text="Searching YouTube videos..." color="red" />;
+            return <SearchLoadingState icon={Youtube} text="Searching YouTube videos..." color="red" />;
           }
 
           const youtubeResult = result as YouTubeSearchResponse;
@@ -853,7 +856,7 @@ const ToolInvocationListView = memo(
               <div className="rounded-xl overflow-hidden border dark:border-neutral-800 border-neutral-200 bg-white dark:bg-neutral-900 shadow-xs p-4 text-center">
                 <div className="flex flex-col items-center gap-3 py-6">
                   <div className="flex items-center justify-center h-12 w-12 rounded-full bg-red-50 dark:bg-red-950/30">
-                    <YoutubeIcon className="h-6 w-6 text-red-600" />
+                    <Youtube className="h-6 w-6 text-red-600" />
                   </div>
                   <div className="text-center">
                     <h2 className="text-base font-medium text-neutral-900 dark:text-neutral-100 mb-1">
@@ -878,7 +881,7 @@ const ToolInvocationListView = memo(
                   <AccordionTrigger className="px-4 py-3 hover:no-underline">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center h-9 w-9 rounded-full bg-red-50 dark:bg-red-950/30">
-                        <YoutubeIcon className="h-5 w-5 text-red-600" />
+                        <Youtube className="h-5 w-5 text-red-600" />
                       </div>
                       <div>
                         <h2 className="text-base font-medium text-neutral-900 dark:text-neutral-100 text-left">
@@ -1289,7 +1292,7 @@ const ToolInvocationListView = memo(
                           variant="secondary"
                           className="rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-0 transition-colors"
                         >
-                          <PhosphorClock className="h-3 w-3 mr-1" />
+                          <Clock className="h-3 w-3 mr-1" />
                           {new Date(result.results[0].publishedDate).toLocaleDateString()}
                         </Badge>
                       )}
@@ -1516,7 +1519,7 @@ const ToolInvocationListView = memo(
                           Current Time
                         </h3>
                         <div className="bg-neutral-100 dark:bg-neutral-800 rounded px-2 py-1 text-xs text-neutral-600 dark:text-neutral-300 font-medium flex items-center gap-1.5">
-                          <PhosphorClock weight="regular" className="h-3 w-3 text-blue-500" />
+                          <Clock className="h-3 w-3 text-blue-500" />
                           {result.timezone || new Intl.DateTimeFormat().resolvedOptions().timeZone}
                         </div>
                       </div>
@@ -1553,7 +1556,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'memory_manager') {
           if (!result) {
-            return <SearchLoadingState icon={Memory} text="Managing memories..." color="violet" />;
+            return <SearchLoadingState icon={Brain} text="Managing memories..." color="violet" />;
           }
           return <MemoryManager result={result} />;
         }
@@ -1591,7 +1594,25 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'reddit_search') {
           if (!result) {
-            return <SearchLoadingState icon={RedditLogo} text="Searching Reddit..." color="orange" />;
+            return (
+              <div className="group my-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-orange-100 dark:bg-orange-900">
+                    <svg className="h-5 w-5 text-orange-500" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-orange-900 dark:text-orange-100">Searching Reddit...</h3>
+                    <div className="flex items-center space-x-1 mt-1">
+                      <div className="h-1 w-1 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="h-1 w-1 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="h-1 w-1 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
           }
 
           return (
@@ -1603,7 +1624,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'x_search') {
           if (!result) {
-            return <SearchLoadingState icon={XLogo} text="Searching X (Twitter)..." color="gray" />;
+            return <SearchLoadingState icon={X} text="Searching X (Twitter)..." color="gray" />;
           }
 
           return (

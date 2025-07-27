@@ -14,19 +14,19 @@ import { useSession, signOut } from '@/lib/auth-client';
 import { redirect } from 'next/navigation';
 import { toast } from 'sonner';
 import {
-  SignOut,
-  SignIn,
+  LogOut,
+  LogIn,
   UserCircle,
   Bookmark,
   Eye,
-  EyeSlash,
+  EyeOff,
   Info,
   FileText,
   Shield,
   Bug,
   Sun,
-  Gear,
-} from '@phosphor-icons/react';
+  Settings,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeSwitcher } from './theme-switcher';
 import { useRouter } from 'next/navigation';
@@ -160,7 +160,7 @@ const UserProfile = memo(
                         }}
                         className="size-6 text-muted-foreground hover:text-foreground"
                       >
-                        {showEmail ? <EyeSlash size={12} /> : <Eye size={12} />}
+                        {showEmail ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
                         <span className="sr-only">{showEmail ? 'Hide email' : 'Show email'}</span>
                       </Button>
                     </div>
@@ -172,7 +172,7 @@ const UserProfile = memo(
                 <div className="flex items-center gap-2">
                   <Avatar className="size-8 shrink-0 rounded-md border border-neutral-200 dark:border-neutral-700">
                     <AvatarFallback className="rounded-md">
-                      <UserCircle size={18} />
+                      <UserCircle className="size-[18px]" />
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col min-w-0">
@@ -189,7 +189,7 @@ const UserProfile = memo(
               <>
                 <DropdownMenuItem className="cursor-pointer" onClick={() => setSettingsOpen(true)}>
                   <div className="w-full flex items-center gap-2">
-                    <Gear size={16} />
+                    <Settings className="size-4" />
                     <span>Settings</span>
                   </div>
                 </DropdownMenuItem>
@@ -199,7 +199,7 @@ const UserProfile = memo(
             <DropdownMenuItem className="cursor-pointer py-1 hover:bg-transparent!">
               <div className="flex items-center justify-between w-full px-0" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center gap-2">
-                  <Sun size={16} />
+                  <Sun className="size-4" />
                   <span className="text-sm">Theme</span>
                 </div>
                 <ThemeSwitcher />
@@ -210,19 +210,19 @@ const UserProfile = memo(
             {/* About and Information */}
             <DropdownMenuItem className="cursor-pointer" asChild>
               <Link href="/about" className="w-full flex items-center gap-2">
-                <Info size={16} />
+                <Info className="size-4" />
                 <span>About</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer" asChild>
               <Link href="/terms" className="w-full flex items-center gap-2">
-                <FileText size={16} />
+                <FileText className="size-4" />
                 <span>Terms</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer" asChild>
               <Link href="/privacy-policy" className="w-full flex items-center gap-2">
-                <Shield size={16} />
+                <Shield className="size-4" />
                 <span>Privacy</span>
               </Link>
             </DropdownMenuItem>
@@ -270,7 +270,7 @@ const UserProfile = memo(
                 }
               >
                 <span>Sign Out</span>
-                <SignOut className="size-4" />
+                <LogOut className="size-4" />
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem
@@ -281,7 +281,7 @@ const UserProfile = memo(
                 }}
               >
                 <span>Sign In</span>
-                <SignIn className="size-4" />
+                <LogIn className="size-4" />
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>

@@ -8,8 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, X, Check } from 'lucide-react';
-import { Heart } from '@phosphor-icons/react';
+import { ChevronLeft, ChevronRight, X, Check, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   getQuestionsForRegion, 
@@ -229,7 +228,7 @@ export function HealthProfileQuestionnaireModal({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Heart className="w-4 h-4 text-primary" weight="fill" />
+                <Heart className="w-4 h-4 text-primary" />
               </div>
               <DialogTitle className="text-lg sm:text-xl">Health Profile</DialogTitle>
             </div>

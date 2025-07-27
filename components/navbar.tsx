@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import React, { useState, memo, useCallback, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, GlobeHemisphereWest, Lock, Copy, Check, Share, X } from '@phosphor-icons/react';
+import { Plus, Globe, Lock, Copy, Check, Share2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { UserProfile } from '@/components/user-profile';
@@ -108,7 +108,7 @@ const Navbar = memo(
               className="ml-2 p-1 hover:bg-yellow-100 dark:hover:bg-yellow-900/50 rounded transition-colors"
               aria-label="Dismiss banner"
             >
-              <X size={16} />
+              <X className="size-4" />
             </button>
           </div>
         )}
@@ -133,7 +133,7 @@ const Navbar = memo(
                 size="sm"
                 className="rounded-lg bg-accent hover:bg-accent/80 group transition-all hover:scale-105 pointer-events-auto"
               >
-                <Plus size={16} className="group-hover:rotate-90 transition-all" />
+                <Plus className="size-4 group-hover:rotate-90 transition-all" />
                 <span className="text-sm ml-1.5 group-hover:block hidden animate-in fade-in duration-300">New</span>
               </Button>
             </Link>
@@ -166,9 +166,9 @@ const Navbar = memo(
                               </>
                             ) : (
                               <>
-                                <GlobeHemisphereWest size={16} className="text-blue-600 dark:text-blue-400" />
+                                <Globe className="size-4 text-blue-600 dark:text-blue-400" />
                                 <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Shared</span>
-                                <Copy size={14} className="ml-1 text-blue-600 dark:text-blue-400 opacity-70" />
+                                <Copy className="size-3.5 ml-1 text-blue-600 dark:text-blue-400 opacity-70" />
                               </>
                             )}
                           </Button>
@@ -185,7 +185,7 @@ const Navbar = memo(
                                   onClick={() => handleVisibilityChange('private')}
                                   disabled={isChangingVisibility}
                                 >
-                                  <Lock size={12} className="mr-1" />
+                                  <Lock className="size-3 mr-1" />
                                   Make Private
                                 </Button>
                                 <Button
@@ -221,7 +221,7 @@ const Navbar = memo(
                                 onClick={handleCopyLink}
                                 title="Copy to clipboard"
                               >
-                                {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                                {copied ? <Check className="size-3.5 text-green-500" /> : <Copy className="size-3.5" />}
                               </Button>
                             </div>
 
@@ -247,7 +247,7 @@ const Navbar = memo(
                                         .catch(console.error);
                                     }}
                                   >
-                                    <Share size={16} />
+                                    <Share2 className="size-4" />
                                   </Button>
                                 )}
                               </div>
@@ -275,7 +275,7 @@ const Navbar = memo(
                               </>
                             ) : (
                               <>
-                                <Share size={16} className="text-muted-foreground" />
+                                <Share2 className="size-4 text-muted-foreground" />
                                 <span className="text-sm font-medium text-muted-foreground">Share</span>
                               </>
                             )}
@@ -331,7 +331,7 @@ const Navbar = memo(
                                 onClick={() => handleVisibilityChange('public')}
                                 disabled={isChangingVisibility}
                               >
-                                <Share size={12} className="mr-1" />
+                                <Share2 className="size-3 mr-1" />
                                 Share
                               </Button>
                             </footer>
@@ -351,7 +351,7 @@ const Navbar = memo(
                           className="pointer-events-auto bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 opacity-80 cursor-not-allowed"
                           disabled
                         >
-                          <GlobeHemisphereWest size={16} className="text-blue-600 dark:text-blue-400" />
+                          <Globe className="size-4 text-blue-600 dark:text-blue-400" />
                           <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Shared</span>
                         </Button>
                       </TooltipTrigger>

@@ -5,12 +5,11 @@ import { ReasoningPartView, ReasoningPart } from '@/components/reasoning-part';
 import Image from 'next/image';
 import { OncoBotLogo } from '@/components/logos/oncobot-logo';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, AlertCircle, Copy } from 'lucide-react';
+import { RefreshCw, AlertCircle, Copy, Share2 } from 'lucide-react';
 import { MarkdownRenderer } from '@/components/markdown';
 import ToolInvocationListView from '@/components/tool-invocation-list-view';
 import { deleteTrailingMessages } from '@/app/actions';
 import { toast } from 'sonner';
-import { Share } from '@phosphor-icons/react';
 import { EnhancedErrorDisplay } from '@/components/message';
 
 // Define interface for part, messageIndex and partIndex objects
@@ -315,7 +314,7 @@ const Messages: React.FC<MessagesProps> = React.memo(
                         }}
                         className="h-6 !p-1 text-xs rounded-full"
                       >
-                        <Share className="h-3.5 w-3.5 mr-0.5" />
+                        <Share2 className="h-3.5 w-3.5 mr-0.5" />
                         Share
                       </Button>
                     )}

@@ -22,23 +22,11 @@ import {
   deleteCustomInstructionsAction,
 } from '@/app/actions';
 import { authClient } from '@/lib/auth-client';
-import {
-  Gear,
-  MagnifyingGlass,
-  Lightning,
-  TrendUp,
-  User,
-  ChartLineUp,
-  Memory,
-  Calendar,
-  NotePencil,
-  Heart,
-} from '@phosphor-icons/react';
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { getAllMemories, searchMemories, deleteMemory, MemoryItem } from '@/lib/memory-actions';
-import { Loader2, Search, Trash2 } from 'lucide-react';
+import { Loader2, Search, Trash2, Settings, Search as SearchIcon, Zap, TrendingUp, User, TrendingUp as ChartLineUpIcon, Brain, Calendar, NotebookPen, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
@@ -256,7 +244,7 @@ function UsageSection({ user }: any) {
           disabled={isRefreshing}
           className={isMobile ? 'h-7 px-1.5' : 'h-8 px-2'}
         >
-          {isRefreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <TrendUp className="h-3.5 w-3.5" />}
+          {isRefreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <TrendingUp className="h-3.5 w-3.5" />}
         </Button>
       </div>
 
@@ -264,7 +252,7 @@ function UsageSection({ user }: any) {
         <div className={cn('bg-muted/50 rounded-lg space-y-1', isMobile ? 'p-2.5' : 'p-3')}>
           <div className="flex items-center justify-between">
             <span className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>Today</span>
-            <MagnifyingGlass className={isMobile ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+            <SearchIcon className={isMobile ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
           </div>
           {usageLoading ? (
             <Skeleton className={cn('font-semibold', isMobile ? 'text-base h-4' : 'text-lg h-5')} />
@@ -277,7 +265,7 @@ function UsageSection({ user }: any) {
         <div className={cn('bg-muted/50 rounded-lg space-y-1', isMobile ? 'p-2.5' : 'p-3')}>
           <div className="flex items-center justify-between">
             <span className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>Extreme</span>
-            <Lightning className={isMobile ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+            <Zap className={isMobile ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
           </div>
           {usageLoading ? (
             <Skeleton className={cn('font-semibold', isMobile ? 'text-base h-4' : 'text-lg h-5')} />
@@ -646,7 +634,7 @@ function MemoriesSection() {
           </div>
         ) : displayedMemories.length === 0 ? (
           <div className="flex flex-col justify-center items-center h-32 border border-dashed rounded-lg bg-muted/20">
-            <Memory className="h-6 w-6 text-muted-foreground mb-2" />
+            <Brain className="h-6 w-6 text-muted-foreground mb-2" />
             <p className="text-sm text-muted-foreground">No memories found</p>
           </div>
         ) : (
@@ -724,9 +712,9 @@ export function SettingsDialog({
   const tabItems = [
     { value: 'profile', label: 'Account', icon: User },
     { value: 'health', label: 'Health Profile', icon: Heart },
-    { value: 'usage', label: 'Usage', icon: ChartLineUp },
-    { value: 'instructions', label: 'Customize', icon: NotePencil },
-    { value: 'memories', label: 'Memories', icon: Memory },
+    { value: 'usage', label: 'Usage', icon: ChartLineUpIcon },
+    { value: 'instructions', label: 'Customize', icon: NotebookPen },
+    { value: 'memories', label: 'Memories', icon: Brain },
   ];
 
   const contentSections = (

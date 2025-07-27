@@ -31,7 +31,7 @@ import { TextLoop } from '@/components/core/text-loop';
 import { TextShimmer } from '@/components/core/text-shimmer';
 import { OncoBotLogo } from '@/components/logos/oncobot-logo';
 import { useRouter } from 'next/navigation';
-import { GithubLogo, XLogo } from '@phosphor-icons/react';
+import { Github, X } from 'lucide-react';
 import {
   ProAccordion,
   ProAccordionItem,
@@ -191,7 +191,7 @@ export default function AboutPage() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <GithubLogo className="h-4 w-4" />
+              <Github className="h-4 w-4" />
               <span className="hidden sm:inline">GitHub</span>
             </Link>
           </nav>
@@ -717,7 +717,7 @@ export default function AboutPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <XLogo className="h-4 w-4" />
+                  <X className="h-4 w-4" />
                 </Link>
                 <Link
                   href="https://github.com/metamonk/oncobot-v3"
@@ -725,7 +725,7 @@ export default function AboutPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <GithubLogo className="h-4 w-4" />
+                  <Github className="h-4 w-4" />
                 </Link>
               </div>
             </div>

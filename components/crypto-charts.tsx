@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React, { memo, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 // UI Components
 import { Button } from '@/components/ui/button';
@@ -139,7 +139,17 @@ const SafeImage = ({
     );
   }
 
-  return <img src={src} alt={alt} className={className} onError={() => setHasError(true)} loading="lazy" />;
+  return (
+    <Image 
+      src={src} 
+      alt={alt} 
+      className={className} 
+      onError={() => setHasError(true)} 
+      width={24}
+      height={24}
+      unoptimized // Since these are external crypto icons
+    />
+  );
 };
 
 // Candlestick component

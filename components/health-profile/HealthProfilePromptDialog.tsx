@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X } from 'lucide-react';
-import { Heart } from '@phosphor-icons/react';
+import { X, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
@@ -37,7 +36,7 @@ export const HealthProfilePromptDialog = React.memo(({
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Heart className="w-4 h-4 text-primary" weight="fill" />
+                <Heart className="w-4 h-4 text-primary" />
               </div>
               <div>
                 <h2 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">

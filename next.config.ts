@@ -15,7 +15,6 @@ const nextConfig: NextConfig = {
   experimental: {
     useCache: true,
     devtoolSegmentExplorer: true,
-    optimizePackageImports: ['@phosphor-icons/react'],
     serverActions: {
       bodySizeLimit: '10mb',
     },

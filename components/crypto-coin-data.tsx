@@ -1,7 +1,7 @@
-/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React, { memo, useState } from 'react';
+import Image from 'next/image';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ExternalLink, ArrowUpRight, ArrowDownRight, Activity, AlertCircle, DollarSign } from 'lucide-react';
@@ -94,7 +94,17 @@ const SafeCoinImage = ({
     );
   }
 
-  return <img src={src} alt={alt} className={className} onError={() => setHasError(true)} loading="lazy" />;
+  return (
+    <Image 
+      src={src} 
+      alt={alt} 
+      className={className} 
+      onError={() => setHasError(true)} 
+      width={24}
+      height={24}
+      unoptimized // Since these are external crypto icons
+    />
+  );
 };
 
 // Safe link component

@@ -1,15 +1,7 @@
 // /lib/utils.ts
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Globe, Book, TelescopeIcon, DollarSign, Heart } from 'lucide-react';
-import {
-  ChatsCircleIcon,
-  CodeIcon,
-  MemoryIcon,
-  RedditLogoIcon,
-  YoutubeLogoIcon,
-  XLogoIcon,
-} from '@phosphor-icons/react/ssr';
+import { Globe, Book, TelescopeIcon, DollarSign, Heart, MessageCircle, Code, Brain, Youtube, X } from 'lucide-react';
 import { isSearchModeEnabled } from './feature-toggles';
 
 export function cn(...inputs: ClassValue[]) {
@@ -41,7 +33,7 @@ export const searchGroups = [
     id: 'memory' as const,
     name: 'Memory',
     description: 'Your personal memory companion',
-    icon: MemoryIcon,
+    icon: Brain,
     show: isSearchModeEnabled('memory'),
     requireAuth: true,
   },
@@ -49,7 +41,7 @@ export const searchGroups = [
     id: 'analysis' as const,
     name: 'Analysis',
     description: 'Code, stock and currency stuff',
-    icon: CodeIcon,
+    icon: Code,
     show: isSearchModeEnabled('analysis'),
   },
   {
@@ -63,21 +55,21 @@ export const searchGroups = [
     id: 'chat' as const,
     name: 'Chat',
     description: 'Talk to the model directly.',
-    icon: ChatsCircleIcon,
+    icon: MessageCircle,
     show: isSearchModeEnabled('chat'),
   },
   {
     id: 'x' as const,
     name: 'X',
     description: 'Search X posts',
-    icon: XLogoIcon,
+    icon: X,
     show: isSearchModeEnabled('x'),
   },
   {
     id: 'reddit' as const,
     name: 'Reddit',
     description: 'Search Reddit posts',
-    icon: RedditLogoIcon,
+    icon: Book, // Using Book icon as placeholder for Reddit
     show: isSearchModeEnabled('reddit'),
   },
   {
@@ -91,7 +83,7 @@ export const searchGroups = [
     id: 'youtube' as const,
     name: 'YouTube',
     description: 'Search YouTube videos powered by Exa',
-    icon: YoutubeLogoIcon,
+    icon: Youtube,
     show: isSearchModeEnabled('youtube'),
   },
   {
