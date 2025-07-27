@@ -491,7 +491,7 @@ describe('Clinical Trials Tool', () => {
                 nctId: 'NCT33333333',
                 briefTitle: 'Breast Cancer Trial'
               },
-              statusModule: { overallStatus: 'COMPLETED' },
+              statusModule: { overallStatus: 'NOT_YET_RECRUITING' },
               conditionsModule: { conditions: ['Breast Cancer'] },
               designModule: { phases: ['PHASE2'] }
             }

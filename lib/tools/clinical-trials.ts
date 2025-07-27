@@ -4,10 +4,19 @@ import { DataStreamWriter } from 'ai';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
 import { HealthProfile, HealthProfileResponse } from '@/lib/db/schema';
 import { serverEnv } from '@/env/server';
+import { quickEligibilityCheck, analyzeEligibilityWithAI } from './ai-eligibility-analyzer';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
 const STUDIES_ENDPOINT = `${BASE_URL}/studies`;
+
+// Only process trials with these statuses - exclude terminated/completed/suspended/withdrawn
+const VIABLE_STUDY_STATUSES = [
+  'RECRUITING',
+  'ENROLLING_BY_INVITATION', 
+  'ACTIVE_NOT_RECRUITING',
+  'NOT_YET_RECRUITING'
+] as const;
 
 // Helpful resources for users
 const CLINICAL_TRIAL_RESOURCES = [
@@ -123,16 +132,6 @@ interface SearchCriteria {
   cancerType?: string;
   stage?: string;
   molecularMarkers?: string[];
-  location?: {
-    city?: string;
-    state?: string;
-    country?: string;
-    distance?: number;
-  };
-  ageGroup?: string;
-  sex?: string;
-  phases?: string[];
-  recruitmentStatus?: string[];
 }
 
 interface TrialMatch {
@@ -418,49 +417,30 @@ function buildSearchQuery(criteria: SearchCriteria): string {
   const queryParts: string[] = [];
   
   if (criteria.condition) {
-    // Simplify condition - just use the first meaningful term
+    // Use ONLY the main cancer type, not all the OR variations
     const conditionTerms = criteria.condition.split(' OR ');
     if (conditionTerms.length > 0) {
-      // Extract the main cancer type from the mapping
+      // Extract just the first/main term
       const mainTerm = conditionTerms[0].replace(/[()]/g, '').trim();
       queryParts.push(mainTerm);
     }
   }
   
-  if (criteria.cancerType && criteria.cancerType !== 'OTHER' && criteria.cancerType !== 'UNKNOWN') {
-    // Clean up the cancer type for search
+  // Don't add cancer type if it's too similar to condition (avoid redundancy)
+  if (criteria.cancerType && 
+      criteria.cancerType !== 'OTHER' && 
+      criteria.cancerType !== 'UNKNOWN' &&
+      !queryParts.some(part => part.toLowerCase().includes(criteria.cancerType.toLowerCase()))) {
     const cleanType = criteria.cancerType
       .replace(/_/g, ' ')
       .toLowerCase();
     queryParts.push(cleanType);
   }
   
-  if (criteria.stage) {
-    // Simplify stage mapping - use just the main term
-    const stageMapping: Record<string, string> = {
-      'STAGE_I': 'stage 1',
-      'STAGE_II': 'stage 2',
-      'STAGE_III': 'stage 3',
-      'STAGE_IV': 'stage 4',
-      'RECURRENT': 'recurrent',
-      'UNKNOWN': ''
-    };
-    
-    const stageQuery = stageMapping[criteria.stage];
-    if (stageQuery) {
-      queryParts.push(stageQuery);
-    }
-  }
+  // REMOVED: Stage from search query (use for eligibility analysis instead)
+  // REMOVED: Molecular markers from search query (use for eligibility analysis instead)
   
-  if (criteria.molecularMarkers && criteria.molecularMarkers.length > 0) {
-    // Just add the first molecular marker if present
-    if (criteria.molecularMarkers[0]) {
-      const marker = criteria.molecularMarkers[0].replace(/_/g, ' ').toLowerCase();
-      queryParts.push(marker);
-    }
-  }
-  
-  // Join with spaces instead of AND - let the API handle the search
+  // Return a simpler, broader search query
   return queryParts.join(' ');
 }
 
@@ -474,116 +454,149 @@ function calculateMatchScore(
   
   if (!profile) return score;
   
-  // Check condition matches (40 points)
+  const trialText = JSON.stringify(trial).toLowerCase();
+  const eligibilityCriteria = trial.protocolSection.eligibilityModule?.eligibilityCriteria?.toLowerCase() || '';
+  
+  // Check condition matches (50 points - increased importance)
   const conditions = trial.protocolSection.conditionsModule?.conditions || [];
   const conditionText = conditions.join(' ').toLowerCase();
   
-  if (criteria.condition) {
-    const searchTerms = criteria.condition.toLowerCase().split(' OR ');
-    if (searchTerms.some(term => conditionText.includes(term.trim()))) {
-      score += 40;
+  // Exact cancer type match
+  if (profile.cancerType && conditionText.includes(profile.cancerType.toLowerCase().replace(/_/g, ' '))) {
+    score += 50;
+  } else if (criteria.condition) {
+    // Partial match on cancer region
+    const mainCondition = criteria.condition.split(' OR ')[0].trim().toLowerCase();
+    if (conditionText.includes(mainCondition)) {
+      score += 30;
     }
   }
   
-  // Check molecular marker matches (30 points)
+  // Stage compatibility (20 points)
+  if (profile.diseaseStage && eligibilityCriteria) {
+    const stageText = profile.diseaseStage.replace(/_/g, ' ').toLowerCase();
+    // Check if trial accepts this stage
+    if (eligibilityCriteria.includes(stageText) || 
+        eligibilityCriteria.includes('stage') && !eligibilityCriteria.includes('exclude ' + stageText)) {
+      score += 20;
+    }
+  }
+  
+  // Molecular marker relevance (15 points) - reduced from 30
   if (criteria.molecularMarkers && criteria.molecularMarkers.length > 0) {
-    const trialText = JSON.stringify(trial).toLowerCase();
-    const matchedMarkers = criteria.molecularMarkers.filter(marker => 
-      trialText.includes(marker.toLowerCase().replace(/_/g, ' '))
-    );
+    const relevantMarkers = criteria.molecularMarkers.filter(marker => {
+      const markerLower = marker.toLowerCase().replace(/_/g, ' ');
+      // Check if mentioned in eligibility criteria OR intervention
+      return eligibilityCriteria.includes(markerLower) || 
+             (trial.protocolSection.armsInterventionsModule?.interventions?.some(
+               intervention => intervention.description?.toLowerCase().includes(markerLower)
+             ));
+    });
     
-    if (matchedMarkers.length > 0) {
-      score += Math.min(30, matchedMarkers.length * 10);
+    if (relevantMarkers.length > 0) {
+      score += 15;
     }
   }
   
-  // Check phase preference (10 points) - Phase II and III preferred
+  // Phase preference (10 points) - Phase II and III preferred
   const phases = trial.protocolSection.designModule?.phases || [];
   if (phases.includes('PHASE2') || phases.includes('PHASE3') || 
       phases.includes('PHASE2_PHASE3')) {
     score += 10;
   }
   
-  // Check recruitment status (20 points)
+  // Recruitment status scoring (10 points max)
   const status = trial.protocolSection.statusModule.overallStatus;
-  if (status === 'RECRUITING' || status === 'ENROLLING_BY_INVITATION') {
-    score += 20;
+  switch (status) {
+    case 'RECRUITING':
+      score += 10; // Highest priority - actively recruiting
+      break;
+    case 'ENROLLING_BY_INVITATION':
+      score += 7; // Good - but needs invitation
+      break;
+    case 'NOT_YET_RECRUITING':
+      score += 4; // Future opportunity
+      break;
+    case 'ACTIVE_NOT_RECRUITING':
+      score += 2; // Lowest priority - not taking new patients
+      break;
+    // All other statuses are already filtered out
   }
   
   return score;
 }
 
-// Analyze eligibility criteria
-function analyzeEligibility(
+// Analyze eligibility criteria using AI
+async function analyzeEligibility(
   trial: ClinicalTrial,
   profile: HealthProfile | null,
   responses: HealthProfileResponse[]
-): TrialMatch['eligibilityAnalysis'] {
-  const analysis = {
-    likelyEligible: true,
-    inclusionMatches: [] as string[],
-    exclusionConcerns: [] as string[],
-    uncertainFactors: [] as string[]
-  };
-  
+): Promise<TrialMatch['eligibilityAnalysis']> {
+  // If no profile, return basic analysis
   if (!profile) {
-    analysis.likelyEligible = false;
-    analysis.uncertainFactors.push('No health profile available');
-    return analysis;
+    return {
+      likelyEligible: false,
+      inclusionMatches: [],
+      exclusionConcerns: [],
+      uncertainFactors: ['No health profile available for personalized eligibility assessment']
+    };
   }
   
   const eligibilityCriteria = trial.protocolSection.eligibilityModule?.eligibilityCriteria || '';
-  const criteriaLower = eligibilityCriteria.toLowerCase();
   
-  // Check for common inclusion criteria
-  if (profile.cancerRegion && criteriaLower.includes(profile.cancerRegion.toLowerCase())) {
-    analysis.inclusionMatches.push(`Matches cancer region: ${profile.cancerRegion}`);
+  // If no eligibility criteria text, fall back to basic info
+  if (!eligibilityCriteria) {
+    return {
+      likelyEligible: false,
+      inclusionMatches: [],
+      exclusionConcerns: [],
+      uncertainFactors: ['No detailed eligibility criteria available for this trial']
+    };
   }
   
-  if (profile.diseaseStage && criteriaLower.includes(profile.diseaseStage.replace(/_/g, ' ').toLowerCase())) {
-    analysis.inclusionMatches.push(`Matches disease stage: ${profile.diseaseStage}`);
-  }
-  
-  // Check molecular markers
-  if (profile.molecularMarkers) {
-    Object.entries(profile.molecularMarkers).forEach(([key, value]) => {
-      if (value && key !== 'testingStatus' && criteriaLower.includes(key.toLowerCase())) {
-        analysis.inclusionMatches.push(`Has molecular marker: ${key}`);
+  try {
+    // Use AI for comprehensive eligibility analysis
+    const aiAnalysis = await quickEligibilityCheck(eligibilityCriteria, profile);
+    return aiAnalysis;
+  } catch (error) {
+    console.error('AI eligibility check failed, using fallback:', error);
+    
+    // Fallback to simple keyword matching if AI fails
+    const analysis = {
+      likelyEligible: true,
+      inclusionMatches: [] as string[],
+      exclusionConcerns: [] as string[],
+      uncertainFactors: [] as string[]
+    };
+    
+    const criteriaLower = eligibilityCriteria.toLowerCase();
+    
+    // Basic keyword matching as fallback
+    if (profile.cancerRegion && criteriaLower.includes(profile.cancerRegion.toLowerCase())) {
+      analysis.inclusionMatches.push(`Matches cancer region: ${profile.cancerRegion}`);
+    }
+    
+    if (profile.diseaseStage && criteriaLower.includes(profile.diseaseStage.replace(/_/g, ' ').toLowerCase())) {
+      analysis.inclusionMatches.push(`Matches disease stage: ${profile.diseaseStage}`);
+    }
+    
+    // Check for common exclusions
+    if (profile.treatmentHistory) {
+      const treatments = profile.treatmentHistory as Record<string, any>;
+      if (treatments.chemotherapy === 'YES' && criteriaLower.includes('no prior chemotherapy')) {
+        analysis.exclusionConcerns.push('Prior chemotherapy may be exclusionary');
       }
-    });
-  }
-  
-  // Check for common exclusion criteria
-  if (profile.treatmentHistory) {
-    const treatments = profile.treatmentHistory as Record<string, any>;
-    if (treatments.chemotherapy === 'YES' && criteriaLower.includes('no prior chemotherapy')) {
-      analysis.exclusionConcerns.push('Prior chemotherapy may be exclusionary');
     }
-    if (treatments.immunotherapy === 'YES' && criteriaLower.includes('no prior immunotherapy')) {
-      analysis.exclusionConcerns.push('Prior immunotherapy may be exclusionary');
+    
+    // Set eligibility based on findings
+    if (analysis.exclusionConcerns.length > 0) {
+      analysis.likelyEligible = false;
+    } else if (analysis.inclusionMatches.length === 0) {
+      analysis.uncertainFactors.push('Unable to determine eligibility - please review criteria');
     }
-    if (treatments.targetedTherapy === 'YES' && (criteriaLower.includes('no prior targeted therapy') || criteriaLower.includes('no prior egfr'))) {
-      analysis.exclusionConcerns.push('Prior targeted therapy may be exclusionary');
-    }
+    
+    return analysis;
   }
-  
-  // Performance status check
-  if (profile.performanceStatus) {
-    const ecogMatch = criteriaLower.match(/ecog\s*[0-9]/);
-    if (ecogMatch) {
-      analysis.inclusionMatches.push(`Performance status documented: ${profile.performanceStatus}`);
-    }
-  }
-  
-  // Determine overall eligibility
-  if (analysis.exclusionConcerns.length > 0) {
-    analysis.likelyEligible = false;
-  } else if (analysis.inclusionMatches.length === 0) {
-    analysis.likelyEligible = false;
-    analysis.uncertainFactors.push('No clear matching criteria found');
-  }
-  
-  return analysis;
 }
 
 // Type for the tool function return
@@ -619,14 +632,10 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
           'RECRUITING',
           'ENROLLING_BY_INVITATION',
           'ACTIVE_NOT_RECRUITING',
-          'NOT_YET_RECRUITING',
-          'SUSPENDED',
-          'TERMINATED',
-          'COMPLETED',
-          'WITHDRAWN'
+          'NOT_YET_RECRUITING'
         ]))
           .optional()
-          .describe('Study recruitment statuses to include'),
+          .describe('Study recruitment statuses to include (only viable statuses)'),
         studyType: z.array(z.enum([
           'INTERVENTIONAL',
           'OBSERVATIONAL',
@@ -715,22 +724,18 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
               apiParams.append('query.intr', params.intervention);
             }
             
-            // Add molecular markers as interventions if from profile
-            if (searchCriteria.molecularMarkers && searchCriteria.molecularMarkers.length > 0) {
-              const markerQuery = searchCriteria.molecularMarkers
-                .map(m => m.replace(/_/g, ' '))
-                .join(' OR ');
-              if (!params.intervention) {
-                apiParams.append('query.intr', markerQuery);
-              }
-            }
+            // REMOVED: Don't add molecular markers to search query
+            // They should be used for eligibility analysis AFTER finding trials
             
-            // Set study status filter
+            // Set study status filter - ALWAYS exclude non-viable statuses
+            const viableStatuses = ['RECRUITING', 'ENROLLING_BY_INVITATION', 'ACTIVE_NOT_RECRUITING', 'NOT_YET_RECRUITING'];
+            
             if (params.studyStatus && params.studyStatus.length > 0) {
+              // Use user-specified statuses (already limited to viable ones by schema)
               apiParams.append('filter.overallStatus', params.studyStatus.join(','));
             } else {
-              // Default to recruiting studies
-              apiParams.append('filter.overallStatus', 'RECRUITING,ENROLLING_BY_INVITATION,ACTIVE_NOT_RECRUITING');
+              // Default to all viable statuses
+              apiParams.append('filter.overallStatus', viableStatuses.join(','));
             }
             
             // Add study type filter
@@ -893,18 +898,20 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
             const trials = data.studies || [];
             
             // Rank and analyze trials
-            const matches: TrialMatch[] = trials.map((study: any) => {
-              const trial: ClinicalTrial = study;
-              const score = calculateMatchScore(trial, profile, searchCriteria);
-              const eligibility = analyzeEligibility(trial, profile, responses);
-              
-              return {
-                trial,
-                matchScore: score,
-                matchingCriteria: eligibility.inclusionMatches,
-                eligibilityAnalysis: eligibility
-              };
-            });
+            const matches: TrialMatch[] = await Promise.all(
+              trials.map(async (study: any) => {
+                const trial: ClinicalTrial = study;
+                const score = calculateMatchScore(trial, profile, searchCriteria);
+                const eligibility = await analyzeEligibility(trial, profile, responses);
+                
+                return {
+                  trial,
+                  matchScore: score,
+                  matchingCriteria: eligibility.inclusionMatches,
+                  eligibilityAnalysis: eligibility
+                };
+              })
+            );
             
             // Sort by match score
             matches.sort((a, b) => b.matchScore - a.matchScore);
@@ -917,7 +924,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
               const broaderParams = new URLSearchParams({
                 'pageSize': '10',
                 'query.cond': 'cancer', // Simplest possible search
-                'filter.overallStatus': 'RECRUITING,ENROLLING_BY_INVITATION',
+                'filter.overallStatus': viableStatuses.join(','), // Use all viable statuses
                 'countTotal': 'true'
               });
               
@@ -928,17 +935,14 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
                   const broaderTrials = broaderData.studies || [];
                   
                   if (broaderTrials.length > 0) {
-                    const broaderMatches = broaderTrials.map((study: any) => ({
-                      trial: study,
-                      matchScore: 0,
-                      matchingCriteria: ['General cancer trial'],
-                      eligibilityAnalysis: {
-                        likelyEligible: false,
-                        inclusionMatches: [],
-                        exclusionConcerns: [],
-                        uncertainFactors: ['No specific matching criteria available']
-                      }
-                    }));
+                    const broaderMatches = await Promise.all(
+                      broaderTrials.map(async (study: any) => ({
+                        trial: study,
+                        matchScore: 0,
+                        matchingCriteria: ['General cancer trial'],
+                        eligibilityAnalysis: await analyzeEligibility(study, profile, responses)
+                      }))
+                    );
                     
                     // Apply optimization to broader matches too
                     const userLat = params.location?.lat;
@@ -1074,7 +1078,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
             try {
               const profileData = await getUserHealthProfile();
               if (profileData) {
-                eligibilityAnalysis = analyzeEligibility(trial, profileData.profile, profileData.responses);
+                eligibilityAnalysis = await analyzeEligibility(trial, profileData.profile, profileData.responses);
               }
             } catch (error) {
               console.log('Could not analyze eligibility without health profile');
@@ -1123,31 +1127,73 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
             }
             
             const trial: ClinicalTrial = trials[0];
-            const eligibility = analyzeEligibility(trial, profileData.profile, profileData.responses);
             
-            // Parse eligibility criteria into structured format
-            const criteriaText = trial.protocolSection.eligibilityModule?.eligibilityCriteria || '';
-            const inclusionSection = criteriaText.match(/inclusion criteria:?(.*?)(?:exclusion criteria:|$)/is);
-            const exclusionSection = criteriaText.match(/exclusion criteria:?(.*?)$/is);
+            // Get comprehensive AI analysis for dedicated eligibility check
+            const eligibilityCriteria = trial.protocolSection.eligibilityModule?.eligibilityCriteria || '';
+            const trialTitle = trial.protocolSection.identificationModule.briefTitle;
+            const phases = trial.protocolSection.designModule?.phases || [];
             
-            const inclusionCriteria = inclusionSection ? 
-              inclusionSection[1].split(/\n|;|\d+\./).filter(c => c.trim().length > 5) : [];
-            const exclusionCriteria = exclusionSection ? 
-              exclusionSection[1].split(/\n|;|\d+\./).filter(c => c.trim().length > 5) : [];
-            
-            return {
-              success: true,
-              trialId: trialId,
-              trialTitle: trial.protocolSection.identificationModule.briefTitle,
-              eligibilityAnalysis: eligibility,
-              detailedCriteria: {
-                inclusion: inclusionCriteria.map(c => c.trim()),
-                exclusion: exclusionCriteria.map(c => c.trim())
-              },
-              recommendation: eligibility.likelyEligible ? 
-                'Based on your health profile, you appear to meet the basic eligibility criteria for this trial. However, final eligibility must be determined by the trial team.' :
-                'Based on your health profile, there may be some eligibility concerns. Please discuss with your healthcare provider or the trial team.'
-            };
+            try {
+              // Use comprehensive AI analysis for dedicated eligibility checks
+              const comprehensiveAnalysis = await analyzeEligibilityWithAI(
+                eligibilityCriteria,
+                trialTitle,
+                phases,
+                profileData.profile,
+                profileData.responses
+              );
+              
+              return {
+                success: true,
+                trialId: trialId,
+                trialTitle: trialTitle,
+                comprehensiveAnalysis: comprehensiveAnalysis,
+                // Keep backward compatibility
+                eligibilityAnalysis: {
+                  likelyEligible: comprehensiveAnalysis.overallAssessment !== 'likely_not_eligible',
+                  inclusionMatches: comprehensiveAnalysis.keyMatchFactors,
+                  exclusionConcerns: comprehensiveAnalysis.keyConcerns,
+                  uncertainFactors: comprehensiveAnalysis.missingInformation.map(m => m.dataPoint)
+                },
+                detailedCriteria: {
+                  inclusion: comprehensiveAnalysis.inclusionCriteria.map(c => c.criterion),
+                  exclusion: comprehensiveAnalysis.exclusionCriteria.map(c => c.criterion)
+                },
+                recommendation: comprehensiveAnalysis.recommendation.primaryMessage,
+                nextSteps: comprehensiveAnalysis.recommendation.nextSteps,
+                questionsForDoctor: comprehensiveAnalysis.recommendation.questionsForDoctor,
+                patientExplanation: comprehensiveAnalysis.explanationForPatient
+              };
+            } catch (aiError) {
+              console.error('Comprehensive AI analysis failed, using quick check:', aiError);
+              
+              // Fall back to quick eligibility check
+              const eligibility = await analyzeEligibility(trial, profileData.profile, profileData.responses);
+              
+              // Parse eligibility criteria into structured format
+              const criteriaText = trial.protocolSection.eligibilityModule?.eligibilityCriteria || '';
+              const inclusionSection = criteriaText.match(/inclusion criteria:?(.*?)(?:exclusion criteria:|$)/is);
+              const exclusionSection = criteriaText.match(/exclusion criteria:?(.*?)$/is);
+              
+              const inclusionCriteria = inclusionSection ? 
+                inclusionSection[1].split(/\n|;|\d+\./).filter(c => c.trim().length > 5) : [];
+              const exclusionCriteria = exclusionSection ? 
+                exclusionSection[1].split(/\n|;|\d+\./).filter(c => c.trim().length > 5) : [];
+              
+              return {
+                success: true,
+                trialId: trialId,
+                trialTitle: trial.protocolSection.identificationModule.briefTitle,
+                eligibilityAnalysis: eligibility,
+                detailedCriteria: {
+                  inclusion: inclusionCriteria.map(c => c.trim()),
+                  exclusion: exclusionCriteria.map(c => c.trim())
+                },
+                recommendation: eligibility.likelyEligible ? 
+                  'Based on your health profile, you appear to meet the basic eligibility criteria for this trial. However, final eligibility must be determined by the trial team.' :
+                  'Based on your health profile, there may be some eligibility concerns. Please discuss with your healthcare provider or the trial team.'
+              };
+            }
           }
           
           case 'refine': {

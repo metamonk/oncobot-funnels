@@ -250,7 +250,7 @@ async function main() {
         condition: 'melanoma',
         intervention: 'pembrolizumab',
         phases: ['PHASE2', 'PHASE3'],
-        studyStatus: ['RECRUITING', 'ENROLLING_BY_INVITATION'],
+        // studyStatus is now optional - defaults to viable statuses only
         studyType: ['INTERVENTIONAL'],
         funderType: ['NIH', 'INDUSTRY'],
         maxResults: 10
