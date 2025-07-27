@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,9 @@ import {
   Phone,
   Mail,
   Building2,
-  FlaskConical
+  FlaskConical,
+  Copy,
+  Check
 } from 'lucide-react';
 
 interface ClinicalTrialResult {
@@ -73,6 +75,37 @@ interface ClinicalTrialResult {
 interface ClinicalTrialsProps {
   result: ClinicalTrialResult;
   action: 'search' | 'details' | 'eligibility_check';
+}
+
+// Component for NCT ID badge with copy functionality
+function NCTBadge({ nctId }: { nctId: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(nctId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <Badge 
+      variant="outline" 
+      className="text-xs cursor-pointer flex items-center gap-1 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+      onClick={handleCopy}
+    >
+      {nctId}
+      {copied ? (
+        <Check className="h-3 w-3 text-green-600" />
+      ) : (
+        <Copy className="h-3 w-3" />
+      )}
+    </Badge>
+  );
 }
 
 export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) {
@@ -236,9 +269,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                         {trial.identificationModule.briefTitle}
                       </CardTitle>
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="outline" className="text-xs">
-                          {trial.identificationModule.nctId}
-                        </Badge>
+                        <NCTBadge nctId={trial.identificationModule.nctId} />
                         <Badge 
                           variant={trial.statusModule.overallStatus === 'RECRUITING' ? 'default' : 'secondary'}
                           className="text-xs"
@@ -449,7 +480,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
           <div className="space-y-2">
             <CardTitle className="text-base">{trial.identificationModule.briefTitle}</CardTitle>
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">{trial.identificationModule.nctId}</Badge>
+              <NCTBadge nctId={trial.identificationModule.nctId} />
               <Badge 
                 variant={trial.statusModule.overallStatus === 'RECRUITING' ? 'default' : 'secondary'}
               >
@@ -731,7 +762,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
       <Card className="w-full my-4">
         <CardHeader>
           <CardTitle className="text-base">Eligibility Check: {result.trialTitle}</CardTitle>
-          <Badge variant="outline">{result.trialId}</Badge>
+          {result.trialId && <NCTBadge nctId={result.trialId} />}
         </CardHeader>
         <CardContent className="space-y-4">
           <div className={`p-4 rounded-lg ${
