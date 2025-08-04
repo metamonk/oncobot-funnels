@@ -272,7 +272,7 @@ const TMDBResult = ({ result }: TMDBResultProps) => {
         <Dialog open={showDetails} onOpenChange={setShowDetails}>
           <DialogContent className="max-w-3xl! p-0 overflow-hidden font-sans">
             <VisuallyHidden>
-              <DialogTitle>{displayTitle} Details</DialogTitle>
+              <DialogTitle>{media.title || media.name || 'Media'} Details</DialogTitle>
             </VisuallyHidden>
             <DetailContent />
           </DialogContent>
