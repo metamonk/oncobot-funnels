@@ -98,13 +98,13 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
     case 'unauthorized:model':
       return 'You need to sign in to access this AI model.';
     case 'forbidden:model':
-      return 'This AI model requires a Pro subscription.';
+      return 'You need to sign in to access this AI model.';
     case 'model_restricted:model':
-      return 'Access to this AI model is restricted. Please upgrade to Pro or contact support.';
+      return 'Access to this AI model is restricted. Please contact support.';
     case 'upgrade_required:model':
-      return 'This premium AI model is only available with a Pro subscription.';
+      return 'You need to sign in to access this AI model.';
     case 'rate_limit:model':
-      return 'You have reached the usage limit for this AI model. Upgrade to Pro for unlimited access.';
+      return 'You have reached the usage limit for this AI model. Please try again later.';
 
     case 'forbidden:api':
       return 'Access denied';

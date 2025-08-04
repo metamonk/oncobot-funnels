@@ -4,7 +4,10 @@ import { useCallback } from 'react';
 
 declare global {
   interface Window {
-    plausible?: (event: string, options?: { props: Record<string, any> }) => void;
+    plausible?: (event: string, options?: { 
+      props?: Record<string, any>;
+      revenue?: { currency: string; amount: number };
+    }) => void;
   }
 }
 
@@ -15,10 +18,31 @@ interface TrialAnalytics {
   recruitment_status?: string;
 }
 
+// Revenue values for different events (in USD)
+const REVENUE_VALUES = {
+  'Contact Initiated': 75,
+  'Eligibility Check': 25,
+  'Health Profile Completed': 20,
+  'Contact Info Viewed': 15,
+  'External Trial View': 10,
+  'Trial View': 5,
+  'Contact Method Clicked': 50,
+} as const;
+
 export function useAnalytics() {
   const trackEvent = useCallback((eventName: string, props?: Record<string, any>) => {
     if (typeof window !== 'undefined' && window.plausible) {
-      window.plausible(eventName, props ? { props } : undefined);
+      const options: any = props ? { props } : {};
+      
+      // Add revenue if this is a revenue-tracked event
+      if (eventName in REVENUE_VALUES) {
+        options.revenue = {
+          currency: 'USD',
+          amount: REVENUE_VALUES[eventName as keyof typeof REVENUE_VALUES]
+        };
+      }
+      
+      window.plausible(eventName, Object.keys(options).length > 0 ? options : undefined);
     }
   }, []);
 
@@ -44,11 +68,12 @@ export function useAnalytics() {
     });
   }, [trackEvent]);
 
-  const trackContactInitiated = useCallback((trialId: string, method: 'phone' | 'email', facility?: string) => {
+  const trackContactInitiated = useCallback((trialId: string, method: 'phone' | 'email', facility?: string, contactValue?: string) => {
     trackEvent('Contact Initiated', {
       trial_id: trialId,
       method,
-      ...(facility && { facility })
+      ...(facility && { facility }),
+      ...(contactValue && { contact_value: contactValue })
     });
   }, [trackEvent]);
 
@@ -64,6 +89,12 @@ export function useAnalytics() {
     trackEvent('Health Profile Completed', {
       ...(cancerRegion && { cancer_region: cancerRegion }),
       ...(stage && { stage })
+    });
+  }, [trackEvent]);
+
+  const trackHealthProfileSkipped = useCallback(() => {
+    trackEvent('Health Profile Skipped', {
+      timestamp: new Date().toISOString()
     });
   }, [trackEvent]);
 
@@ -84,6 +115,7 @@ export function useAnalytics() {
     trackContactInitiated,
     trackEligibilityCheck,
     trackHealthProfileCompleted,
+    trackHealthProfileSkipped,
     trackTrialSearch
   };
 }

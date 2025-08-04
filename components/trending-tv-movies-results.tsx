@@ -3,7 +3,8 @@ import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Film, Tv, Star, Calendar, ChevronRight, X } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 
 interface TrendingItem {
@@ -131,7 +132,12 @@ const TrendingResults = ({ result, type }: TrendingResultsProps) => {
 
     return (
       <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
-        <DialogContent className="max-w-3xl! p-0 overflow-hidden">{content}</DialogContent>
+        <DialogContent className="max-w-3xl! p-0 overflow-hidden">
+          <VisuallyHidden>
+            <DialogTitle>{selectedItem?.title || selectedItem?.name || 'Media'} Details</DialogTitle>
+          </VisuallyHidden>
+          {content}
+        </DialogContent>
       </Dialog>
     );
   };

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { signIn } from '@/lib/auth-client';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -106,7 +106,7 @@ export function SignInPromptDialog({ open, onOpenChange }: SignInPromptDialogPro
       <DialogContent className="sm:max-w-[360px] p-6 gap-0 border border-neutral-200 dark:border-neutral-800 rounded-lg">
         {/* Compact Header */}
         <div className="mb-6">
-          <h2 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-1">Sign in to continue</h2>
+          <DialogTitle className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-1">Sign in to continue</DialogTitle>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">Save conversations and sync across devices</p>
         </div>
 

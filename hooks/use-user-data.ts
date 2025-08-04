@@ -4,7 +4,6 @@ import { User } from '@/lib/db/schema';
 
 export type UserWithProStatus = User & {
   isProUser: boolean;
-  subscriptionData?: any;
 };
 
 // Hook for user data
@@ -39,11 +38,10 @@ export function useProUserStatus() {
 
   return {
     user: (user || null) as UserWithProStatus | null,
-    subscriptionData: user?.subscriptionData,
     isProUser: Boolean(user?.isProUser),
     isLoading: Boolean(userLoading),
-    // Pro users should never see limit checks
-    shouldCheckLimits: !userLoading && user && !user.isProUser,
+    // All authenticated users have full access
+    shouldCheckLimits: false,
   };
 }
 

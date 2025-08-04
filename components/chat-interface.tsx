@@ -94,7 +94,6 @@ const ChatInterface = memo(
 
     const {
       user,
-      subscriptionData,
       isProUser: isUserPro,
       isLoading: proStatusLoading,
       shouldCheckLimits: shouldCheckUserLimits,
@@ -592,7 +591,6 @@ const ChatInterface = memo(
                 <FormComponent
                   chatId={chatId}
                   user={user!}
-                  subscriptionData={subscriptionData}
                   input={input}
                   setInput={setInput}
                   attachments={chatState.attachments}

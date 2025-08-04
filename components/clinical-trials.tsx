@@ -367,7 +367,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                               className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                trackContactInitiated(trial.identificationModule.nctId, 'phone');
+                                trackContactInitiated(trial.identificationModule.nctId, 'phone', undefined, contact.phone);
                               }}
                             >
                               <Phone className="h-3 w-3" />
@@ -380,7 +380,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                               className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                trackContactInitiated(trial.identificationModule.nctId, 'email');
+                                trackContactInitiated(trial.identificationModule.nctId, 'email', undefined, contact.email);
                               }}
                             >
                               <Mail className="h-3 w-3" />
@@ -532,7 +532,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                                       href={`tel:${contact.phone}`}
                                       className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                                       onClick={() => {
-                                        trackContactInitiated(trial.identificationModule.nctId, 'phone');
+                                        trackContactInitiated(trial.identificationModule.nctId, 'phone', undefined, contact.phone);
                                       }}
                                     >
                                       <Phone className="h-3 w-3" />
@@ -544,7 +544,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                                       href={`mailto:${contact.email}`}
                                       className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                                       onClick={() => {
-                                        trackContactInitiated(trial.identificationModule.nctId, 'email');
+                                        trackContactInitiated(trial.identificationModule.nctId, 'email', undefined, contact.email);
                                       }}
                                     >
                                       <Mail className="h-3 w-3" />
@@ -840,7 +840,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                           href={`tel:${contact.phone}`}
                           className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                           onClick={() => {
-                            trackContactInitiated(trial.identificationModule.nctId, 'phone', trial.contactsLocationsModule?.locations?.[0]?.facility);
+                            trackContactInitiated(trial.identificationModule.nctId, 'phone', trial.contactsLocationsModule?.locations?.[0]?.facility, contact.phone);
                           }}
                         >
                           <Phone className="h-3 w-3" />
@@ -852,7 +852,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                           href={`mailto:${contact.email}`}
                           className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                           onClick={() => {
-                            trackContactInitiated(trial.identificationModule.nctId, 'email', trial.contactsLocationsModule?.locations?.[0]?.facility);
+                            trackContactInitiated(trial.identificationModule.nctId, 'email', trial.contactsLocationsModule?.locations?.[0]?.facility, contact.email);
                           }}
                         >
                           <Mail className="h-3 w-3" />

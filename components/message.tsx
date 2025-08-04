@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { toast } from 'sonner';
 import {
   ArrowRight,
@@ -548,7 +549,7 @@ export const Message: React.FC<MessageProps> = ({
                         !isExpanded && exceedsMaxHeight ? 'max-h-[100px]' : ''
                       }`}
                     >
-                      <MarkdownRenderer content={preprocessLaTeX(message.content)} />
+                      <MarkdownRenderer content={preprocessLaTeX(message.content)} responseContext={`message_${message.id}`} />
 
                       {!isExpanded && exceedsMaxHeight && (
                         <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent pointer-events-none" />
@@ -651,7 +652,7 @@ export const Message: React.FC<MessageProps> = ({
                     !isExpanded && exceedsMaxHeight ? 'max-h-[100px]' : ''
                   }`}
                 >
-                  <MarkdownRenderer content={preprocessLaTeX(message.content)} />
+                  <MarkdownRenderer content={preprocessLaTeX(message.content)} responseContext={`message_${message.id}`} />
 
                   {!isExpanded && exceedsMaxHeight && (
                     <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent pointer-events-none" />
@@ -877,6 +878,9 @@ export const EditableAttachmentsBadge = ({
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="p-0 bg-background dark:bg-background sm:max-w-3xl w-[90vw] max-h-[85vh] overflow-hidden">
+          <VisuallyHidden>
+            <DialogTitle>Image Viewer</DialogTitle>
+          </VisuallyHidden>
           <div className="flex flex-col h-full max-h-[85vh]">
             <header className="p-2 border-b border-border dark:border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1162,6 +1166,9 @@ export const AttachmentsBadge = ({ attachments }: { attachments: any[] }) => {
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="p-0 bg-background dark:bg-background sm:max-w-3xl w-[90vw] max-h-[85vh] overflow-hidden">
+          <VisuallyHidden>
+            <DialogTitle>Image Viewer</DialogTitle>
+          </VisuallyHidden>
           <div className="flex flex-col h-full max-h-[85vh]">
             <header className="p-2 border-b border-border dark:border-border flex items-center justify-between">
               <div className="flex items-center gap-2">

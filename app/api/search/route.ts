@@ -146,7 +146,7 @@ export async function POST(req: Request) {
     criticalChecksPromise = Promise.resolve({
       canProceed: true,
       messageCount: 0, // No longer tracked for limits
-      isProUser: false, // Pro system removed
+      isProUser: true, // All authenticated users have full access
       subscriptionData: null, // No subscriptions
       shouldBypassLimits: true, // All auth users bypass limits
       extremeSearchUsage: 0, // No longer tracked

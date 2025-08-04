@@ -14,7 +14,8 @@ import {
   getAcceptedFileTypes,
 } from '@/ai/providers';
 import { X, Check, ChevronsUpDown, Globe, Lock, Mic, Cpu, Upload } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { cn, SearchGroup, SearchGroupId, searchGroups } from '@/lib/utils';
 import { isSearchModeEnabled } from '@/lib/feature-toggles';
 import { UIMessage } from '@ai-sdk/ui-utils';
@@ -34,7 +35,6 @@ interface ModelSwitcherProps {
   messages: Array<Message>;
   status: 'submitted' | 'streaming' | 'ready' | 'error';
   onModelSelect?: (model: (typeof models)[0]) => void;
-  subscriptionData?: any;
   user?: UserWithProStatus | null;
 }
 
@@ -47,14 +47,8 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     messages,
     status,
     onModelSelect,
-    subscriptionData,
     user,
   }) => {
-    const isProUser = useMemo(
-      () =>
-        user?.isProUser || (subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active'),
-      [user?.isProUser, subscriptionData?.hasSubscription, subscriptionData?.subscription?.status],
-    );
 
     const availableModels = useMemo(() => models, []);
 
@@ -312,7 +306,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
                     </svg>
                   </div>
                   <div>
-                    <h2 className="text-lg font-medium text-foreground">{selectedAuthModel?.label} requires sign in</h2>
+                    <DialogTitle className="text-lg font-medium text-foreground">{selectedAuthModel?.label} requires sign in</DialogTitle>
                     <p className="text-sm text-muted-foreground">Create an account to access this AI model</p>
                   </div>
                 </div>
@@ -613,7 +607,6 @@ interface FormComponentProps {
   setAttachments: React.Dispatch<React.SetStateAction<Array<Attachment>>>;
   chatId: string;
   user: UserWithProStatus | null;
-  subscriptionData?: any;
   handleSubmit: (
     event?: {
       preventDefault?: () => void;
@@ -825,7 +818,6 @@ GroupModeToggle.displayName = 'GroupModeToggle';
 const FormComponent: React.FC<FormComponentProps> = ({
   chatId,
   user,
-  subscriptionData,
   input,
   setInput,
   attachments,
@@ -854,10 +846,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
-  const isProUser = useMemo(
-    () => user?.isProUser || (subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active'),
-    [user?.isProUser, subscriptionData?.hasSubscription, subscriptionData?.subscription?.status],
-  );
 
   const isProcessing = useMemo(() => status === 'submitted' || status === 'streaming', [status]);
 
@@ -1056,7 +1044,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       const pdfFiles: File[] = [];
       const unsupportedFiles: File[] = [];
       const oversizedFiles: File[] = [];
-      const blockedPdfFiles: File[] = [];
 
       files.forEach((file) => {
         if (file.size > MAX_FILE_SIZE) {
@@ -1067,11 +1054,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         if (file.type.startsWith('image/')) {
           imageFiles.push(file);
         } else if (file.type === 'application/pdf') {
-          if (!isProUser) {
-            blockedPdfFiles.push(file);
-          } else {
-            pdfFiles.push(file);
-          }
+          pdfFiles.push(file);
         } else {
           unsupportedFiles.push(file);
         }
@@ -1085,18 +1068,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
         toast.error(`Some files are not supported: ${unsupportedFiles.map((f) => f.name).join(', ')}`);
       }
 
-      if (blockedPdfFiles.length > 0) {
-        console.log(
-          'Blocked PDF files for non-Pro user:',
-          blockedPdfFiles.map((f) => f.name),
-        );
-        toast.error(`PDF uploads require Pro subscription. Upgrade to access PDF analysis.`, {
-          action: {
-            label: 'Upgrade',
-            onClick: () => (window.location.href = '/pricing'),
-          },
-        });
-      }
 
       if (imageFiles.length === 0 && pdfFiles.length === 0) {
         console.log('No supported files found');
@@ -1212,7 +1183,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         event.target.value = '';
       }
     },
-    [attachments.length, setAttachments, selectedModel, setSelectedModel, isProUser, uploadFile],
+    [attachments.length, setAttachments, selectedModel, setSelectedModel, uploadFile],
   );
 
   const removeAttachment = useCallback(
@@ -1272,7 +1243,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       const pdfFiles: File[] = [];
       const unsupportedFiles: File[] = [];
       const oversizedFiles: File[] = [];
-      const blockedPdfFiles: File[] = [];
 
       allFiles.forEach((file) => {
         console.log(`Processing file: ${file.name} (${file.type})`);
@@ -1285,11 +1255,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         if (file.type.startsWith('image/')) {
           imageFiles.push(file);
         } else if (file.type === 'application/pdf') {
-          if (!isProUser) {
-            blockedPdfFiles.push(file);
-          } else {
-            pdfFiles.push(file);
-          }
+          pdfFiles.push(file);
         } else {
           unsupportedFiles.push(file);
         }
@@ -1315,18 +1281,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
         toast.error(`Some files exceed the 5MB limit: ${oversizedFiles.map((f) => f.name).join(', ')}`);
       }
 
-      if (blockedPdfFiles.length > 0) {
-        console.log(
-          'Blocked PDF files for non-Pro user:',
-          blockedPdfFiles.map((f) => f.name),
-        );
-        toast.error(`PDF uploads require Pro subscription. Upgrade to access PDF analysis.`, {
-          action: {
-            label: 'Upgrade',
-            onClick: () => (window.location.href = '/pricing'),
-          },
-        });
-      }
 
       if (imageFiles.length === 0 && pdfFiles.length === 0) {
         toast.error('Only image and PDF files are supported');
@@ -1455,7 +1409,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         }
       }, 100);
     },
-    [attachments.length, setAttachments, uploadFile, selectedModel, setSelectedModel, getFirstVisionModel, isProUser],
+    [attachments.length, setAttachments, uploadFile, selectedModel, setSelectedModel, getFirstVisionModel],
   );
 
   const handlePaste = useCallback(
@@ -1879,7 +1833,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         description: isVisionModel ? 'You can now upload images to the model.' : undefined,
                       });
                     }}
-                    subscriptionData={subscriptionData}
                     user={user}
                   />
                 </div>

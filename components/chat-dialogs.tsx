@@ -4,6 +4,7 @@ import { SignInPromptDialog } from '@/components/sign-in-prompt-dialog';
 import { HealthProfilePromptDialog } from '@/components/health-profile/HealthProfilePromptDialog';
 import { HealthProfileQuestionnaireModal } from '@/components/health-profile/HealthProfileQuestionnaireModal';
 import { useRouter } from 'next/navigation';
+import { useAnalytics } from '@/hooks/use-analytics';
 
 interface ChatDialogsProps {
   commandDialogOpen: boolean;
@@ -36,6 +37,7 @@ export const ChatDialogs = React.memo(
     setAnyDialogOpen,
   }: ChatDialogsProps) => {
     const router = useRouter();
+    const { trackHealthProfileSkipped } = useAnalytics();
     const [showQuestionnaireModal, setShowQuestionnaireModal] = useState(false);
     return (
       <>
@@ -80,6 +82,8 @@ export const ChatDialogs = React.memo(
             localStorage.setItem('healthProfilePromptLastDismissed', Date.now().toString());
             setShowHealthProfilePrompt(false);
             setHasShownHealthProfilePrompt(true);
+            // Track that the user skipped the health profile
+            trackHealthProfileSkipped();
           }}
         />
 

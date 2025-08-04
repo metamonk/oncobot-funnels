@@ -16,9 +16,11 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { cn } from '@/lib/utils';
 import { Check, Copy, WrapText, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { useEnhancedAnalytics } from '@/hooks/use-enhanced-analytics';
 
 interface MarkdownRendererProps {
   content: string;
+  responseContext?: string;
 }
 
 interface CitationLink {
@@ -106,7 +108,8 @@ const preprocessLaTeX = (content: string) => {
   return content;
 };
 
-const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
+const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, responseContext }) => {
+  const { trackAIResponseLink, trackContentCopy } = useEnhancedAnalytics();
   const [processedContent, extractedCitations, latexBlocks] = useMemo(() => {
     const citations: CitationLink[] = [];
 
@@ -289,11 +292,18 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2000);
         toast.success('Code copied to clipboard');
+        
+        // Track the copy event with actual content
+        trackContentCopy(children, 'code_block', {
+          language: language || 'unknown',
+          source: 'ai_response',
+          context: responseContext
+        });
       } catch (error) {
         console.error('Failed to copy code:', error);
         toast.error('Failed to copy code');
       }
-    }, [children]);
+    }, [children, language, trackContentCopy, responseContext]);
 
     const toggleWrap = useCallback(() => {
       setIsWrapped((prev) => !prev);
@@ -465,11 +475,17 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 1500);
         toast.success('Code copied to clipboard');
+        
+        // Track the copy event with actual content
+        trackContentCopy(code, 'inline_code', {
+          source: 'ai_response',
+          context: responseContext
+        });
       } catch (error) {
         console.error('Failed to copy code:', error);
         toast.error('Failed to copy code');
       }
-    }, [code]);
+    }, [code, trackContentCopy, responseContext]);
 
     return (
       <code
@@ -536,6 +552,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
                 ? 'cursor-pointer text-xs no-underline text-primary py-0.5 px-1.25 m-0! bg-primary/10 rounded-sm font-medium inline-flex items-center -translate-y-[1px] leading-none hover:bg-primary/20 focus:outline-none focus:ring-1 focus:ring-primary align-baseline'
                 : 'text-primary bg-primary/10 no-underline hover:underline font-medium'
             }
+            onClick={() => {
+              const linkText = typeof text === 'string' ? text : String(text);
+              trackAIResponseLink(href, linkText, responseContext);
+            }}
           >
             {text}
           </Link>
@@ -707,6 +727,24 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
         const citationText = citationLinks[citationIndex].text;
         return renderCitation(citationIndex, citationText, href);
       }
+      
+      // Handle phone and email links
+      if (href.startsWith('tel:') || href.startsWith('mailto:')) {
+        return (
+          <a 
+            key={generateKey()} 
+            href={href} 
+            className="text-primary hover:underline font-medium"
+            onClick={() => {
+              const linkText = typeof text === 'string' ? text : String(text);
+              trackAIResponseLink(href, linkText, responseContext);
+            }}
+          >
+            {text}
+          </a>
+        );
+      }
+      
       return isValidUrl(href) ? (
         renderHoverCard(href, text)
       ) : (
