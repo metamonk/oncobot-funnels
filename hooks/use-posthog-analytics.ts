@@ -9,6 +9,18 @@ export function usePostHogAnalytics() {
   const posthog = usePostHog();
   const pathname = usePathname();
 
+  // Initialize session tracking
+  useEffect(() => {
+    if (posthog && !posthog.get_property('session_start_time')) {
+      posthog.capture('$set', {
+        $set_once: {
+          session_start_time: Date.now(),
+          initial_page: pathname,
+        },
+      });
+    }
+  }, [posthog, pathname]);
+
   // Track page views with more context
   useEffect(() => {
     if (posthog) {
@@ -33,6 +45,16 @@ export function usePostHogAnalytics() {
       has_contact_info: Boolean(trialData.has_contact),
       user_has_profile: Boolean(trialData.user_has_profile),
       timestamp: new Date().toISOString(),
+      // Enhanced properties for better insights
+      distance_from_user: trialData.distance,
+      eligibility_score: trialData.eligibility_score,
+      trial_sponsor: trialData.sponsor,
+      estimated_completion: trialData.completion_date,
+      enrollment_count: trialData.enrollment,
+      // User context
+      user_search_query: trialData.search_query,
+      results_position: trialData.position_in_results,
+      time_to_action: trialData.time_since_search,
     });
 
     // Set user properties for cohort analysis
@@ -44,6 +66,27 @@ export function usePostHogAnalytics() {
           total_contacts: (posthog.get_property('total_contacts') || 0) + 1,
         },
       });
+    }
+    
+    // Track trial view count
+    if (action === 'View') {
+      const currentTrialViews = posthog.get_property('trials_viewed_count') || 0;
+      const newTrialViews = currentTrialViews + 1;
+      
+      posthog.capture('$set', {
+        $set: {
+          trials_viewed_count: newTrialViews,
+          last_trial_viewed: new Date().toISOString(),
+        },
+      });
+      
+      // Trigger milestone event when user views 3+ trials
+      if (newTrialViews === 3) {
+        posthog.capture('High Intent User - 3+ Trials Viewed', {
+          trials_viewed: newTrialViews,
+          milestone: '3_trials_viewed',
+        });
+      }
     }
   }, [posthog]);
 
@@ -76,6 +119,16 @@ export function usePostHogAnalytics() {
   }) => {
     if (!posthog) return;
 
+    // Increment search count
+    const currentSearches = posthog.get_property('searches_count') || 0;
+    posthog.capture('$set', {
+      $set: {
+        searches_count: currentSearches + 1,
+        last_search_query: searchData.query,
+        last_search_time: new Date().toISOString(),
+      },
+    });
+
     posthog.capture('Search Performed', {
       search_query: searchData.query,
       search_filters: searchData.filters,
@@ -83,6 +136,7 @@ export function usePostHogAnalytics() {
       has_results: searchData.results_count > 0,
       clicked_position: searchData.clicked_result?.position,
       clicked_trial_id: searchData.clicked_result?.trial_id,
+      search_number: currentSearches + 1,
     });
 
     // Track search success rate
@@ -129,6 +183,13 @@ export function usePostHogAnalytics() {
       ...responseData,
       response_speed: responseData.response_time < 1000 ? 'fast' : 
                       responseData.response_time < 3000 ? 'normal' : 'slow',
+      // Performance context
+      device_type: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop',
+      connection_type: (navigator as any).connection?.effectiveType || 'unknown',
+      viewport_width: window.innerWidth,
+      // Quality metrics
+      response_length: responseData.query.length,
+      complexity_score: calculateQueryComplexity(responseData.query),
     });
   }, [posthog]);
 
@@ -173,6 +234,7 @@ export function usePostHogAnalytics() {
 
     const sessionStart = posthog.get_property('session_start_time') || Date.now();
     const sessionDuration = Date.now() - sessionStart;
+    const engagementScore = calculateEngagementScore(posthog);
 
     posthog.capture('Session Quality', {
       session_duration: sessionDuration,
@@ -180,8 +242,31 @@ export function usePostHogAnalytics() {
       searches_performed: posthog.get_property('searches_count') || 0,
       trials_viewed: posthog.get_property('trials_viewed_count') || 0,
       contacts_initiated: posthog.get_property('contacts_count') || 0,
-      engagement_score: calculateEngagementScore(posthog),
+      engagement_score: engagementScore,
     });
+    
+    // Update user property with engagement score
+    posthog.capture('$set', {
+      $set: {
+        current_engagement_score: engagementScore,
+        last_engagement_update: new Date().toISOString(),
+      },
+    });
+    
+    // Fire event when user reaches high engagement threshold
+    if (engagementScore >= 200 && !posthog.get_property('high_engagement_triggered')) {
+      posthog.capture('High Engagement User - Score 200+', {
+        engagement_score: engagementScore,
+        milestone: 'high_engagement_reached',
+      });
+      
+      posthog.capture('$set', {
+        $set: {
+          high_engagement_triggered: true,
+          high_engagement_reached_at: new Date().toISOString(),
+        },
+      });
+    }
   }, [posthog]);
 
   return {
@@ -208,4 +293,22 @@ function calculateEngagementScore(posthog: any): number {
   };
 
   return Object.values(factors).reduce((sum, val) => sum + val, 0);
+}
+
+// Helper function to calculate query complexity
+function calculateQueryComplexity(query: string): string {
+  const wordCount = query.split(' ').length;
+  const hasLocation = /\b(near|in|at)\s+\w+/i.test(query);
+  const hasMedicalTerms = /\b(cancer|trial|treatment|therapy|stage)\b/i.test(query);
+  const hasEligibility = /\b(eligible|qualify|criteria)\b/i.test(query);
+  
+  const complexityScore = 
+    wordCount * 0.1 + 
+    (hasLocation ? 1 : 0) + 
+    (hasMedicalTerms ? 2 : 0) + 
+    (hasEligibility ? 2 : 0);
+  
+  if (complexityScore > 4) return 'complex';
+  if (complexityScore > 2) return 'moderate';
+  return 'simple';
 }
