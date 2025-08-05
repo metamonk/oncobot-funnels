@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { usePostHogAnalytics } from '@/hooks/use-posthog-analytics';
 import { usePathname } from 'next/navigation';
 
-export function SessionQualityTracker() {
+function SessionQualityTrackerInner() {
   const { trackSessionQuality, posthog } = usePostHogAnalytics();
   const pathname = usePathname();
   
@@ -52,4 +52,12 @@ export function SessionQualityTracker() {
   }, [trackSessionQuality, posthog]);
   
   return null;
+}
+
+export function SessionQualityTracker() {
+  return (
+    <Suspense fallback={null}>
+      <SessionQualityTrackerInner />
+    </Suspense>
+  );
 }

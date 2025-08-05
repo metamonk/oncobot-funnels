@@ -2,23 +2,21 @@
 
 import { usePostHog } from 'posthog-js/react';
 import { useCallback, useEffect } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 // PostHog-specific tracking for deeper insights
 export function usePostHogAnalytics() {
   const posthog = usePostHog();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   // Track page views with more context
   useEffect(() => {
     if (posthog) {
       posthog.capture('$pageview', {
         $current_url: pathname,
-        search_params: Object.fromEntries(searchParams.entries()),
       });
     }
-  }, [pathname, searchParams, posthog]);
+  }, [pathname, posthog]);
 
   // Track clinical trial interactions with rich data
   const trackTrialInteraction = useCallback((action: string, trialData: any) => {
