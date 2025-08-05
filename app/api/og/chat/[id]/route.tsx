@@ -24,9 +24,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // Load custom fonts
     const geistFontPath = path.join(process.cwd(), 'app/api/og/chat/[id]/fonts', 'Geist-Regular.ttf');
     const syneFontPath = path.join(process.cwd(), 'app/api/og/chat/[id]/fonts', 'Syne-Bold.ttf');
+    const oxaniumFontPath = path.join(process.cwd(), 'app/api/og/chat/[id]/fonts', 'Oxanium-Bold.ttf');
 
     const geistFontData = await fs.promises.readFile(geistFontPath);
     const syneFontData = await fs.promises.readFile(syneFontPath);
+    const oxaniumFontData = await fs.promises.readFile(oxaniumFontPath);
 
     // If chat doesn't exist or isn't public, return a default OG image
     if (!chatWithUser || chatWithUser.visibility !== 'public') {
@@ -81,13 +83,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
               <div
                 style={{
                   fontSize: 44,
-                  fontWeight: 700,
+                  fontWeight: 600,
                   color: 'white',
                   letterSpacing: '-0.01em',
-                  fontFamily: 'Syne',
+                  fontFamily: 'Oxanium',
                 }}
               >
-                OncoBot
+                oncobot
               </div>
             </div>
           </div>
@@ -104,6 +106,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             {
               name: 'Syne',
               data: syneFontData,
+              style: 'normal',
+            },
+            {
+              name: 'Oxanium',
+              data: oxaniumFontData,
               style: 'normal',
             },
           ],
@@ -178,14 +185,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                 <div
                   style={{
                     fontSize: 36,
-                    fontWeight: 800,
+                    fontWeight: 600,
                     color: 'white',
                     letterSpacing: '-0.02em',
-                    fontFamily: 'Syne',
+                    fontFamily: 'Oxanium',
                     lineHeight: 1,
                   }}
                 >
-                  OncoBot
+                  oncobot
                 </div>
                 <div
                   style={{
@@ -197,7 +204,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                     marginTop: '4px',
                   }}
                 >
-                  Minimalistic AI Search Engine
+                  AI-powered search engine
                 </div>
               </div>
             </div>
@@ -294,6 +301,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           {
             name: 'Syne',
             data: syneFontData,
+            style: 'normal',
+          },
+          {
+            name: 'Oxanium',
+            data: oxaniumFontData,
             style: 'normal',
           },
         ],
