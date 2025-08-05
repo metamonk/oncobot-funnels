@@ -13,6 +13,22 @@ if (typeof window !== 'undefined') {
   posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY!, {
     api_host: clientEnv.NEXT_PUBLIC_POSTHOG_HOST,
     person_profiles: 'always',
+    persistence: 'localStorage+cookie', // Better persistence across sessions
+    autocapture: true, // Capture all clicks/interactions automatically
+    capture_pageview: true, // Automatic pageview tracking
+    capture_pageleave: true, // Track when users leave
+    session_recording: {
+      maskAllInputs: false, // Show form inputs in recordings
+      maskTextSelector: '[data-private]', // Mask elements with data-private
+    },
+    loaded: (posthog) => {
+      // Set initial session properties
+      posthog.register_once({
+        initial_referrer: document.referrer,
+        initial_utm_source: new URLSearchParams(window.location.search).get('utm_source'),
+        session_start_time: Date.now(),
+      });
+    },
   });
 }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { usePostHog } from 'posthog-js/react';
 
 declare global {
   interface Window {
@@ -30,7 +31,10 @@ const REVENUE_VALUES = {
 } as const;
 
 export function useAnalytics() {
+  const posthog = usePostHog();
+
   const trackEvent = useCallback((eventName: string, props?: Record<string, any>) => {
+    // Track in Plausible with revenue
     if (typeof window !== 'undefined' && window.plausible) {
       const options: any = props ? { props } : {};
       
@@ -44,7 +48,20 @@ export function useAnalytics() {
       
       window.plausible(eventName, Object.keys(options).length > 0 ? options : undefined);
     }
-  }, []);
+
+    // Also track in PostHog for deeper analysis
+    if (posthog) {
+      posthog.capture(eventName, {
+        ...props,
+        timestamp: new Date().toISOString(),
+        // Add revenue context for PostHog too
+        ...(eventName in REVENUE_VALUES && {
+          revenue_value: REVENUE_VALUES[eventName as keyof typeof REVENUE_VALUES],
+          revenue_currency: 'USD'
+        })
+      });
+    }
+  }, [posthog]);
 
   const trackTrialView = useCallback((analytics: TrialAnalytics) => {
     trackEvent('Trial View', analytics);
