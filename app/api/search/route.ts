@@ -69,6 +69,7 @@ import {
   clinicalTrialsTool,
   healthProfileTool,
 } from '@/lib/tools';
+import { contextManager, type MessageWithMetadata } from '@/lib/ai-context-manager';
 
 type ResponseMessageWithoutId = CoreToolMessage | CoreAssistantMessage;
 type ResponseMessage = ResponseMessageWithoutId & { id: string };
@@ -245,6 +246,58 @@ export async function POST(req: Request) {
       console.log('Group: ', group);
       console.log('Timezone: ', timezone);
 
+      // AI-driven context optimization
+      const enableContextOptimization = process.env.ENABLE_AI_CONTEXT_OPTIMIZATION !== 'false';
+      let optimizedMessages = convertToCoreMessages(messages);
+      
+      if (enableContextOptimization && messages.length > 2) {
+        const contextStartTime = Date.now();
+        
+        // Extract current query (last user message)
+        const currentQuery = messages[messages.length - 1].content;
+        const messagesWithMetadata: MessageWithMetadata[] = messages.map((msg: any, index: number) => ({
+          ...msg,
+          id: msg.id || `msg-${index}`,
+          timestamp: msg.timestamp || new Date()
+        }));
+
+        try {
+          // Get AI decision on context needs
+          const contextDecision = await contextManager.analyzeContextNeeds(
+            currentQuery,
+            messagesWithMetadata
+          );
+          
+          console.log('Context Decision:', {
+            strategy: contextDecision.strategy,
+            reasoning: contextDecision.reasoning,
+            includeFromHistory: contextDecision.includeFromHistory,
+            compressionLevel: contextDecision.compressionLevel
+          });
+
+          // Build optimized context based on AI decision
+          optimizedMessages = await contextManager.buildOptimizedContext(
+            messagesWithMetadata,
+            contextDecision,
+            currentQuery
+          );
+
+          const contextTime = (Date.now() - contextStartTime) / 1000;
+          console.log(`⏱️  Context optimization took: ${contextTime.toFixed(2)}s`);
+          
+          // Log token savings
+          const originalTokens = contextManager.estimateTokens(convertToCoreMessages(messages));
+          const optimizedTokens = contextManager.estimateTokens(optimizedMessages);
+          const tokenSavings = ((originalTokens - optimizedTokens) / originalTokens * 100).toFixed(1);
+          console.log(`📊 Token usage: ${originalTokens} → ${optimizedTokens} (${tokenSavings}% reduction)`);
+        } catch (error) {
+          console.error('Context optimization failed, using original messages:', error);
+          optimizedMessages = convertToCoreMessages(messages);
+        }
+      } else {
+        console.log('Context optimization skipped (disabled or too few messages)');
+      }
+
       // Calculate time to reach streamText
       const preStreamTime = Date.now();
       const setupTime = (preStreamTime - requestStartTime) / 1000;
@@ -254,7 +307,7 @@ export async function POST(req: Request) {
 
       const result = streamText({
         model: oncobot.languageModel(model),
-        messages: convertToCoreMessages(messages),
+        messages: optimizedMessages,
         ...(model.includes('oncobot-qwen-32b')
           ? {
               temperature: 0.6,
