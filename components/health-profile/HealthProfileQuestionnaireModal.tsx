@@ -21,6 +21,75 @@ import { createHealthProfile, updateHealthProfile, saveHealthProfileResponse } f
 import { toast } from 'sonner';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
+// Helper function to derive cancer region from cancer type responses
+function deriveRegionFromResponses(responses: Record<string, any>): string | null {
+  // Map cancer types to regions
+  if (responses.THORACIC_PRIMARY) {
+    return 'THORACIC';
+  } else if (responses.GI_PRIMARY) {
+    return 'GI';
+  } else if (responses.GU_PRIMARY) {
+    return 'GU';
+  } else if (responses.GYN_PRIMARY) {
+    return 'GYN';
+  } else if (responses.BREAST_TYPE) {
+    return 'BREAST';
+  } else if (responses.HEAD_NECK_PRIMARY) {
+    return 'HEAD_NECK';
+  } else if (responses.CNS_PRIMARY) {
+    return 'CNS';
+  } else if (responses.HEMATOLOGIC_PRIMARY) {
+    return 'HEMATOLOGIC';
+  } else if (responses.SKIN_PRIMARY) {
+    return 'SKIN';
+  } else if (responses.SARCOMA_PRIMARY) {
+    return 'SARCOMA';
+  }
+  
+  // Try to derive from disease stage if it contains cancer type info
+  const diseaseStage = responses.STAGE_CATEGORY?.toLowerCase() || '';
+  if (diseaseStage.includes('lung')) {
+    return 'THORACIC';
+  } else if (diseaseStage.includes('breast')) {
+    return 'BREAST';
+  } else if (diseaseStage.includes('prostate') || diseaseStage.includes('bladder') || diseaseStage.includes('kidney')) {
+    return 'GU';
+  }
+  
+  return null;
+}
+
+// Helper function to map molecular markers properly
+function mapMolecularMarkers(responses: Record<string, any>): Record<string, any> {
+  const markers: Record<string, any> = {};
+  
+  // Handle different molecular marker response formats
+  const markerQuestions = [
+    'THORACIC_MOLECULAR_MARKERS',
+    'GI_MOLECULAR_MARKERS',
+    'GU_MOLECULAR_MARKERS',
+    'GYN_MOLECULAR_MARKERS',
+    'BREAST_MOLECULAR_MARKERS'
+  ];
+  
+  markerQuestions.forEach(question => {
+    if (responses[question]) {
+      const markerResponses = Array.isArray(responses[question]) ? responses[question] : [responses[question]];
+      markerResponses.forEach((marker: string) => {
+        // Handle markers with specific values (e.g., "KRAS (e.g., G12C)")
+        const markerMatch = marker.match(/^(\w+)\s*\((.*?)\)$/);
+        if (markerMatch) {
+          markers[markerMatch[1]] = markerMatch[2].replace(/e\.g\.,?\s*/, '');
+        } else {
+          markers[marker] = 'POSITIVE';
+        }
+      });
+    }
+  });
+  
+  return markers;
+}
+
 interface HealthProfileQuestionnaireModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -160,11 +229,30 @@ export function HealthProfileQuestionnaireModal({
   };
 
   const handleComplete = async () => {
+    // Validate critical fields before saving
+    const derivedRegion = responses.CANCER_REGION || deriveRegionFromResponses(responses);
+    const cancerType = responses.THORACIC_PRIMARY || responses.GI_PRIMARY || responses.GU_PRIMARY || 
+                       responses.GYN_PRIMARY || responses.BREAST_TYPE || responses.HEAD_NECK_PRIMARY ||
+                       responses.CNS_PRIMARY || responses.HEMATOLOGIC_PRIMARY || responses.SKIN_PRIMARY ||
+                       responses.SARCOMA_PRIMARY;
+    
+    if (!derivedRegion && !cancerType) {
+      toast.error('Please complete cancer type information to save your profile');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
-      // Prepare profile data
+      // Prepare profile data with smart mappings
       const profileData = {
-        cancerRegion: responses.CANCER_REGION,
+        cancerRegion: responses.CANCER_REGION || deriveRegionFromResponses(responses),
+        cancerType: responses.THORACIC_PRIMARY || responses.GI_PRIMARY || responses.GU_PRIMARY || 
+                    responses.GYN_PRIMARY || responses.BREAST_TYPE || responses.HEAD_NECK_PRIMARY ||
+                    responses.CNS_PRIMARY || responses.HEMATOLOGIC_PRIMARY || responses.SKIN_PRIMARY ||
+                    responses.SARCOMA_PRIMARY,
+        primarySite: responses.THORACIC_PRIMARY_SITE || responses.GI_PRIMARY_SITE || 
+                     responses.GU_PRIMARY_SITE || responses.GYN_PRIMARY_SITE ||
+                     responses.HEAD_NECK_PRIMARY_SITE || responses.CNS_PRIMARY_SITE,
         diseaseStage: responses.STAGE_CATEGORY,
         performanceStatus: responses.PERF_STATUS_ECOG,
         treatmentHistory: {
@@ -178,15 +266,17 @@ export function HealthProfileQuestionnaireModal({
             .reduce((acc, key) => ({ ...acc, [key.toLowerCase()]: responses[key] }), {})
         },
         molecularMarkers: {
-          testingStatus: responses.MOLECULAR_TESTING_STATUS,
-          // Include all molecular marker responses
-          ...Object.keys(responses)
-            .filter(key => key.includes('MOLECULAR_') && key !== 'MOLECULAR_TESTING_STATUS')
-            .reduce((acc, key) => ({ ...acc, [key.toLowerCase()]: responses[key] }), {})
+          testingStatus: responses.MOLECULAR_TESTING,
+          // Map specific molecular markers with proper values
+          ...mapMolecularMarkers(responses)
         },
         complications: {
           brainMets: responses.COMPLICATION_BRAIN_METS,
           liverMets: responses.COMPLICATION_LIVER_METS,
+          // Include all complication responses
+          ...Object.keys(responses)
+            .filter(key => key.includes('COMPLICATION') && !key.includes('BRAIN_METS') && !key.includes('LIVER_METS'))
+            .reduce((acc, key) => ({ ...acc, [key.toLowerCase()]: responses[key] }), {})
         },
         completedAt: new Date(),
       };

@@ -4,7 +4,7 @@ import { DataStreamWriter } from 'ai';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
 import { HealthProfile, HealthProfileResponse } from '@/lib/db/schema';
 import { serverEnv } from '@/env/server';
-import { quickEligibilityCheck, analyzeEligibilityWithAI } from './ai-eligibility-analyzer';
+import { checkEligibility, type EligibilityCheckResult, type EligibilityAnalysis } from './eligibility-analyzer';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -146,8 +146,57 @@ interface TrialMatch {
   };
 }
 
+// Model-specific token limits (input/context window limits)
+const MODEL_TOKEN_LIMITS: Record<string, number> = {
+  // xAI models
+  'oncobot-default': 131072,      // Grok 3 Mini
+  'oncobot-x-fast-mini': 131072,  // Grok 3 Mini Fast
+  'oncobot-x-fast': 131072,       // Grok 3 Fast
+  'oncobot-grok-3': 131072,       // Grok 3
+  'oncobot-grok-4': 131072,       // Grok 4
+  'oncobot-vision': 32768,        // Grok 2 Vision
+  'oncobot-g2': 131072,           // Grok 2 Latest
+  
+  // OpenAI models
+  'oncobot-nano': 128000,         // GPT 4.1 Nano
+  'oncobot-4.1-mini': 128000,     // GPT 4.1 Mini
+  'oncobot-4o-mini': 128000,      // GPT 4o Mini
+  'oncobot-o4-mini': 128000,      // o4 mini
+  'oncobot-o3': 128000,           // o3
+  
+  // Other models
+  'oncobot-qwen-32b': 32768,      // Qwen 3 32B
+  'oncobot-qwen-30b': 32768,      // Qwen 3 30B A3B
+  'oncobot-deepseek-v3': 64000,   // DeepSeek V3
+  'oncobot-kimi-k2': 1000000,     // Kimi K2 (1M context)
+  'oncobot-haiku': 200000,        // Claude 3.5 Haiku
+  'oncobot-mistral': 128000,      // Mistral Small
+  'oncobot-google-lite': 1000000, // Gemini 2.5 Flash Lite (1M)
+  'oncobot-google': 1000000,      // Gemini 2.5 Flash (1M)
+  'oncobot-google-pro': 2000000,  // Gemini 2.5 Pro (2M)
+  'oncobot-anthropic': 200000,    // Claude Sonnet 4
+  'oncobot-llama-4': 128000,      // Llama 4 Maverick
+};
+
+// Get token budget based on model, with safety margin
+function getTokenBudget(modelId?: string): number {
+  if (!modelId) {
+    // Default conservative budget if no model specified
+    return 30000;
+  }
+  
+  const limit = MODEL_TOKEN_LIMITS[modelId];
+  if (!limit) {
+    console.warn(`Unknown model: ${modelId}, using conservative token limit`);
+    return 30000;
+  }
+  
+  // Reserve 30% for model's response and system prompt
+  // This is conservative but ensures we don't hit limits
+  return Math.floor(limit * 0.7);
+}
+
 // Token estimation utilities
-const TOKEN_BUDGET = 100000; // Leave room for model's response
 const AVG_CHARS_PER_TOKEN = 4; // Rough estimate: 1 token ≈ 4 characters
 
 function estimateTokens(obj: any): number {
@@ -166,7 +215,7 @@ function selectStrategicLocations(
   locations: any[],
   userLat?: number,
   userLng?: number,
-  maxLocations: number = 30
+  maxLocations: number = 10  // Reduced from 30 to help with token limits
 ): { locations: any[], metadata: { total: number, subset: boolean, strategy: string } } {
   if (!locations || locations.length <= maxLocations) {
     return {
@@ -264,7 +313,8 @@ function optimizeTrialSelection(
   trials: ClinicalTrial[],
   matches: TrialMatch[],
   userLat?: number,
-  userLng?: number
+  userLng?: number,
+  tokenBudget: number = 30000
 ): { optimizedMatches: TrialMatch[], tokenMetadata: any } {
   const trialTokenEstimates = matches.map(match => ({
     match,
@@ -293,18 +343,19 @@ function optimizeTrialSelection(
     // Check if adding this trial would exceed budget
     const projectedTokens = totalTokens + baseTokens;
     
-    if (projectedTokens > TOKEN_BUDGET && optimizedMatches.length > 0) {
+    if (projectedTokens > tokenBudget && optimizedMatches.length > 0) {
       // Stop adding more trials
       break;
     }
 
-    // Optimize locations if needed
-    if (locationCount > 50) {
+    // Optimize locations if needed - more aggressive optimization for token limits
+    if (locationCount > 20) {  // Reduced from 50 to be more aggressive
       const locations = optimizedMatch.trial.protocolSection.contactsLocationsModule?.locations || [];
       const { locations: strategicLocations, metadata } = selectStrategicLocations(
         locations,
         userLat,
-        userLng
+        userLng,
+        5  // Even more aggressive - only keep 5 most strategic locations
       );
       
       optimizedMatch.trial.protocolSection.contactsLocationsModule.locations = strategicLocations;
@@ -316,7 +367,7 @@ function optimizeTrialSelection(
     // Recalculate tokens after optimization
     const optimizedTokens = estimateTokens(optimizedMatch);
     
-    if (totalTokens + optimizedTokens <= TOKEN_BUDGET) {
+    if (totalTokens + optimizedTokens <= tokenBudget) {
       optimizedMatches.push(optimizedMatch);
       totalTokens += optimizedTokens;
     } else if (optimizedMatches.length === 0) {
@@ -331,11 +382,11 @@ function optimizeTrialSelection(
     optimizedMatches,
     tokenMetadata: {
       totalTokens,
-      budget: TOKEN_BUDGET,
+      budget: tokenBudget,
       originalCount: matches.length,
       returnedCount: optimizedMatches.length,
       reducedLocationTrials: reducedLocationCount,
-      withinBudget: totalTokens <= TOKEN_BUDGET
+      withinBudget: totalTokens <= tokenBudget
     }
   };
 }
@@ -351,8 +402,53 @@ function mapHealthProfileToSearchCriteria(
 
   const criteria: SearchCriteria = {};
   
+  // Smart fallback: If no cancer region but we have cancer type, derive the region
+  let effectiveRegion = profile.cancerRegion;
+  if (!effectiveRegion && profile.cancerType) {
+    // Map cancer types to regions
+    const typeToRegionMap: Record<string, string> = {
+      'NSCLC': 'THORACIC',
+      'SCLC': 'THORACIC',
+      'MESOTHELIOMA': 'THORACIC',
+      'THYMIC': 'THORACIC',
+      'HCC': 'GI',
+      'CHOLANGIOCARCINOMA': 'GI',
+      'PANCREATIC_DUCTAL': 'GI',
+      'ADENOCARCINOMA': 'GI', // Default to GI for generic adenocarcinoma
+      'RCC': 'GU',
+      'UROTHELIAL': 'GU',
+      'PROSTATE_ADENO': 'GU',
+      'HIGH_GRADE_SEROUS': 'GYN',
+      'ENDOMETRIOID': 'GYN',
+      'TNBC': 'BREAST',
+      'HR_POSITIVE': 'BREAST',
+      'HER2_POSITIVE': 'BREAST',
+      'GLIOBLASTOMA': 'CNS',
+      'ASTROCYTOMA': 'CNS',
+      'MELANOMA': 'SKIN',
+      'BCC': 'SKIN',
+      'SCC': 'SKIN'
+    };
+    
+    effectiveRegion = typeToRegionMap[profile.cancerType];
+    
+    // If still no region, try to extract from disease stage
+    if (!effectiveRegion && profile.diseaseStage) {
+      const stageText = profile.diseaseStage.toLowerCase();
+      if (stageText.includes('lung')) {
+        effectiveRegion = 'THORACIC';
+      } else if (stageText.includes('breast')) {
+        effectiveRegion = 'BREAST';
+      } else if (stageText.includes('prostate') || stageText.includes('bladder') || stageText.includes('kidney')) {
+        effectiveRegion = 'GU';
+      } else if (stageText.includes('colon') || stageText.includes('rectal') || stageText.includes('liver')) {
+        effectiveRegion = 'GI';
+      }
+    }
+  }
+  
   // Map cancer region and type
-  if (profile.cancerRegion) {
+  if (effectiveRegion) {
     // Map our cancer regions to ClinicalTrials.gov conditions
     const regionMapping: Record<string, string> = {
       'THORACIC': 'lung cancer OR thoracic cancer OR chest cancer',
@@ -369,7 +465,18 @@ function mapHealthProfileToSearchCriteria(
       'RARE': 'rare cancer'
     };
     
-    criteria.condition = regionMapping[profile.cancerRegion] || profile.cancerRegion;
+    criteria.condition = regionMapping[effectiveRegion] || effectiveRegion;
+  } else if (profile.cancerType) {
+    // If we still don't have a region but have a cancer type, use the type directly
+    const typeMapping: Record<string, string> = {
+      'NSCLC': 'non-small cell lung cancer',
+      'SCLC': 'small cell lung cancer',
+      'HCC': 'hepatocellular carcinoma',
+      'RCC': 'renal cell carcinoma',
+      'TNBC': 'triple negative breast cancer'
+    };
+    
+    criteria.condition = typeMapping[profile.cancerType] || profile.cancerType.replace(/_/g, ' ').toLowerCase();
   }
   
   // Add specific cancer type if available
@@ -440,14 +547,23 @@ function buildSearchQuery(criteria: SearchCriteria): string {
     }
   }
   
-  // REMOVED: Stage from search query (use for eligibility analysis instead)
-  // REMOVED: Molecular markers from search query (use for eligibility analysis instead)
+  // Don't add molecular markers to the initial query
+  // All molecular marker matching will happen in post-processing scoring
+  // This ensures we don't miss trials due to nomenclature differences or indexing issues
   
-  // Return a simpler, broader search query
+  // Return a more targeted search query
   return queryParts.join(' ');
 }
 
 // Calculate match score for a trial
+// Scoring weights (prioritizing molecular relevance over recruitment status):
+// - Molecular markers: 70 points (specific mutations) / 40 points (general markers)
+// - Condition match: 50 points
+// - Recruitment status: 35 points max (RECRUITING: 35, NOT_YET: 15, etc.)
+// - Location proximity: 30 points  
+// - Stage compatibility: 20 points
+// - Multiplicative bonus: 20 points (if RECRUITING + molecular match)
+// - Phase relevance: 10 points
 function calculateMatchScore(
   trial: ClinicalTrial,
   profile: HealthProfile | null,
@@ -457,8 +573,10 @@ function calculateMatchScore(
   
   if (!profile) return score;
   
-  const trialText = JSON.stringify(trial).toLowerCase();
   const eligibilityCriteria = trial.protocolSection.eligibilityModule?.eligibilityCriteria?.toLowerCase() || '';
+  
+  // Get the recruitment status first (needed for molecular marker bonus calculation)
+  const status = trial.protocolSection.statusModule.overallStatus;
   
   // Check condition matches (50 points - increased importance)
   const conditions = trial.protocolSection.conditionsModule?.conditions || [];
@@ -485,19 +603,119 @@ function calculateMatchScore(
     }
   }
   
-  // Molecular marker relevance (15 points) - reduced from 30
+  // Molecular marker relevance (40 points) - increased importance
   if (criteria.molecularMarkers && criteria.molecularMarkers.length > 0) {
     const relevantMarkers = criteria.molecularMarkers.filter(marker => {
-      const markerLower = marker.toLowerCase().replace(/_/g, ' ');
-      // Check if mentioned in eligibility criteria OR intervention
-      return eligibilityCriteria.includes(markerLower) || 
-             (trial.protocolSection.armsInterventionsModule?.interventions?.some(
-               intervention => intervention.description?.toLowerCase().includes(markerLower)
-             ));
+      // Create variations of the marker name for better matching
+      const markerBase = marker.replace(/_/g, ' '); // "KRAS_G12C" -> "KRAS G12C"
+      const markerLower = markerBase.toLowerCase(); // "kras g12c"
+      const markerUpper = markerBase.toUpperCase(); // "KRAS G12C"
+      
+      // Check multiple variations of the marker name
+      const variations = [
+        markerLower,                    // "kras g12c"
+        markerUpper,                    // "KRAS G12C"
+        markerBase,                     // "KRAS G12C" (original with space)
+        markerLower.replace(' ', ''),   // "krasg12c"
+        markerUpper.replace(' ', ''),   // "KRASG12C"
+        markerLower.replace(' ', '-'),  // "kras-g12c"
+        markerUpper.replace(' ', '-'),  // "KRAS-G12C"
+        marker,                         // "KRAS_G12C" (original)
+        marker.toLowerCase(),           // "kras_g12c"
+        marker.replace(/_/g, ''),       // "KRASG12C"
+      ];
+      
+      // Convert eligibility criteria to lowercase for case-insensitive matching
+      const eligibilityCriteriaLower = eligibilityCriteria.toLowerCase();
+      
+      // Check if any variation is mentioned in eligibility criteria OR intervention
+      return variations.some(variant => {
+        const variantLower = variant.toLowerCase();
+        
+        // Check in eligibility criteria
+        if (eligibilityCriteriaLower.includes(variantLower)) {
+          return true;
+        }
+        
+        // Check in interventions
+        if (trial.protocolSection.armsInterventionsModule?.interventions) {
+          return trial.protocolSection.armsInterventionsModule.interventions.some(
+            intervention => {
+              const desc = intervention.description?.toLowerCase() || '';
+              const name = intervention.name?.toLowerCase() || '';
+              return desc.includes(variantLower) || name.includes(variantLower);
+            }
+          );
+        }
+        
+        return false;
+      });
     });
     
-    if (relevantMarkers.length > 0) {
-      score += 15;
+    // Also check for partial matches (e.g., "KRAS" + "G12C" mentioned separately)
+    const additionalMatches = criteria.molecularMarkers.filter(marker => {
+      if (relevantMarkers.includes(marker)) return false; // Already found
+      
+      // Split marker into gene and mutation parts
+      const parts = marker.replace(/_/g, ' ').split(' ');
+      if (parts.length >= 2) {
+        const gene = parts[0]; // e.g., "KRAS"
+        const mutation = parts.slice(1).join(' '); // e.g., "G12C"
+        
+        const geneLower = gene.toLowerCase();
+        const mutationLower = mutation.toLowerCase();
+        const eligLower = eligibilityCriteria.toLowerCase();
+        
+        // Check if both parts are mentioned somewhere in the criteria
+        const hasGene = eligLower.includes(geneLower);
+        const hasMutation = eligLower.includes(mutationLower);
+        
+        // Also check interventions
+        let hasGeneInIntervention = false;
+        let hasMutationInIntervention = false;
+        
+        if (trial.protocolSection.armsInterventionsModule?.interventions) {
+          trial.protocolSection.armsInterventionsModule.interventions.forEach(intervention => {
+            const desc = (intervention.description || '').toLowerCase();
+            const name = (intervention.name || '').toLowerCase();
+            const combined = desc + ' ' + name;
+            
+            if (combined.includes(geneLower)) hasGeneInIntervention = true;
+            if (combined.includes(mutationLower)) hasMutationInIntervention = true;
+          });
+        }
+        
+        return (hasGene || hasGeneInIntervention) && (hasMutation || hasMutationInIntervention);
+      }
+      
+      return false;
+    });
+    
+    const totalRelevantMarkers = [...relevantMarkers, ...additionalMatches];
+    
+    // Debug logging for development
+    if (criteria.molecularMarkers.some(m => m.includes('KRAS'))) {
+      console.log(`Trial ${trial.protocolSection.identificationModule.nctId}: Found ${totalRelevantMarkers.length} matching markers from ${criteria.molecularMarkers.length} total`);
+      if (totalRelevantMarkers.length > 0) {
+        console.log(`  Matched markers: ${totalRelevantMarkers.join(', ')}`);
+      }
+    }
+    
+    if (totalRelevantMarkers.length > 0) {
+      // Give higher score for specific mutation matches (e.g., KRAS G12C)
+      const hasSpecificMutation = totalRelevantMarkers.some(marker => 
+        marker.toLowerCase().includes('g12c') || 
+        marker.toLowerCase().includes('g12d') || 
+        marker.toLowerCase().includes('v600e') ||
+        marker.toLowerCase().includes('exon')
+      );
+      
+      score += hasSpecificMutation ? 70 : 40; // 70 for specific mutations, 40 for general markers
+      
+      // Add multiplicative bonus if BOTH recruiting AND molecular match
+      if (hasSpecificMutation && status === 'RECRUITING') {
+        score += 20; // Extra bonus for best-case scenario
+      }
     }
   }
   
@@ -508,20 +726,19 @@ function calculateMatchScore(
     score += 10;
   }
   
-  // Recruitment status scoring (10 points max)
-  const status = trial.protocolSection.statusModule.overallStatus;
+  // Recruitment status scoring (35 points max) - Reduced to not overwhelm molecular matches
   switch (status) {
     case 'RECRUITING':
-      score += 10; // Highest priority - actively recruiting
+      score += 35; // Actively recruiting - important but not overwhelming
       break;
     case 'ENROLLING_BY_INVITATION':
-      score += 7; // Good - but needs invitation
+      score += 20; // Requires invitation
       break;
     case 'NOT_YET_RECRUITING':
-      score += 4; // Future opportunity
+      score += 15; // Future opportunity - still valuable if good match
       break;
     case 'ACTIVE_NOT_RECRUITING':
-      score += 2; // Lowest priority - not taking new patients
+      score += 5; // Very low - not taking new patients
       break;
     // All other statuses are already filtered out
   }
@@ -529,76 +746,33 @@ function calculateMatchScore(
   return score;
 }
 
-// Analyze eligibility criteria using AI
+// Analyze eligibility criteria using the simplified eligibility analyzer
 async function analyzeEligibility(
   trial: ClinicalTrial,
   profile: HealthProfile | null,
   responses: HealthProfileResponse[]
 ): Promise<TrialMatch['eligibilityAnalysis']> {
-  // If no profile, return basic analysis
-  if (!profile) {
-    return {
-      likelyEligible: false,
-      inclusionMatches: [],
-      exclusionConcerns: [],
-      uncertainFactors: ['No health profile available for personalized eligibility assessment']
-    };
-  }
-  
-  const eligibilityCriteria = trial.protocolSection.eligibilityModule?.eligibilityCriteria || '';
-  
-  // If no eligibility criteria text, fall back to basic info
-  if (!eligibilityCriteria) {
-    return {
-      likelyEligible: false,
-      inclusionMatches: [],
-      exclusionConcerns: [],
-      uncertainFactors: ['No detailed eligibility criteria available for this trial']
-    };
-  }
-  
   try {
-    // Use AI for comprehensive eligibility analysis
-    const aiAnalysis = await quickEligibilityCheck(eligibilityCriteria, profile);
-    return aiAnalysis;
+    // Use the simplified eligibility analyzer
+    const result = await checkEligibility(trial, profile, responses);
+    
+    // If it's a detailed result, extract the base result
+    if ('result' in result) {
+      return result.result;
+    }
+    
+    // Otherwise it's already in the right format
+    return result;
   } catch (error) {
-    console.error('AI eligibility check failed, using fallback:', error);
+    console.error('Eligibility analysis failed:', error);
     
-    // Fallback to simple keyword matching if AI fails
-    const analysis = {
-      likelyEligible: true,
-      inclusionMatches: [] as string[],
-      exclusionConcerns: [] as string[],
-      uncertainFactors: [] as string[]
+    // Return a basic error response
+    return {
+      likelyEligible: false,
+      inclusionMatches: [],
+      exclusionConcerns: [],
+      uncertainFactors: ['Eligibility analysis temporarily unavailable']
     };
-    
-    const criteriaLower = eligibilityCriteria.toLowerCase();
-    
-    // Basic keyword matching as fallback
-    if (profile.cancerRegion && criteriaLower.includes(profile.cancerRegion.toLowerCase())) {
-      analysis.inclusionMatches.push(`Matches cancer region: ${profile.cancerRegion}`);
-    }
-    
-    if (profile.diseaseStage && criteriaLower.includes(profile.diseaseStage.replace(/_/g, ' ').toLowerCase())) {
-      analysis.inclusionMatches.push(`Matches disease stage: ${profile.diseaseStage}`);
-    }
-    
-    // Check for common exclusions
-    if (profile.treatmentHistory) {
-      const treatments = profile.treatmentHistory as Record<string, any>;
-      if (treatments.chemotherapy === 'YES' && criteriaLower.includes('no prior chemotherapy')) {
-        analysis.exclusionConcerns.push('Prior chemotherapy may be exclusionary');
-      }
-    }
-    
-    // Set eligibility based on findings
-    if (analysis.exclusionConcerns.length > 0) {
-      analysis.likelyEligible = false;
-    } else if (analysis.inclusionMatches.length === 0) {
-      analysis.uncertainFactors.push('Unable to determine eligibility - please review criteria');
-    }
-    
-    return analysis;
   }
 }
 
@@ -606,8 +780,11 @@ async function analyzeEligibility(
 type ClinicalTrialsToolReturn = any;
 
 // Main tool export
-export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrialsToolReturn =>
-  tool({
+export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: string): ClinicalTrialsToolReturn => {
+  // Calculate token budget once when tool is created
+  const tokenBudget = getTokenBudget(modelId);
+  
+  return tool({
     description: 'Search and match clinical trials based on user health profile or custom criteria. Can search for trials, get trial details, check eligibility, or refine previous searches.',
     parameters: z.object({
       action: z.enum(['search', 'details', 'eligibility_check', 'refine'])
@@ -661,7 +838,11 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
           .describe('Types of study funders'),
         maxResults: z.number()
           .default(5)
-          .describe('Maximum number of results to return')
+          .describe('Maximum number of results to return'),
+        summaryMode: z.boolean()
+          .optional()
+          .default(false)
+          .describe('Return condensed results for follow-up queries to save tokens')
       }).optional(),
       trialId: z.string()
         .optional()
@@ -677,7 +858,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
             // Default searchParams if not provided
             const params = searchParams || {
               useProfile: true,
-              maxResults: 10
+              maxResults: 5
             };
             
             // Load user's health profile if requested
@@ -713,6 +894,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
               conditionQuery = buildSearchQuery(searchCriteria);
             }
             
+            // Build base query parameters
             if (conditionQuery) {
               apiParams.append('query.cond', conditionQuery);
             }
@@ -727,8 +909,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
               apiParams.append('query.intr', params.intervention);
             }
             
-            // REMOVED: Don't add molecular markers to search query
-            // They should be used for eligibility analysis AFTER finding trials
+            // Molecular markers are intentionally not added to the search query
+            // They are used for scoring and eligibility analysis after retrieval
             
             // Set study status filter - ALWAYS exclude non-viable statuses
             const viableStatuses = ['RECRUITING', 'ENROLLING_BY_INVITATION', 'ACTIVE_NOT_RECRUITING', 'NOT_YET_RECRUITING'];
@@ -868,11 +1050,21 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
             console.log('Other terms:', params.otherTerms);
             console.log('Intervention:', params.intervention);
             
+            // Log profile data for debugging incomplete profiles
+            if (profile) {
+              console.log('Health Profile Data:', {
+                cancerRegion: profile.cancerRegion || 'MISSING',
+                cancerType: profile.cancerType || 'MISSING',
+                diseaseStage: profile.diseaseStage || 'MISSING',
+                searchCriteria: searchCriteria
+              });
+            }
+            
             // Stream search start
             const searchStatusData: any = {
               status: 'started',
               query: conditionQuery || params.otherTerms || params.intervention || '',
-              message: 'Searching ClinicalTrials.gov...'
+              message: 'Searching ClinicalTrials.gov with multi-query approach...'
             };
             
             if (params.location) {
@@ -884,21 +1076,138 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
               data: searchStatusData
             });
             
-            // Fetch trials from API
-            const response = await fetch(apiUrl);
-            if (!response.ok) {
-              const errorBody = await response.text();
-              console.error('API Error Response:', {
-                status: response.status,
-                statusText: response.statusText,
-                body: errorBody,
+            // Multi-query approach: Execute multiple queries for better coverage
+            const allTrials = new Map<string, any>(); // NCT ID -> trial
+            let maxTotalCount = 0;
+            const queryMetadata: { name: string; count: number; url: string }[] = [];
+            
+            // Query 1: Broad search (always execute)
+            console.log('Executing Query 1: Broad search');
+            const response1 = await fetch(apiUrl);
+            if (response1.ok) {
+              const data1 = await response1.json();
+              const trials1 = data1.studies || [];
+              maxTotalCount = Math.max(maxTotalCount, data1.totalCount || 0);
+              
+              trials1.forEach((trial: any) => {
+                const nctId = trial.protocolSection?.identificationModule?.nctId;
+                if (nctId && !allTrials.has(nctId)) {
+                  allTrials.set(nctId, trial);
+                }
+              });
+              
+              queryMetadata.push({
+                name: 'broad_search',
+                count: trials1.length,
                 url: apiUrl
               });
-              throw new Error(`API request failed (${response.status}): ${response.statusText}. Details: ${errorBody}`);
             }
             
-            const data = await response.json();
-            const trials = data.studies || [];
+            // Query 2: If molecular markers exist, search with them
+            if (searchCriteria.molecularMarkers && searchCriteria.molecularMarkers.length > 0) {
+              const markerQuery = searchCriteria.molecularMarkers[0].replace(/_/g, ' ');
+              const specificParams = new URLSearchParams(apiParams);
+              
+              // Modify the condition query to include the molecular marker
+              const specificCondition = conditionQuery ? 
+                `${conditionQuery} ${markerQuery}` : 
+                markerQuery;
+              
+              specificParams.set('query.cond', specificCondition);
+              
+              const specificUrl = `${STUDIES_ENDPOINT}?${specificParams}`;
+              console.log('Executing Query 2: Molecular marker specific search');
+              console.log('Molecular marker query:', specificCondition);
+              
+              const response2 = await fetch(specificUrl);
+              if (response2.ok) {
+                const data2 = await response2.json();
+                const trials2 = data2.studies || [];
+                maxTotalCount = Math.max(maxTotalCount, data2.totalCount || 0);
+                
+                trials2.forEach((trial: any) => {
+                  const nctId = trial.protocolSection?.identificationModule?.nctId;
+                  if (nctId && !allTrials.has(nctId)) {
+                    allTrials.set(nctId, trial);
+                  }
+                });
+                
+                queryMetadata.push({
+                  name: 'molecular_specific',
+                  count: trials2.length,
+                  url: specificUrl
+                });
+              }
+              
+              // Query 3: Drug-based search for known molecular targets
+              const drugMap: Record<string, string[]> = {
+                'KRAS_G12C': ['sotorasib', 'adagrasib'],
+                'EGFR': ['osimertinib', 'erlotinib', 'gefitinib'],
+                'ALK': ['alectinib', 'crizotinib', 'brigatinib'],
+                'BRAF_V600E': ['dabrafenib', 'vemurafenib'],
+                'HER2': ['trastuzumab', 'pertuzumab'],
+                'PD_L1': ['pembrolizumab', 'atezolizumab', 'durvalumab']
+              };
+              
+              const markerDrugs = searchCriteria.molecularMarkers
+                .flatMap(marker => drugMap[marker] || [])
+                .filter((drug, index, self) => self.indexOf(drug) === index); // unique
+              
+              if (markerDrugs.length > 0) {
+                const drugParams = new URLSearchParams(apiParams);
+                drugParams.set('query.intr', markerDrugs.join(' OR '));
+                
+                const drugUrl = `${STUDIES_ENDPOINT}?${drugParams}`;
+                console.log('Executing Query 3: Drug-based search');
+                console.log('Drug query:', markerDrugs.join(' OR '));
+                
+                const response3 = await fetch(drugUrl);
+                if (response3.ok) {
+                  const data3 = await response3.json();
+                  const trials3 = data3.studies || [];
+                  maxTotalCount = Math.max(maxTotalCount, data3.totalCount || 0);
+                  
+                  trials3.forEach((trial: any) => {
+                    const nctId = trial.protocolSection?.identificationModule?.nctId;
+                    if (nctId && !allTrials.has(nctId)) {
+                      allTrials.set(nctId, trial);
+                    }
+                  });
+                  
+                  queryMetadata.push({
+                    name: 'drug_based',
+                    count: trials3.length,
+                    url: drugUrl
+                  });
+                }
+              }
+            }
+            
+            // Convert merged trials back to array
+            const trials = Array.from(allTrials.values());
+            const totalCount = maxTotalCount;
+            
+            console.log(`Multi-query results: ${trials.length} unique trials from ${queryMetadata.length} queries`);
+            queryMetadata.forEach(q => {
+              console.log(`  - ${q.name}: ${q.count} trials`);
+            });
+            if (totalCount > 1000) {
+              console.warn(`Search returned ${totalCount} trials - this may be too broad`);
+              
+              dataStream?.writeMessageAnnotation({
+                type: 'search_status',
+                data: {
+                  status: 'warning',
+                  message: `Found ${totalCount} trials. This search may be too broad. Consider adding more specific criteria like location, treatment type, or molecular markers.`,
+                  suggestions: [
+                    'Add your location to find nearby trials',
+                    'Specify treatment type (e.g., immunotherapy, targeted therapy)',
+                    'Include molecular markers if known',
+                    'Complete your health profile for better matching'
+                  ]
+                }
+              });
+            }
             
             // Rank and analyze trials
             const matches: TrialMatch[] = await Promise.all(
@@ -953,7 +1262,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
                       broaderTrials,
                       broaderMatches,
                       undefined,
-                      undefined
+                      undefined,
+                      tokenBudget
                     );
                     
                     dataStream?.writeMessageAnnotation({
@@ -991,7 +1301,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
               trials,
               matches,
               undefined,
-              undefined
+              undefined,
+              tokenBudget
             );
             
             // Stream results with token information
@@ -999,9 +1310,9 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
               type: 'search_status',
               data: {
                 status: 'completed',
-                totalResults: data.totalCount || trials.length,
+                totalResults: totalCount || trials.length,
                 returnedResults: optimizedMatches.length,
-                message: `Found ${data.totalCount || trials.length} trials, showing ${optimizedMatches.length}${
+                message: `Found ${totalCount || trials.length} trials, showing ${optimizedMatches.length}${
                   tokenMetadata.returnedCount < matches.length ? ' (optimized for display)' : ''
                 }`
               }
@@ -1031,17 +1342,62 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
               };
             });
             
+            // If in summary mode, return condensed data
+            let finalMatches = matchesWithLocationSummary;
+            if (params.summaryMode) {
+              finalMatches = matchesWithLocationSummary.map(match => {
+                const trial = match.trial;
+                const identificationModule = trial.protocolSection.identificationModule;
+                const statusModule = trial.protocolSection.statusModule;
+                const eligibilityModule = trial.protocolSection.eligibilityModule;
+                
+                // Return only essential information
+                return {
+                  ...match,
+                  trial: {
+                    protocolSection: {
+                      identificationModule: {
+                        nctId: identificationModule.nctId,
+                        briefTitle: identificationModule.briefTitle
+                      },
+                      statusModule: {
+                        overallStatus: statusModule?.overallStatus
+                      },
+                      designModule: trial.protocolSection.designModule ? {
+                        phases: trial.protocolSection.designModule.phases
+                      } : undefined,
+                      // Include brief eligibility criteria
+                      eligibilityModule: eligibilityModule ? {
+                        eligibilityCriteria: eligibilityModule.eligibilityCriteria ? 
+                          eligibilityModule.eligibilityCriteria.substring(0, 200) + '...' : undefined
+                      } : undefined,
+                      // Include limited location info
+                      contactsLocationsModule: {
+                        locations: trial.protocolSection.contactsLocationsModule?.locations?.slice(0, 3),
+                        locationMetadata: (trial.protocolSection.contactsLocationsModule as any)?.locationMetadata
+                      }
+                    }
+                  }
+                };
+              });
+            }
+            
             return {
               success: true,
-              totalCount: data.totalCount || trials.length,
-              matches: matchesWithLocationSummary,
+              totalCount: totalCount || trials.length,
+              matches: finalMatches,
               searchCriteria: searchCriteria,
               query: conditionQuery || params.otherTerms || params.intervention || '',
               tokenBudget: tokenMetadata,
               hasMore: tokenMetadata.originalCount > tokenMetadata.returnedCount,
               message: tokenMetadata.returnedCount < matches.length 
                 ? `Showing ${tokenMetadata.returnedCount} of ${matches.length} most relevant trials (limited to manage data size). Use 'show more trials' to see additional results.`
-                : undefined
+                : undefined,
+              queryMetadata: {
+                queriesExecuted: queryMetadata.length,
+                strategies: queryMetadata.map(q => q.name)
+              },
+              summaryMode: params.summaryMode || false
             };
           }
           
@@ -1132,41 +1488,46 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
             const trial: ClinicalTrial = trials[0];
             
             // Get comprehensive AI analysis for dedicated eligibility check
-            const eligibilityCriteria = trial.protocolSection.eligibilityModule?.eligibilityCriteria || '';
             const trialTitle = trial.protocolSection.identificationModule.briefTitle;
-            const phases = trial.protocolSection.designModule?.phases || [];
             
             try {
-              // Use comprehensive AI analysis for dedicated eligibility checks
-              const comprehensiveAnalysis = await analyzeEligibilityWithAI(
-                eligibilityCriteria,
-                trialTitle,
-                phases,
+              // Use comprehensive analysis for dedicated eligibility checks
+              const result = await checkEligibility(
+                trial,
                 profileData.profile,
-                profileData.responses
+                profileData.responses,
+                { detailed: true }
               );
               
-              return {
-                success: true,
-                trialId: trialId,
-                trialTitle: trialTitle,
-                comprehensiveAnalysis: comprehensiveAnalysis,
-                // Keep backward compatibility
-                eligibilityAnalysis: {
-                  likelyEligible: comprehensiveAnalysis.overallAssessment !== 'likely_not_eligible',
-                  inclusionMatches: comprehensiveAnalysis.keyMatchFactors,
-                  exclusionConcerns: comprehensiveAnalysis.keyConcerns,
-                  uncertainFactors: comprehensiveAnalysis.missingInformation.map(m => m.dataPoint)
-                },
-                detailedCriteria: {
-                  inclusion: comprehensiveAnalysis.inclusionCriteria.map(c => c.criterion),
-                  exclusion: comprehensiveAnalysis.exclusionCriteria.map(c => c.criterion)
-                },
-                recommendation: comprehensiveAnalysis.recommendation.primaryMessage,
-                nextSteps: comprehensiveAnalysis.recommendation.nextSteps,
-                questionsForDoctor: comprehensiveAnalysis.recommendation.questionsForDoctor,
-                patientExplanation: comprehensiveAnalysis.explanationForPatient
-              };
+              // Check if we got a detailed result
+              if ('analysis' in result) {
+                const comprehensiveAnalysis = result.analysis;
+                
+                return {
+                  success: true,
+                  trialId: trialId,
+                  trialTitle: trialTitle,
+                  comprehensiveAnalysis: comprehensiveAnalysis,
+                  // Keep backward compatibility
+                  eligibilityAnalysis: {
+                    likelyEligible: comprehensiveAnalysis.overallAssessment !== 'likely_not_eligible',
+                    inclusionMatches: comprehensiveAnalysis.keyMatchFactors,
+                    exclusionConcerns: comprehensiveAnalysis.keyConcerns,
+                    uncertainFactors: comprehensiveAnalysis.missingInformation.map((m: any) => m.dataPoint)
+                  },
+                  detailedCriteria: {
+                    inclusion: comprehensiveAnalysis.inclusionCriteria.map((c: any) => c.criterion),
+                    exclusion: comprehensiveAnalysis.exclusionCriteria.map((c: any) => c.criterion)
+                  },
+                  recommendation: comprehensiveAnalysis.recommendation.primaryMessage,
+                  nextSteps: comprehensiveAnalysis.recommendation.nextSteps,
+                  questionsForDoctor: comprehensiveAnalysis.recommendation.questionsForDoctor,
+                  patientExplanation: comprehensiveAnalysis.explanationForPatient
+                };
+              } else {
+                // Fallback to basic result if detailed analysis wasn't available
+                throw new Error('Detailed analysis not available');
+              }
             } catch (aiError) {
               console.error('Comprehensive AI analysis failed, using quick check:', aiError);
               
@@ -1291,3 +1652,4 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): ClinicalTrial
       }
     },
   });
+}; // Close the clinicalTrialsTool function

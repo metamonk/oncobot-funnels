@@ -320,7 +320,7 @@ export async function POST(req: Request) {
           youtube_search: youtubeSearchTool,
           reddit_search: redditSearchTool,
           retrieve: retrieveTool,
-          clinical_trials: clinicalTrialsTool(dataStream),
+          clinical_trials: clinicalTrialsTool(dataStream, model),
           health_profile: healthProfileTool(dataStream),
 
           // Media & Entertainment
