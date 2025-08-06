@@ -866,7 +866,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
             let responses: HealthProfileResponse[] = [];
             let searchCriteria: SearchCriteria = {};
             
-            if (params.useProfile) {
+            if (params && 'useProfile' in params && params.useProfile) {
               try {
                 const profileData = await getUserHealthProfile();
                 if (profileData) {
@@ -881,16 +881,16 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
             
             // Build search queries using specific API parameters
             const apiParams = new URLSearchParams({
-              'pageSize': (params.maxResults || 20).toString(),
+              'pageSize': ((params && 'maxResults' in params ? params.maxResults : undefined) || 20).toString(),
               'countTotal': 'true',
               'sort': 'StartDate:desc'
             });
             
             // Build condition query from profile or explicit parameter
             let conditionQuery = '';
-            if (params.condition) {
+            if (params && 'condition' in params && params.condition) {
               conditionQuery = params.condition;
-            } else if (searchCriteria && !params.condition) {
+            } else if (searchCriteria) {
               conditionQuery = buildSearchQuery(searchCriteria);
             }
             
@@ -900,12 +900,12 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
             }
             
             // Add other search terms
-            if (params.otherTerms) {
+            if (params && 'otherTerms' in params && params.otherTerms) {
               apiParams.append('query.term', params.otherTerms);
             }
             
             // Add intervention/treatment search
-            if (params.intervention) {
+            if (params && 'intervention' in params && params.intervention) {
               apiParams.append('query.intr', params.intervention);
             }
             
@@ -915,7 +915,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
             // Set study status filter - ALWAYS exclude non-viable statuses
             const viableStatuses = ['RECRUITING', 'ENROLLING_BY_INVITATION', 'ACTIVE_NOT_RECRUITING', 'NOT_YET_RECRUITING'];
             
-            if (params.studyStatus && params.studyStatus.length > 0) {
+            if (params && 'studyStatus' in params && params.studyStatus && params.studyStatus.length > 0) {
               // Use user-specified statuses (already limited to viable ones by schema)
               apiParams.append('filter.overallStatus', params.studyStatus.join(','));
             } else {
@@ -924,12 +924,12 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
             }
             
             // Add study type filter
-            if (params.studyType && params.studyType.length > 0) {
+            if (params && 'studyType' in params && params.studyType && params.studyType.length > 0) {
               apiParams.append('filter.studyType', params.studyType.join(','));
             }
             
             // Add eligibility filters
-            if (params.eligibilityCriteria) {
+            if (params && 'eligibilityCriteria' in params && params.eligibilityCriteria) {
               const { sex, minAge, maxAge, healthyVolunteers } = params.eligibilityCriteria;
               
               if (sex && sex !== 'ALL') {
@@ -948,16 +948,16 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
             }
             
             // Add funder type filter
-            if (params.funderType && params.funderType.length > 0) {
+            if (params && 'funderType' in params && params.funderType && params.funderType.length > 0) {
               apiParams.append('filter.funderType', params.funderType.join(','));
             }
             
             // Check if we have any search criteria
-            const hasSearchCriteria = conditionQuery || params.otherTerms || params.intervention;
+            const hasSearchCriteria = conditionQuery || (params && 'otherTerms' in params && params.otherTerms) || (params && 'intervention' in params && params.intervention);
             
-            if (!hasSearchCriteria && !params.location) {
+            if (!hasSearchCriteria && !(params && 'location' in params && params.location)) {
               // Provide fallback search instead of error
-              if (!params.useProfile) {
+              if (!(params && 'useProfile' in params && params.useProfile)) {
                 // User explicitly didn't use profile, show general trials
                 conditionQuery = 'cancer';
                 apiParams.append('query.cond', conditionQuery);
@@ -985,13 +985,13 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
             }
             
             // Add location filters if provided
-            if (params.location && params.location.city) {
+            if (params && 'location' in params && params.location && params.location.city) {
               try {
                 // Build location query string
                 const locationQuery = [
-                  params.location.city,
-                  params.location.state,
-                  params.location.country || 'USA'
+                  params?.location?.city,
+                  params?.location?.state,
+                  params?.location?.country || 'USA'
                 ].filter(Boolean).join(', ');
                 
                 // Instead of calling the tool directly, let's use the Google Maps API
@@ -1015,7 +1015,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
                     
                     if (geocodeResult.success && geocodeResult.places && geocodeResult.places.length > 0) {
                       const location = geocodeResult.places[0].location;
-                      const distance = params.location.distance || 50;
+                      const distance = params?.location?.distance || 50;
                       
                       // Format: distance(latitude,longitude,distancemi)
                       // Example: distance(41.8781,-87.6298,50mi) for Chicago
@@ -1039,7 +1039,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
             }
             
             // Add phase filters if provided
-            if (params.phases && params.phases.length > 0) {
+            if (params && 'phases' in params && params.phases && params.phases.length > 0) {
               apiParams.append('filter.phase', params.phases.join(','));
             }
             
@@ -1047,8 +1047,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
             const apiUrl = `${STUDIES_ENDPOINT}?${apiParams}`;
             console.log('Clinical Trials API URL:', apiUrl);
             console.log('Condition query:', conditionQuery);
-            console.log('Other terms:', params.otherTerms);
-            console.log('Intervention:', params.intervention);
+            console.log('Other terms:', params && 'otherTerms' in params ? params.otherTerms : undefined);
+            console.log('Intervention:', params && 'intervention' in params ? params.intervention : undefined);
             
             // Log profile data for debugging incomplete profiles
             if (profile) {
@@ -1063,12 +1063,12 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
             // Stream search start
             const searchStatusData: any = {
               status: 'started',
-              query: conditionQuery || params.otherTerms || params.intervention || '',
+              query: conditionQuery || (params && 'otherTerms' in params ? params.otherTerms : '') || (params && 'intervention' in params ? params.intervention : '') || '',
               message: 'Searching ClinicalTrials.gov with multi-query approach...'
             };
             
-            if (params.location) {
-              searchStatusData.location = `${params.location.city}, ${params.location.state || ''} ${params.location.country || 'USA'}`;
+            if (params && 'location' in params && params.location) {
+              searchStatusData.location = `${params?.location?.city}, ${params?.location?.state || ''} ${params?.location?.country || 'USA'}`;
             }
             
             dataStream?.writeMessageAnnotation({
@@ -1279,7 +1279,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
                       totalCount: broaderData.totalCount,
                       matches: optimizedMatches,
                       searchCriteria: searchCriteria,
-                      query: conditionQuery || params.otherTerms || params.intervention || '',
+                      query: conditionQuery || (params && 'otherTerms' in params ? params.otherTerms : '') || (params && 'intervention' in params ? params.intervention : '') || '',
                       message: 'No exact matches found. Showing general cancer trials that are currently recruiting.',
                       tokenBudget: tokenMetadata,
                       suggestedActions: [
@@ -1344,7 +1344,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
             
             // If in summary mode, return condensed data
             let finalMatches = matchesWithLocationSummary;
-            if (params.summaryMode) {
+            if (params && 'summaryMode' in params && params.summaryMode) {
               finalMatches = matchesWithLocationSummary.map(match => {
                 const trial = match.trial;
                 const identificationModule = trial.protocolSection.identificationModule;
@@ -1387,7 +1387,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
               totalCount: totalCount || trials.length,
               matches: finalMatches,
               searchCriteria: searchCriteria,
-              query: conditionQuery || params.otherTerms || params.intervention || '',
+              query: conditionQuery || (params && 'otherTerms' in params ? params.otherTerms : '') || (params && 'intervention' in params ? params.intervention : '') || '',
               tokenBudget: tokenMetadata,
               hasMore: tokenMetadata.originalCount > tokenMetadata.returnedCount,
               message: tokenMetadata.returnedCount < matches.length 
@@ -1397,7 +1397,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, modelId?: stri
                 queriesExecuted: queryMetadata.length,
                 strategies: queryMetadata.map(q => q.name)
               },
-              summaryMode: params.summaryMode || false
+              summaryMode: (params && 'summaryMode' in params ? params.summaryMode : false) || false
             };
           }
           

@@ -29,7 +29,7 @@ const conversationSummarySchema = z.object({
 
 type ConversationSummary = z.infer<typeof conversationSummarySchema>;
 
-export interface MessageWithMetadata extends CoreMessage {
+export type MessageWithMetadata = CoreMessage & {
   id: string;
   timestamp?: Date;
   tokenCount?: number;
@@ -217,7 +217,7 @@ Focus on:
     return messages.slice(-messageCount).map(m => ({
       role: m.role,
       content: m.content
-    }));
+    } as CoreMessage));
   }
 
   private async selectTopicalMessages(
@@ -242,7 +242,7 @@ Focus on:
     return combined.slice(-decision.includeFromHistory * 2).map(m => ({
       role: m.role,
       content: m.content
-    }));
+    } as CoreMessage));
   }
 
   private selectComprehensiveContext(
@@ -254,7 +254,7 @@ Focus on:
     return messages.slice(-maxMessages).map(m => ({
       role: m.role,
       content: m.content
-    }));
+    } as CoreMessage));
   }
 
   private async compressMessages(
@@ -266,15 +266,18 @@ Focus on:
       if (index >= messages.length - 2) return msg;
 
       if (msg.role === 'tool') {
-        // Compress tool outputs more aggressively
-        const compressed = this.compressToolOutput(msg.content as string);
-        return { ...msg, content: compressed };
+        // For tool messages, we need to handle the content differently
+        // Tool messages have ToolContent type, not string
+        return msg; // Skip compression for tool messages to maintain type safety
       }
 
       if (msg.role === 'assistant' && level === 'aggressive') {
         // Compress verbose assistant responses
-        const compressed = this.compressAssistantResponse(msg.content as string);
-        return { ...msg, content: compressed };
+        const content = msg.content;
+        if (typeof content === 'string') {
+          const compressed = this.compressAssistantResponse(content);
+          return { ...msg, content: compressed };
+        }
       }
 
       return msg;
