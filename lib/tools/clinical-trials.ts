@@ -171,30 +171,71 @@ Return the trials ranked by relevance score.`
       })
       .map(trial => ({
         ...trial,
-        matchReason: rankMap.get(trial.protocolSection.identificationModule.nctId)?.matchReason
+        matchReason: rankMap.get(trial.protocolSection.identificationModule.nctId)?.matchReason,
+        relevanceScore: rankMap.get(trial.protocolSection.identificationModule.nctId)?.relevanceScore
       }));
 
   } catch (error) {
     console.error('Error ranking trials:', error);
     // Fallback to simple ranking
-    return trials.slice(0, maxResults);
+    return trials.slice(0, maxResults).map(trial => ({
+      ...trial,
+      matchReason: 'Matches search criteria',
+      relevanceScore: 75
+    }));
   }
 }
 
-// Create compressed trial data for conversation
-function createCompressedResults(trials: any[]) {
-  return trials.map(trial => ({
-    nctId: trial.protocolSection.identificationModule.nctId,
-    title: truncateText(trial.protocolSection.identificationModule.briefTitle, 100),
-    status: trial.protocolSection.statusModule.overallStatus,
-    phase: trial.protocolSection.designModule?.phases?.[0] || 'N/A',
-    summary: truncateText(trial.protocolSection.descriptionModule?.briefSummary, 200),
-    locations: trial.protocolSection.contactsLocationsModule?.locations
-      ?.slice(0, 2)
-      ?.map((loc: any) => `${loc.city}, ${loc.state || loc.country}`)
-      ?.join('; ') || 'Not specified',
-    matchReason: trial.matchReason || 'Matches search criteria'
-  }));
+// Create match objects for UI component
+function createMatchObjects(trials: any[], healthProfile: any) {
+  return trials.map(trial => {
+    const locations = trial.protocolSection.contactsLocationsModule?.locations || [];
+    const locationSummary = locations.slice(0, 3)
+      .map((loc: any) => `${loc.city}, ${loc.state || loc.country || 'USA'}`)
+      .join('; ') || 'Locations not specified';
+    
+    // Create eligibility analysis based on available data
+    const eligibilityAnalysis = {
+      likelyEligible: true, // Default to true for matched trials
+      inclusionMatches: [] as string[],
+      exclusionConcerns: [] as string[],
+      uncertainFactors: [] as string[]
+    };
+    
+    // Add match reasons based on the trial's match reason
+    if (trial.matchReason) {
+      eligibilityAnalysis.inclusionMatches.push(trial.matchReason);
+    }
+    
+    // Add specific matches based on health profile
+    if (healthProfile?.molecularMarkers?.KRAS_G12C === 'POSITIVE' && 
+        (trial.protocolSection.identificationModule.briefTitle?.includes('KRAS') ||
+         trial.protocolSection.descriptionModule?.briefSummary?.includes('KRAS'))) {
+      eligibilityAnalysis.inclusionMatches.push('KRAS G12C mutation match');
+    }
+    
+    if (healthProfile?.cancerType && 
+        trial.protocolSection.conditionsModule?.conditions?.some((c: string) => 
+          c.toLowerCase().includes(healthProfile.cancerType.toLowerCase()))) {
+      eligibilityAnalysis.inclusionMatches.push(`${healthProfile.cancerType} diagnosis match`);
+    }
+    
+    // Add uncertainty for trials not yet recruiting
+    if (trial.protocolSection.statusModule.overallStatus === 'NOT_YET_RECRUITING') {
+      eligibilityAnalysis.uncertainFactors.push('Trial not yet recruiting - check back for updates');
+    }
+    
+    // Deduplicate inclusion matches
+    eligibilityAnalysis.inclusionMatches = [...new Set(eligibilityAnalysis.inclusionMatches)];
+    
+    return {
+      trial: trial, // Full trial object with protocolSection
+      matchScore: trial.relevanceScore || 75, // Use AI score or default
+      matchingCriteria: eligibilityAnalysis.inclusionMatches,
+      eligibilityAnalysis,
+      locationSummary
+    };
+  });
 }
 
 // Main tool export
@@ -287,8 +328,14 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
         if (uniqueTrials.length === 0) {
           return {
             success: true,
-            results: [],
+            matches: [], // UI expects 'matches' array
             totalCount: 0,
+            searchCriteria: {
+              condition: userQuery,
+              location: location,
+              useProfile: useHealthProfile,
+              cancerType: healthProfile?.cancerType
+            },
             message: 'No trials found matching your criteria. This could be due to limited trials for your specific profile. Consider discussing with your healthcare provider about broadening search criteria.'
           };
         }
@@ -296,8 +343,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
         // Rank trials by relevance
         const rankedTrials = await rankTrials(uniqueTrials, healthProfile, maxResults);
 
-        // Create compressed results for conversation
-        const compressedResults = createCompressedResults(rankedTrials);
+        // Create match objects for UI component
+        const matches = createMatchObjects(rankedTrials, healthProfile);
 
         // Store full trial data in annotations (doesn't count toward token limit)
         dataStream?.writeMessageAnnotation({
@@ -305,15 +352,15 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           data: rankedTrials.map(trial => ({
             nctId: trial.protocolSection.identificationModule.nctId,
             fullTitle: trial.protocolSection.identificationModule.briefTitle,
-            officialTitle: trial.protocolSection.identificationModule.officialTitle,
+            officialTitle: trial.protocolSection.identificationModule.officialTitle || '',
             status: trial.protocolSection.statusModule.overallStatus,
-            phase: trial.protocolSection.designModule?.phases,
-            conditions: trial.protocolSection.conditionsModule?.conditions,
-            interventions: trial.protocolSection.armsInterventionsModule?.interventions,
-            eligibility: trial.protocolSection.eligibilityModule?.eligibilityCriteria,
-            locations: trial.protocolSection.contactsLocationsModule?.locations,
-            description: trial.protocolSection.descriptionModule?.briefSummary,
-            matchReason: trial.matchReason
+            phase: trial.protocolSection.designModule?.phases || [],
+            conditions: trial.protocolSection.conditionsModule?.conditions || [],
+            interventions: trial.protocolSection.armsInterventionsModule?.interventions || [],
+            eligibility: trial.protocolSection.eligibilityModule?.eligibilityCriteria || '',
+            locations: trial.protocolSection.contactsLocationsModule?.locations || [],
+            description: trial.protocolSection.descriptionModule?.briefSummary || '',
+            matchReason: trial.matchReason || ''
           }))
         });
 
@@ -322,18 +369,25 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           data: {
             status: 'completed',
             totalResults: uniqueTrials.length,
-            returnedResults: compressedResults.length,
+            returnedResults: matches.length,
             searchQueries,
             message: `Found ${uniqueTrials.length} trials using ${searchQueries.length} targeted searches`
           }
         });
 
+        // Return structure expected by UI component
         return {
           success: true,
-          results: compressedResults,
+          matches: matches, // UI expects 'matches' array, not 'results'
           totalCount: uniqueTrials.length,
-          queriesUsed: searchQueries,
-          message: `Found ${uniqueTrials.length} clinical trials. Showing the ${compressedResults.length} most relevant matches based on your health profile.`
+          searchCriteria: {
+            condition: userQuery,
+            location: location,
+            useProfile: useHealthProfile,
+            cancerType: healthProfile?.cancerType
+          },
+          query: searchQueries.join('; '),
+          message: `Found ${uniqueTrials.length} clinical trials. Showing the ${matches.length} most relevant matches based on your health profile.`
         };
 
       } catch (error) {
@@ -341,7 +395,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
         
         return {
           success: false,
-          results: [],
+          matches: [], // UI expects 'matches' array
           totalCount: 0,
           error: error instanceof Error ? error.message : 'Search failed',
           message: 'Unable to search clinical trials at this time. Please try again.'
