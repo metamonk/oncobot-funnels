@@ -90,12 +90,16 @@ function getStreamContext() {
       globalStreamContext = createResumableStreamContext({
         waitUntil: after,
       });
+      console.log(' > Resumable streams initialized successfully');
     } catch (error: any) {
-      if (error.message.includes('REDIS_URL')) {
+      if (error.message?.includes('REDIS_URL')) {
         console.log(' > Resumable streams are disabled due to missing REDIS_URL');
       } else {
-        console.error(error);
+        console.error(' > Failed to initialize resumable streams:', error.message || error);
+        console.error(' > Falling back to regular streams');
       }
+      // Return null to use regular streams as fallback
+      globalStreamContext = null;
     }
   }
 
@@ -637,7 +641,13 @@ export async function POST(req: Request) {
   const streamContext = getStreamContext();
 
   if (streamContext) {
-    return new Response(await streamContext.resumableStream(streamId, () => stream));
+    try {
+      return new Response(await streamContext.resumableStream(streamId, () => stream));
+    } catch (error: any) {
+      console.error('Failed to create resumable stream:', error);
+      // Fall back to regular stream if Redis connection fails
+      return new Response(stream);
+    }
   } else {
     return new Response(stream);
   }
@@ -696,7 +706,14 @@ export async function GET(request: Request) {
     execute: () => {},
   });
 
-  const stream = await streamContext.resumableStream(recentStreamId, () => emptyDataStream);
+  let stream;
+  try {
+    stream = await streamContext.resumableStream(recentStreamId, () => emptyDataStream);
+  } catch (error: any) {
+    console.error('Failed to resume stream:', error);
+    // Return empty stream on Redis connection failure
+    return new Response(emptyDataStream, { status: 200 });
+  }
 
   /*
    * For when the generation is streaming during SSR
