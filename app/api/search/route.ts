@@ -368,28 +368,35 @@ export async function POST(req: Request) {
               
               // Compress large outputs
               if (result && JSON.stringify(result).length > 5000) {
-                const { compressed, fullDataId } = await contextManager.compressToolOutput(
-                  toolName,
-                  result,
-                  messages[messages.length - 1]?.content
-                );
-                
-                console.log(`📦 Compressed ${toolName} output: ${JSON.stringify(result).length} → ${JSON.stringify(compressed).length} chars`);
-                
-                // Store reference to full data
-                if (fullDataId && dataStream) {
-                  dataStream.writeMessageAnnotation({
-                    type: 'tool_compression',
-                    data: {
-                      toolName,
-                      fullDataId,
-                      originalSize: JSON.stringify(result).length,
-                      compressedSize: JSON.stringify(compressed).length
+                try {
+                  const { compressed, fullDataId } = await contextManager.compressToolOutput(
+                    toolName,
+                    result,
+                    messages[messages.length - 1]?.content
+                  );
+                  
+                  if (compressed) {
+                    console.log(`📦 Compressed ${toolName} output: ${JSON.stringify(result).length} → ${JSON.stringify(compressed).length} chars`);
+                    
+                    // Store reference to full data
+                    if (fullDataId && dataStream) {
+                      dataStream.writeMessageAnnotation({
+                        type: 'tool_compression',
+                        data: {
+                          toolName,
+                          fullDataId,
+                          originalSize: JSON.stringify(result).length,
+                          compressedSize: JSON.stringify(compressed).length
+                        }
+                      });
                     }
-                  });
+                    
+                    return compressed;
+                  }
+                } catch (error) {
+                  console.error(`Failed to compress ${toolName} output:`, error);
+                  // Fall through to return original result
                 }
-                
-                return compressed;
               }
               
               return result;

@@ -59,56 +59,40 @@ export class AIContextManager {
     const fullDataId = `tool-${toolName}-${Date.now()}`;
     this.toolOutputCache.set(fullDataId, toolOutput);
 
-    // Determine compression strategy
+    // Use simple heuristics for compression strategy instead of AI
+    // This avoids the 90+ second delays from AI compression decisions
     try {
-      const { object: strategy } = await generateObject({
-        model: oncobot.languageModel(this.fastModel),
-        schema: toolCompressionSchema,
-        prompt: `Determine how to compress this tool output for AI processing.
-
-Tool: ${toolName}
-Output Type: ${typeof toolOutput}
-Output Size: ${JSON.stringify(toolOutput).length} characters
-${toolOutput.matches ? `Result Count: ${toolOutput.matches.length}` : ''}
-${userQuery ? `User Query: "${userQuery}"` : ''}
-
-Guidelines:
-- 'full': Keep complete output (only for small, critical data)
-- 'summary': Create intelligent summary preserving key information
-- 'minimal': Only essential identifiers and counts
-- 'reference': Just reference ID, retrieve later if needed
-
-For clinical trials with many results, prefer 'summary' to preserve key trial info while reducing tokens.`,
-        temperature: 0
-      });
-
-      // Apply compression based on strategy
-      switch (strategy.compressionStrategy) {
-        case 'full':
-          return { compressed: toolOutput, fullDataId };
-        
-        case 'summary':
-          return { 
-            compressed: this.createToolSummary(toolName, toolOutput, strategy),
-            fullDataId 
-          };
-        
-        case 'minimal':
-          return {
-            compressed: this.createMinimalSummary(toolName, toolOutput),
-            fullDataId
-          };
-        
-        case 'reference':
-          return {
-            compressed: {
-              type: 'tool_reference',
-              toolName,
-              fullDataId,
-              summary: this.createOneLiner(toolOutput)
-            },
-            fullDataId
-          };
+      // For clinical trials, always use summary strategy
+      if (toolName === 'clinical_trials' && toolOutput.matches) {
+        const strategy = { 
+          compressionStrategy: 'summary',
+          maxItems: 5,
+          preserveFields: ['nctId', 'title', 'relevanceScore', 'matchReasons']
+        };
+        return { 
+          compressed: this.createToolSummary(toolName, toolOutput, strategy),
+          fullDataId 
+        };
+      }
+      
+      // For other tools with large outputs, use appropriate compression
+      const outputSize = JSON.stringify(toolOutput).length;
+      
+      if (outputSize < 10000) {
+        // Small outputs can be kept as-is
+        return { compressed: toolOutput, fullDataId };
+      } else if (outputSize < 50000) {
+        // Medium outputs get summarized
+        return {
+          compressed: this.createToolSummary(toolName, toolOutput, { maxItems: 5 }),
+          fullDataId
+        };
+      } else {
+        // Large outputs get minimal compression
+        return {
+          compressed: this.createMinimalSummary(toolName, toolOutput),
+          fullDataId
+        };
       }
     } catch (error) {
       console.error('Tool compression failed, using fallback', error);
