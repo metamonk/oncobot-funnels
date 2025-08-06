@@ -250,23 +250,67 @@ export async function POST(req: Request) {
       const enableContextOptimization = process.env.ENABLE_AI_CONTEXT_OPTIMIZATION !== 'false';
       let optimizedMessages = convertToCoreMessages(messages);
       
-      if (enableContextOptimization && messages.length > 2) {
+      // Always run context optimization to handle tool outputs
+      if (enableContextOptimization) {
         const contextStartTime = Date.now();
         
         // Extract current query (last user message)
         const currentQuery = messages[messages.length - 1].content;
-        const messagesWithMetadata: MessageWithMetadata[] = messages.map((msg: any, index: number) => ({
+        
+        // Pre-process messages to compress tool outputs
+        const processedMessages = await Promise.all(messages.map(async (msg: any, index: number) => {
+          // Check if this is a tool result message
+          if (msg.role === 'tool' || (msg.toolInvocations && msg.toolInvocations.length > 0)) {
+            // Process tool invocations if present
+            if (msg.toolInvocations) {
+              const processedInvocations = await Promise.all(msg.toolInvocations.map(async (invocation: any) => {
+                if (invocation.result) {
+                  const { compressed, fullDataId } = await contextManager.compressToolOutput(
+                    invocation.toolName,
+                    invocation.result,
+                    currentQuery
+                  );
+                  return {
+                    ...invocation,
+                    result: compressed,
+                    _fullDataId: fullDataId
+                  };
+                }
+                return invocation;
+              }));
+              return {
+                ...msg,
+                toolInvocations: processedInvocations
+              };
+            }
+          }
+          return msg;
+        }));
+        
+        const messagesWithMetadata: MessageWithMetadata[] = processedMessages.map((msg: any, index: number) => ({
           ...msg,
           id: msg.id || `msg-${index}`,
           timestamp: msg.timestamp || new Date()
         }));
 
         try {
-          // Get AI decision on context needs
-          const contextDecision = await contextManager.analyzeContextNeeds(
-            currentQuery,
-            messagesWithMetadata
-          );
+          // For single message (initial query), use minimal context
+          let contextDecision;
+          if (messages.length === 1) {
+            contextDecision = {
+              strategy: 'minimal' as const,
+              reasoning: 'Initial query - no history needed',
+              includeFromHistory: 0,
+              requiresToolOutputs: false,
+              compressionLevel: 'none' as const
+            };
+          } else {
+            // Get AI decision on context needs for multi-message conversations
+            contextDecision = await contextManager.analyzeContextNeeds(
+              currentQuery,
+              messagesWithMetadata
+            );
+          }
           
           console.log('Context Decision:', {
             strategy: contextDecision.strategy,
@@ -295,7 +339,7 @@ export async function POST(req: Request) {
           optimizedMessages = convertToCoreMessages(messages);
         }
       } else {
-        console.log('Context optimization skipped (disabled or too few messages)');
+        console.log('Context optimization disabled');
       }
 
       // Calculate time to reach streamText
@@ -304,6 +348,51 @@ export async function POST(req: Request) {
       console.log('--------------------------------');
       console.log(`Time to reach streamText: ${setupTime.toFixed(2)} seconds`);
       console.log('--------------------------------');
+
+      // Create a tool wrapper that compresses outputs
+      const createCompressedTool = (toolFunc: any, toolName: string) => {
+        if (!toolFunc || typeof toolFunc !== 'function') return toolFunc;
+        
+        return (params?: any) => {
+          const originalTool = typeof toolFunc === 'function' ? toolFunc(params) : toolFunc;
+          
+          return {
+            ...originalTool,
+            execute: async (...args: any[]) => {
+              // Execute the original tool
+              const result = await originalTool.execute(...args);
+              
+              // Compress large outputs
+              if (result && JSON.stringify(result).length > 5000) {
+                const { compressed, fullDataId } = await contextManager.compressToolOutput(
+                  toolName,
+                  result,
+                  messages[messages.length - 1]?.content
+                );
+                
+                console.log(`📦 Compressed ${toolName} output: ${JSON.stringify(result).length} → ${JSON.stringify(compressed).length} chars`);
+                
+                // Store reference to full data
+                if (fullDataId && dataStream) {
+                  dataStream.writeMessageAnnotation({
+                    type: 'tool_compression',
+                    data: {
+                      toolName,
+                      fullDataId,
+                      originalSize: JSON.stringify(result).length,
+                      compressedSize: JSON.stringify(compressed).length
+                    }
+                  });
+                }
+                
+                return compressed;
+              }
+              
+              return result;
+            }
+          };
+        };
+      };
 
       const result = streamText({
         model: oncobot.languageModel(model),
@@ -368,12 +457,12 @@ export async function POST(req: Request) {
 
           // Search & Content Tools
           x_search: xSearchTool,
-          web_search: webSearchTool(dataStream),
-          academic_search: academicSearchTool,
+          web_search: createCompressedTool(webSearchTool, 'web_search')(dataStream),
+          academic_search: createCompressedTool(() => academicSearchTool, 'academic_search')(),
           youtube_search: youtubeSearchTool,
           reddit_search: redditSearchTool,
           retrieve: retrieveTool,
-          clinical_trials: clinicalTrialsTool(dataStream),
+          clinical_trials: createCompressedTool(clinicalTrialsTool, 'clinical_trials')(dataStream),
           health_profile: healthProfileTool(dataStream),
 
           // Media & Entertainment

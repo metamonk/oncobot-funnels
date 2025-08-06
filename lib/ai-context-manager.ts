@@ -13,6 +13,14 @@ const contextDecisionSchema = z.object({
   specificReferences: z.array(z.string()).optional().describe('Specific items referenced (e.g., "the third trial", "those results")')
 });
 
+// Schema for tool output compression decision
+const toolCompressionSchema = z.object({
+  compressionStrategy: z.enum(['full', 'summary', 'minimal', 'reference']).describe('How to compress this tool output'),
+  preserveFields: z.array(z.string()).describe('Key fields to preserve in compression'),
+  maxItems: z.number().describe('Maximum number of items to include (for list results)'),
+  reasoning: z.string().describe('Why this compression strategy was chosen')
+});
+
 type ContextDecision = z.infer<typeof contextDecisionSchema>;
 
 // Schema for conversation summary
@@ -37,6 +45,87 @@ export type MessageWithMetadata = CoreMessage & {
 
 export class AIContextManager {
   private fastModel = 'oncobot-haiku'; // Claude 3.5 Haiku for fast analysis
+  private toolOutputCache = new Map<string, any>(); // Cache full tool outputs
+  
+  /**
+   * Compresses tool outputs intelligently based on the tool type and data
+   */
+  async compressToolOutput(
+    toolName: string,
+    toolOutput: any,
+    userQuery?: string
+  ): Promise<{ compressed: any; fullDataId?: string }> {
+    // Store full output and generate ID
+    const fullDataId = `tool-${toolName}-${Date.now()}`;
+    this.toolOutputCache.set(fullDataId, toolOutput);
+
+    // Determine compression strategy
+    try {
+      const { object: strategy } = await generateObject({
+        model: oncobot.languageModel(this.fastModel),
+        schema: toolCompressionSchema,
+        prompt: `Determine how to compress this tool output for AI processing.
+
+Tool: ${toolName}
+Output Type: ${typeof toolOutput}
+Output Size: ${JSON.stringify(toolOutput).length} characters
+${toolOutput.matches ? `Result Count: ${toolOutput.matches.length}` : ''}
+${userQuery ? `User Query: "${userQuery}"` : ''}
+
+Guidelines:
+- 'full': Keep complete output (only for small, critical data)
+- 'summary': Create intelligent summary preserving key information
+- 'minimal': Only essential identifiers and counts
+- 'reference': Just reference ID, retrieve later if needed
+
+For clinical trials with many results, prefer 'summary' to preserve key trial info while reducing tokens.`,
+        temperature: 0
+      });
+
+      // Apply compression based on strategy
+      switch (strategy.compressionStrategy) {
+        case 'full':
+          return { compressed: toolOutput, fullDataId };
+        
+        case 'summary':
+          return { 
+            compressed: this.createToolSummary(toolName, toolOutput, strategy),
+            fullDataId 
+          };
+        
+        case 'minimal':
+          return {
+            compressed: this.createMinimalSummary(toolName, toolOutput),
+            fullDataId
+          };
+        
+        case 'reference':
+          return {
+            compressed: {
+              type: 'tool_reference',
+              toolName,
+              fullDataId,
+              summary: this.createOneLiner(toolOutput)
+            },
+            fullDataId
+          };
+      }
+    } catch (error) {
+      console.error('Tool compression failed, using fallback', error);
+      // Fallback compression
+      return {
+        compressed: this.createFallbackCompression(toolName, toolOutput),
+        fullDataId
+      };
+    }
+  }
+
+  /**
+   * Retrieves full tool output from cache
+   */
+  getFullToolOutput(fullDataId: string): any {
+    return this.toolOutputCache.get(fullDataId);
+  }
   
   /**
    * Analyzes the current query and determines what context is needed
@@ -344,6 +433,89 @@ Focus on:
         : '[complex content]';
       return `[${i}] ${m.role}: ${content}`;
     }).join('\n');
+  }
+
+  // New helper methods for tool compression
+  private createToolSummary(toolName: string, output: any, strategy: any): any {
+    if (toolName === 'clinical_trials' && output.matches) {
+      // Special handling for clinical trials
+      const topTrials = output.matches.slice(0, strategy.maxItems || 5);
+      return {
+        success: output.success,
+        totalCount: output.totalCount,
+        returnedCount: output.matches.length,
+        searchSummary: output.searchSummary,
+        topMatches: topTrials.map((match: any) => ({
+          nctId: match.trial?.protocolSection?.identificationModule?.nctId,
+          title: match.trial?.protocolSection?.identificationModule?.briefTitle,
+          relevanceScore: match.relevanceScore,
+          matchReasons: match.matchReasons?.slice(0, 2),
+          phase: match.trial?.protocolSection?.designModule?.phases?.[0],
+          status: match.trial?.protocolSection?.statusModule?.overallStatus,
+          locations: match.trial?.protocolSection?.contactsLocationsModule?.locations
+            ?.slice(0, 3)
+            ?.map((loc: any) => `${loc.city}, ${loc.state}`)
+        })),
+        message: output.message,
+        fullDataAvailable: true
+      };
+    }
+    
+    // Generic summary for other tools
+    if (output.results && Array.isArray(output.results)) {
+      return {
+        resultCount: output.results.length,
+        topResults: output.results.slice(0, 3).map((r: any) => ({
+          title: r.title || r.name,
+          id: r.id || r.url,
+          snippet: r.snippet || r.description
+        })),
+        fullDataAvailable: true
+      };
+    }
+    
+    return output;
+  }
+
+  private createMinimalSummary(toolName: string, output: any): any {
+    if (output.matches || output.results) {
+      const items = output.matches || output.results;
+      return {
+        toolName,
+        resultCount: items.length,
+        hasResults: items.length > 0,
+        summary: `Found ${items.length} ${toolName} results`
+      };
+    }
+    return { toolName, data: 'compressed' };
+  }
+
+  private createOneLiner(output: any): string {
+    if (output.matches) {
+      return `${output.matches.length} clinical trials found`;
+    }
+    if (output.results) {
+      return `${output.results.length} results found`;
+    }
+    if (output.success === false) {
+      return `Tool execution failed: ${output.error || 'Unknown error'}`;
+    }
+    return 'Tool output stored';
+  }
+
+  private createFallbackCompression(toolName: string, output: any): any {
+    const stringified = JSON.stringify(output);
+    if (stringified.length > 1000) {
+      // For large outputs, create a basic summary
+      return {
+        toolName,
+        compressed: true,
+        size: stringified.length,
+        preview: stringified.slice(0, 500) + '...',
+        message: 'Output compressed due to size'
+      };
+    }
+    return output;
   }
 }
 
