@@ -287,21 +287,35 @@ Assign relevance scores 0-100 and explain match reasons.`,
 // Main tool export
 export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
   return tool({
-    description: 'Search for clinical trials using AI-powered query generation and ranking. Automatically extracts key terms and builds optimal searches.',
+    description: 'Search for clinical trials. Always use action: "search" with searchParams for health-related queries.',
     parameters: z.object({
-      userQuery: z.string()
-        .describe('Natural language description of what trials to search for'),
-      useHealthProfile: z.boolean()
-        .default(true)
-        .describe('Whether to incorporate user health profile data'),
-      maxResults: z.number()
-        .default(10)
-        .describe('Maximum number of results to return'),
-      previousResults: z.array(z.string())
-        .optional()
-        .describe('NCT IDs to exclude from results (for pagination)')
+      action: z.enum(['search', 'details', 'eligibility_check']).describe('Always use "search" for finding trials'),
+      searchParams: z.object({
+        condition: z.string().optional().describe('The condition or query to search for'),
+        location: z.string().optional().describe('Location to search near (e.g., "Chicago")'), 
+        useProfile: z.boolean().optional().describe('Whether to use the user health profile (default: true)'),
+        maxResults: z.number().optional().describe('Maximum number of results to return (default: 10)'),
+        previousSearchId: z.string().optional().describe('For pagination (not currently used)')
+      }).optional().describe('Parameters for search action'),
+      trialId: z.string().optional().describe('NCT ID for details/eligibility (not currently implemented)'),
+      previousSearchId: z.string().optional().describe('For pagination (not currently used)')
     }),
-    execute: async ({ userQuery, useHealthProfile, maxResults, previousResults }) => {
+    execute: async ({ action, searchParams }) => {
+      // For now, we only implement the search action
+      if (action !== 'search') {
+        return {
+          success: false,
+          error: 'Only search action is currently implemented',
+          message: 'Details and eligibility check features are coming soon.'
+        };
+      }
+
+      // Map old parameters to new internal structure
+      const userQuery = searchParams?.condition || 'clinical trials';
+      const useHealthProfile = searchParams?.useProfile ?? true;
+      const maxResults = searchParams?.maxResults || 10;
+      const location = searchParams?.location;
+
       try {
         // Stream status
         dataStream?.writeMessageAnnotation({
@@ -342,8 +356,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
         console.log(`Generated ${queries.length} queries`);
 
         // Execute queries
-        const location = entities.locations?.[0]; // Use first location if any
-        const trials = await executeQueries(queries, location, maxResults * 3, dataStream);
+        const queryLocation = location || entities.locations?.[0]; // Use provided location or extracted one
+        const trials = await executeQueries(queries, queryLocation, maxResults * 3, dataStream);
 
         if (trials.length === 0) {
           return {
@@ -358,10 +372,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           };
         }
 
-        // Filter out previous results if provided
-        const newTrials = previousResults 
-          ? trials.filter(t => !previousResults.includes(t.protocolSection.identificationModule.nctId))
-          : trials;
+        // For old format, we don't filter previous results since pagination isn't supported
+        const newTrials = trials;
 
         // Rank results using AI
         dataStream?.writeMessageAnnotation({
