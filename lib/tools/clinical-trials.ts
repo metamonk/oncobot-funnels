@@ -254,7 +254,8 @@ function createMatchObjects(trials: any[], healthProfile: any) {
           interventions: trial.protocolSection.armsInterventionsModule?.interventions?.slice(0, 2)
         },
         eligibilityModule: {
-          eligibilityCriteria: truncateText(trial.protocolSection.eligibilityModule?.eligibilityCriteria, 300)
+          // Don't include full eligibility criteria in the response - too much text
+          eligibilityCriteria: trial.protocolSection.eligibilityModule?.eligibilityCriteria ? 'Available' : 'Not specified'
         },
         contactsLocationsModule: {
           locations: locations.slice(0, 3),
@@ -301,7 +302,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
 
       const userQuery = searchParams?.condition || 'clinical trials';
       const useHealthProfile = searchParams?.useProfile ?? true;
-      const maxResults = searchParams?.maxResults || 10;
+      const maxResults = Math.min(searchParams?.maxResults || 5, 5); // Limit to 5 for token management
       const location = searchParams?.location;
 
       try {
