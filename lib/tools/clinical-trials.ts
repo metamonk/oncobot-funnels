@@ -228,8 +228,43 @@ function createMatchObjects(trials: any[], healthProfile: any) {
     // Deduplicate inclusion matches
     eligibilityAnalysis.inclusionMatches = [...new Set(eligibilityAnalysis.inclusionMatches)];
     
+    // Create a reduced trial object with only essential fields for UI
+    const reducedTrial = {
+      protocolSection: {
+        identificationModule: {
+          nctId: trial.protocolSection.identificationModule.nctId,
+          briefTitle: trial.protocolSection.identificationModule.briefTitle,
+          officialTitle: trial.protocolSection.identificationModule.officialTitle
+        },
+        statusModule: {
+          overallStatus: trial.protocolSection.statusModule.overallStatus
+        },
+        descriptionModule: {
+          briefSummary: truncateText(trial.protocolSection.descriptionModule?.briefSummary, 500)
+        },
+        conditionsModule: {
+          conditions: trial.protocolSection.conditionsModule?.conditions?.slice(0, 3),
+          keywords: trial.protocolSection.conditionsModule?.keywords?.slice(0, 3)
+        },
+        designModule: {
+          phases: trial.protocolSection.designModule?.phases,
+          studyType: trial.protocolSection.designModule?.studyType
+        },
+        armsInterventionsModule: {
+          interventions: trial.protocolSection.armsInterventionsModule?.interventions?.slice(0, 2)
+        },
+        eligibilityModule: {
+          eligibilityCriteria: truncateText(trial.protocolSection.eligibilityModule?.eligibilityCriteria, 300)
+        },
+        contactsLocationsModule: {
+          locations: locations.slice(0, 3),
+          centralContacts: trial.protocolSection.contactsLocationsModule?.centralContacts?.slice(0, 2)
+        }
+      }
+    };
+    
     return {
-      trial: trial, // Full trial object with protocolSection
+      trial: reducedTrial, // Reduced trial object for UI
       matchScore: trial.relevanceScore || 75, // Use AI score or default
       matchingCriteria: eligibilityAnalysis.inclusionMatches,
       eligibilityAnalysis,
