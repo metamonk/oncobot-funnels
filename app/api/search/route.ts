@@ -353,57 +353,6 @@ export async function POST(req: Request) {
       console.log(`Time to reach streamText: ${setupTime.toFixed(2)} seconds`);
       console.log('--------------------------------');
 
-      // Create a tool wrapper that compresses outputs
-      const createCompressedTool = (toolFunc: any, toolName: string) => {
-        if (!toolFunc || typeof toolFunc !== 'function') return toolFunc;
-        
-        return (params?: any) => {
-          const originalTool = typeof toolFunc === 'function' ? toolFunc(params) : toolFunc;
-          
-          return {
-            ...originalTool,
-            execute: async (...args: any[]) => {
-              // Execute the original tool
-              const result = await originalTool.execute(...args);
-              
-              // Compress large outputs
-              if (result && JSON.stringify(result).length > 5000) {
-                try {
-                  const { compressed, fullDataId } = await contextManager.compressToolOutput(
-                    toolName,
-                    result,
-                    messages[messages.length - 1]?.content
-                  );
-                  
-                  if (compressed) {
-                    console.log(`📦 Compressed ${toolName} output: ${JSON.stringify(result).length} → ${JSON.stringify(compressed).length} chars`);
-                    
-                    // Store reference to full data
-                    if (fullDataId && dataStream) {
-                      dataStream.writeMessageAnnotation({
-                        type: 'tool_compression',
-                        data: {
-                          toolName,
-                          fullDataId,
-                          originalSize: JSON.stringify(result).length,
-                          compressedSize: JSON.stringify(compressed).length
-                        }
-                      });
-                    }
-                    
-                    return compressed;
-                  }
-                } catch (error) {
-                  console.error(`Failed to compress ${toolName} output:`, error);
-                  // Fall through to return original result
-                }
-              }
-              
-              return result;
-            }
-          };
-        };
-      };
 
       const result = streamText({
         model: oncobot.languageModel(model),
@@ -468,12 +417,12 @@ export async function POST(req: Request) {
 
           // Search & Content Tools
           x_search: xSearchTool,
-          web_search: createCompressedTool(webSearchTool, 'web_search')(dataStream),
-          academic_search: createCompressedTool(() => academicSearchTool, 'academic_search')(),
+          web_search: webSearchTool(dataStream),
+          academic_search: academicSearchTool,
           youtube_search: youtubeSearchTool,
           reddit_search: redditSearchTool,
           retrieve: retrieveTool,
-          clinical_trials: createCompressedTool(clinicalTrialsTool, 'clinical_trials')(dataStream),
+          clinical_trials: clinicalTrialsTool(dataStream),
           health_profile: healthProfileTool(dataStream),
 
           // Media & Entertainment

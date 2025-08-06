@@ -284,6 +284,22 @@ Assign relevance scores 0-100 and explain match reasons.`,
   return rankedResults.sort((a, b) => b.relevanceScore - a.relevanceScore);
 }
 
+// Helper function to create compressed trial summary
+function createCompressedTrialSummary(trial: any, relevanceScore: number, matchReasons: string[]): any {
+  return {
+    nctId: trial.protocolSection.identificationModule.nctId,
+    title: trial.protocolSection.identificationModule.briefTitle,
+    relevanceScore,
+    matchReasons: matchReasons.slice(0, 2), // Only top 2 reasons
+    phase: trial.protocolSection.designModule?.phases?.[0],
+    status: trial.protocolSection.statusModule.overallStatus,
+    // Only include first 3 locations
+    locations: trial.protocolSection.contactsLocationsModule?.locations
+      ?.slice(0, 3)
+      ?.map((loc: any) => `${loc.city}, ${loc.state}`)
+  };
+}
+
 // Main tool export
 export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
   return tool({
@@ -404,27 +420,53 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           };
         });
 
+        // Store full results for UI rendering
+        const fullResultsId = `clinical-trials-${Date.now()}`;
+        dataStream?.writeMessageAnnotation({
+          type: 'clinical_trials_full_results',
+          data: {
+            id: fullResultsId,
+            results: enrichedResults,
+            totalCount: trials.length
+          }
+        });
+
         dataStream?.writeMessageAnnotation({
           type: 'search_status',
           data: {
             status: 'completed',
             totalResults: trials.length,
             returnedResults: enrichedResults.length,
-            message: `Found ${enrichedResults.length} highly relevant trials`
+            message: `Found ${enrichedResults.length} highly relevant trials`,
+            fullResultsId
           }
         });
 
+        // Return compressed results for AI context
+        const compressedResults = enrichedResults.slice(0, 5).map(result => 
+          createCompressedTrialSummary(
+            result.trial,
+            result.relevanceScore,
+            result.matchReasons
+          )
+        );
+
         return {
           success: true,
-          matches: enrichedResults,
+          // Send compressed matches to AI
+          matches: compressedResults,
           totalCount: trials.length,
+          returnedCount: enrichedResults.length,
           searchSummary: {
             entities,
             queriesExecuted: queries.length,
             topQueryTypes: queries.slice(0, 3).map(q => q.type)
           },
           hasMore: trials.length > maxResults,
-          message: `Found ${enrichedResults.length} trials matching your search for "${userQuery}"`
+          message: `Found ${enrichedResults.length} trials matching your search for "${userQuery}"`,
+          // Reference to full results for UI
+          fullResultsAvailable: true,
+          fullResultsId
         };
 
       } catch (error) {
