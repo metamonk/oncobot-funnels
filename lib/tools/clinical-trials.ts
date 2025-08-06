@@ -1,9 +1,8 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { DataStreamWriter } from 'ai';
-import { generateObject } from 'ai';
-import { oncobot } from '@/ai/providers';
+import { DataStreamWriter, generateObject } from 'ai';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
+import { oncobot } from '@/ai/providers';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -16,38 +15,6 @@ const VIABLE_STUDY_STATUSES = [
   'ACTIVE_NOT_RECRUITING',
   'NOT_YET_RECRUITING'
 ] as const;
-
-// Schema for AI entity extraction
-const entityExtractionSchema = z.object({
-  mutations: z.array(z.string()).describe('Genetic mutations mentioned (e.g., KRAS G12C, EGFR)'),
-  cancerTypes: z.array(z.string()).describe('Cancer types mentioned (e.g., NSCLC, lung cancer)'),
-  drugs: z.array(z.string()).describe('Drug names mentioned (e.g., sotorasib, adagrasib)'),
-  locations: z.array(z.string()).describe('Locations mentioned (e.g., Chicago, Boston)'),
-  trialNames: z.array(z.string()).describe('Specific trial names (e.g., CodeBreak, KRYSTAL)'),
-  lineOfTherapy: z.enum(['first', 'second_or_later', 'any', 'unknown']).describe('Treatment line preference'),
-  otherTerms: z.array(z.string()).describe('Other relevant search terms')
-});
-
-// Schema for AI query generation
-const queryGenerationSchema = z.object({
-  queries: z.array(z.object({
-    priority: z.number().describe('Query priority (1-10, higher is more important)'),
-    type: z.enum(['term', 'condition', 'intervention', 'location']).describe('API field to use'),
-    value: z.string().describe('Query value'),
-    rationale: z.string().describe('Why this query is important')
-  })).describe('List of queries to execute, ordered by priority')
-});
-
-// Schema for AI result ranking
-const resultRankingSchema = z.object({
-  rankedTrials: z.array(z.object({
-    nctId: z.string(),
-    relevanceScore: z.number().describe('Relevance score 0-100'),
-    matchReasons: z.array(z.string()).describe('Why this trial matches'),
-    lineOfTherapy: z.enum(['first', 'second_or_later', 'unknown']).optional(),
-    hasChicagoSite: z.boolean().optional()
-  }))
-});
 
 interface ClinicalTrial {
   protocolSection: {
@@ -90,214 +57,144 @@ interface ClinicalTrial {
   };
 }
 
-// Extract entities from user query using AI
-async function extractEntities(userQuery: string, healthProfile?: any): Promise<z.infer<typeof entityExtractionSchema>> {
-  const { object: entities } = await generateObject({
-    model: oncobot.languageModel('oncobot-haiku'),
-    schema: entityExtractionSchema,
-    prompt: `Extract key entities from this clinical trial search query. Be comprehensive but accurate.
-
-User Query: "${userQuery}"
-
-${healthProfile ? `Health Profile Context:
-- Cancer Type: ${healthProfile.cancerType || 'Not specified'}
-- Molecular Markers: ${JSON.stringify(healthProfile.molecularMarkers || {})}
-- Disease Stage: ${healthProfile.diseaseStage || 'Not specified'}` : 'No health profile available'}
-
-Instructions:
-- Extract ALL mutations mentioned (include variations like KRAS G12C, KRAS p.G12C, KRASG12C)
-- Include drug names if searching for specific treatments
-- Identify locations if mentioned
-- Note any specific trial names (CodeBreak, KRYSTAL, etc.)
-- Determine line of therapy if mentioned (first-line, previously treated, etc.)`,
-    temperature: 0
-  });
-
-  return entities;
+// Helper function to truncate text
+function truncateText(text: string | undefined, maxLength: number): string {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
 }
 
-// Generate simple API queries based on extracted entities
-async function generateQueries(entities: z.infer<typeof entityExtractionSchema>): Promise<z.infer<typeof queryGenerationSchema>['queries']> {
-  const { object: { queries } } = await generateObject({
-    model: oncobot.languageModel('oncobot-haiku'),
-    schema: queryGenerationSchema,
-    prompt: `Generate simple, effective ClinicalTrials.gov API queries based on these entities.
 
-Entities:
-${JSON.stringify(entities, null, 2)}
-
-API Query Types:
-- query.term: Searches across all text fields (use for mutations, general terms)
-- query.cond: Searches condition/disease fields (use sparingly, can be too restrictive)
-- query.intr: Searches intervention fields (use for drug names)
-- Location should be added as a simple string to any query
+// Helper function to generate intelligent search queries using AI
+async function generateSearchQueries(userQuery: string, healthProfile: any) {
+  try {
+    const { object: queryPlan } = await generateObject({
+      model: oncobot.languageModel('oncobot-x-fast'),
+      schema: z.object({
+        queries: z.array(z.object({
+          query: z.string().describe('A specific search query for ClinicalTrials.gov'),
+          rationale: z.string().describe('Why this query is important for this patient')
+        })).min(3).max(5).describe('3-5 targeted search queries')
+      }),
+      prompt: `Generate 3-5 targeted clinical trial search queries for ClinicalTrials.gov based on:
+      
+User Query: ${userQuery}
+Health Profile: ${JSON.stringify(healthProfile, null, 2)}
 
 Guidelines:
-1. Keep queries SIMPLE - usually just 1-2 terms
-2. Prefer query.term for mutations and general searches
-3. Use query.intr specifically for drug names
-4. Start broad, can narrow later
-5. If location exists, it should be added to the highest priority queries
-6. Generate 3-7 queries maximum
-7. Order by likelihood of finding relevant results
-
-Example good queries:
-- {type: "term", value: "KRAS G12C", priority: 10}
-- {type: "intervention", value: "sotorasib adagrasib", priority: 8}
-- {type: "term", value: "CodeBreak KRYSTAL", priority: 7}`,
-    temperature: 0
-  });
-
-  return queries.sort((a, b) => b.priority - a.priority);
-}
-
-// Execute queries progressively until we have enough results
-async function executeQueries(
-  queries: z.infer<typeof queryGenerationSchema>['queries'],
-  location?: string,
-  maxResults: number = 20,
-  dataStream?: DataStreamWriter
-): Promise<ClinicalTrial[]> {
-  const allTrials = new Map<string, ClinicalTrial>();
-  const executedQueries: { query: string; count: number }[] = [];
-
-  for (const query of queries) {
-    // Build API parameters
-    const params = new URLSearchParams({
-      pageSize: maxResults.toString(),
-      'filter.overallStatus': VIABLE_STUDY_STATUSES.join(',')
+- Create specific queries that cover different aspects of the patient's condition
+- Include queries for specific mutations (e.g., "KRAS G12C lung cancer")
+- Include broader queries for the cancer type
+- Include treatment-line specific queries if relevant
+- Queries should be 2-8 words, optimized for ClinicalTrials.gov search
+- Consider both targeted therapies and immunotherapies
+- If molecular markers are present, create specific queries for them`
     });
 
-    // Add query based on type
-    if (query.type === 'term') {
-      params.append('query.term', query.value);
-    } else if (query.type === 'condition') {
-      params.append('query.cond', query.value);
-    } else if (query.type === 'intervention') {
-      params.append('query.intr', query.value);
-    }
-
-    // Add location if provided
-    if (location && query.priority >= 7) { // Only add location to high-priority queries
-      params.append('query.locn', location);
-    }
-
-    const url = `${STUDIES_ENDPOINT}?${params}`;
-    console.log(`Executing query: ${query.value} (${query.type}) - ${query.rationale}`);
-
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        const data = await response.json();
-        const trials = data.studies || [];
-        
-        // Add unique trials to our collection
-        trials.forEach((trial: ClinicalTrial) => {
-          const nctId = trial.protocolSection.identificationModule.nctId;
-          if (!allTrials.has(nctId)) {
-            allTrials.set(nctId, trial);
-          }
-        });
-
-        executedQueries.push({
-          query: `${query.type}: ${query.value}${location ? ` + ${location}` : ''}`,
-          count: trials.length
-        });
-
-        console.log(`Found ${trials.length} trials (${allTrials.size} unique total)`);
+    return queryPlan.queries.map(q => q.query);
+  } catch (error) {
+    console.error('Error generating search queries:', error);
+    // Fallback to simple query generation
+    const queries = [];
+    if (healthProfile?.cancerType) {
+      queries.push(healthProfile.cancerType);
+      if (healthProfile.molecularMarkers?.KRAS_G12C === 'POSITIVE') {
+        queries.push(`${healthProfile.cancerType} KRAS G12C`);
       }
-    } catch (error) {
-      console.error(`Query failed: ${query.value}`, error);
     }
-
-    // Stop if we have enough results
-    if (allTrials.size >= maxResults * 2) {
-      break;
-    }
+    return queries.length > 0 ? queries : [userQuery];
   }
-
-  // Log query execution summary
-  dataStream?.writeMessageAnnotation({
-    type: 'search_status',
-    data: {
-      status: 'queries_executed',
-      queries: executedQueries,
-      totalUnique: allTrials.size
-    }
-  });
-
-  return Array.from(allTrials.values());
 }
 
-// AI-powered result ranking
-async function rankResults(
-  trials: ClinicalTrial[],
-  entities: z.infer<typeof entityExtractionSchema>,
-  userQuery: string
-): Promise<z.infer<typeof resultRankingSchema>['rankedTrials']> {
-  // Batch trials for efficient ranking
-  const batchSize = 10;
-  const rankedResults: z.infer<typeof resultRankingSchema>['rankedTrials'] = [];
+// Deduplicate trials by NCT ID
+function deduplicateTrials(allTrials: ClinicalTrial[]): ClinicalTrial[] {
+  const seen = new Set<string>();
+  return allTrials.filter(trial => {
+    const nctId = trial.protocolSection.identificationModule.nctId;
+    if (seen.has(nctId)) return false;
+    seen.add(nctId);
+    return true;
+  });
+}
 
-  for (let i = 0; i < trials.length; i += batchSize) {
-    const batch = trials.slice(i, i + batchSize);
-    
-    const { object: { rankedTrials } } = await generateObject({
-      model: oncobot.languageModel('oncobot-haiku'),
-      schema: resultRankingSchema,
-      prompt: `Rank these clinical trials based on relevance to the user's search.
+// Score and rank trials based on relevance
+async function rankTrials(trials: ClinicalTrial[], healthProfile: any, maxResults: number) {
+  if (trials.length === 0) return [];
+  
+  try {
+    const { object: ranking } = await generateObject({
+      model: oncobot.languageModel('oncobot-x-fast'),
+      schema: z.object({
+        rankedTrials: z.array(z.object({
+          nctId: z.string(),
+          relevanceScore: z.number().min(0).max(100),
+          matchReason: z.string().describe('Brief explanation of why this trial matches')
+        }))
+      }),
+      prompt: `Rank these clinical trials by relevance to the patient's profile:
 
-User Query: "${userQuery}"
+Health Profile: ${JSON.stringify(healthProfile, null, 2)}
 
-Search Entities:
-${JSON.stringify(entities, null, 2)}
+Trials: ${JSON.stringify(trials.map(t => ({
+  nctId: t.protocolSection.identificationModule.nctId,
+  title: t.protocolSection.identificationModule.briefTitle,
+  conditions: t.protocolSection.conditionsModule?.conditions,
+  interventions: t.protocolSection.armsInterventionsModule?.interventions?.map(i => i.name),
+  eligibility: truncateText(t.protocolSection.eligibilityModule?.eligibilityCriteria, 500)
+})), null, 2)}
 
-Trials to Rank:
-${batch.map(trial => ({
-  nctId: trial.protocolSection.identificationModule.nctId,
-  title: trial.protocolSection.identificationModule.briefTitle,
-  conditions: trial.protocolSection.conditionsModule?.conditions,
-  keywords: trial.protocolSection.conditionsModule?.keywords,
-  phase: trial.protocolSection.designModule?.phases,
-  eligibility: trial.protocolSection.eligibilityModule?.eligibilityCriteria?.substring(0, 500),
-  hasChicagoSite: trial.protocolSection.contactsLocationsModule?.locations?.some(
-    loc => loc.city?.toLowerCase().includes('chicago')
-  )
-})).map(t => JSON.stringify(t)).join('\n\n')}
+Scoring criteria:
+- Exact molecular marker matches (e.g., KRAS G12C) = highest priority
+- Disease stage alignment
+- Treatment line appropriateness
+- Intervention type relevance
+- General cancer type match
 
-Ranking Criteria:
-1. Direct mutation matches (e.g., KRAS G12C) - highest priority
-2. Location matches (Chicago sites) - very important
-3. Cancer type matches
-4. Line of therapy alignment
-5. Drug/intervention matches
-6. Trial phase (prefer Phase 2/3 for efficacy)
-
-Assign relevance scores 0-100 and explain match reasons.`,
-      temperature: 0
+Return the trials ranked by relevance score.`
     });
 
-    rankedResults.push(...rankedTrials);
-  }
+    // Sort trials based on AI ranking
+    const rankedNctIds = ranking.rankedTrials
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, maxResults);
+    
+    // Create a map of rankings
+    const rankMap = new Map(rankedNctIds.map((r, idx) => [r.nctId, { rank: idx, ...r }]));
+    
+    // Sort original trials based on ranking
+    return trials
+      .filter(t => rankMap.has(t.protocolSection.identificationModule.nctId))
+      .sort((a, b) => {
+        const rankA = rankMap.get(a.protocolSection.identificationModule.nctId)?.rank ?? 999;
+        const rankB = rankMap.get(b.protocolSection.identificationModule.nctId)?.rank ?? 999;
+        return rankA - rankB;
+      })
+      .map(trial => ({
+        ...trial,
+        matchReason: rankMap.get(trial.protocolSection.identificationModule.nctId)?.matchReason
+      }));
 
-  // Sort by relevance score
-  return rankedResults.sort((a, b) => b.relevanceScore - a.relevanceScore);
+  } catch (error) {
+    console.error('Error ranking trials:', error);
+    // Fallback to simple ranking
+    return trials.slice(0, maxResults);
+  }
 }
 
-// Helper function to create compressed trial summary
-function createCompressedTrialSummary(trial: any, relevanceScore: number, matchReasons: string[]): any {
-  return {
+// Create compressed trial data for conversation
+function createCompressedResults(trials: any[]) {
+  return trials.map(trial => ({
     nctId: trial.protocolSection.identificationModule.nctId,
-    title: trial.protocolSection.identificationModule.briefTitle,
-    relevanceScore,
-    matchReasons: matchReasons.slice(0, 2), // Only top 2 reasons
-    phase: trial.protocolSection.designModule?.phases?.[0],
+    title: truncateText(trial.protocolSection.identificationModule.briefTitle, 100),
     status: trial.protocolSection.statusModule.overallStatus,
-    // Only include first 3 locations
+    phase: trial.protocolSection.designModule?.phases?.[0] || 'N/A',
+    summary: truncateText(trial.protocolSection.descriptionModule?.briefSummary, 200),
     locations: trial.protocolSection.contactsLocationsModule?.locations
-      ?.slice(0, 3)
-      ?.map((loc: any) => `${loc.city}, ${loc.state}`)
-  };
+      ?.slice(0, 2)
+      ?.map((loc: any) => `${loc.city}, ${loc.state || loc.country}`)
+      ?.join('; ') || 'Not specified',
+    matchReason: trial.matchReason || 'Matches search criteria'
+  }));
 }
 
 // Main tool export
@@ -317,7 +214,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
       previousSearchId: z.string().optional().describe('For pagination (not currently used)')
     }),
     execute: async ({ action, searchParams }) => {
-      // For now, we only implement the search action
+      // Only implement the search action
       if (action !== 'search') {
         return {
           success: false,
@@ -326,19 +223,17 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
         };
       }
 
-      // Map old parameters to new internal structure
       const userQuery = searchParams?.condition || 'clinical trials';
       const useHealthProfile = searchParams?.useProfile ?? true;
       const maxResults = searchParams?.maxResults || 10;
       const location = searchParams?.location;
 
       try {
-        // Stream status
         dataStream?.writeMessageAnnotation({
           type: 'search_status',
           data: {
-            status: 'started',
-            message: 'Analyzing your search request...'
+            status: 'searching',
+            message: 'Analyzing your health profile and searching for matching trials...'
           }
         });
 
@@ -355,118 +250,90 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           }
         }
 
-        // Extract entities from query
-        const entities = await extractEntities(userQuery, healthProfile);
-        console.log('Extracted entities:', entities);
+        // Generate intelligent search queries
+        const searchQueries = await generateSearchQueries(userQuery, healthProfile);
+        console.log('Generated search queries:', searchQueries);
 
-        dataStream?.writeMessageAnnotation({
-          type: 'search_status',
-          data: {
-            status: 'entities_extracted',
-            entities: entities
+        // Execute all queries in parallel
+        const allTrials: ClinicalTrial[] = [];
+        const queryPromises = searchQueries.map(async (query) => {
+          const params = new URLSearchParams({
+            'query.term': query,
+            pageSize: '20', // Get 20 per query for better coverage
+            'filter.overallStatus': VIABLE_STUDY_STATUSES.join(',')
+          });
+
+          if (location) {
+            params.append('query.locn', location);
           }
+
+          const url = `${STUDIES_ENDPOINT}?${params}`;
+          const response = await fetch(url);
+          
+          if (response.ok) {
+            const data = await response.json();
+            return data.studies || [];
+          }
+          return [];
         });
 
-        // Generate optimized queries
-        const queries = await generateQueries(entities);
-        console.log(`Generated ${queries.length} queries`);
+        const queryResults = await Promise.all(queryPromises);
+        queryResults.forEach(trials => allTrials.push(...trials));
 
-        // Execute queries
-        const queryLocation = location || entities.locations?.[0]; // Use provided location or extracted one
-        const trials = await executeQueries(queries, queryLocation, maxResults * 3, dataStream);
+        // Deduplicate trials
+        const uniqueTrials = deduplicateTrials(allTrials);
+        console.log(`Found ${uniqueTrials.length} unique trials from ${allTrials.length} total`);
 
-        if (trials.length === 0) {
+        if (uniqueTrials.length === 0) {
           return {
             success: true,
-            matches: [],
+            results: [],
             totalCount: 0,
-            message: 'No trials found matching your criteria. Try broadening your search.',
-            searchSummary: {
-              entities,
-              queriesExecuted: queries.length
-            }
+            message: 'No trials found matching your criteria. This could be due to limited trials for your specific profile. Consider discussing with your healthcare provider about broadening search criteria.'
           };
         }
 
-        // For old format, we don't filter previous results since pagination isn't supported
-        const newTrials = trials;
+        // Rank trials by relevance
+        const rankedTrials = await rankTrials(uniqueTrials, healthProfile, maxResults);
 
-        // Rank results using AI
+        // Create compressed results for conversation
+        const compressedResults = createCompressedResults(rankedTrials);
+
+        // Store full trial data in annotations (doesn't count toward token limit)
         dataStream?.writeMessageAnnotation({
-          type: 'search_status',
-          data: {
-            status: 'ranking',
-            message: `Ranking ${newTrials.length} trials for relevance...`
-          }
-        });
-
-        const rankedResults = await rankResults(newTrials, entities, userQuery);
-        
-        // Take top results
-        const topResults = rankedResults.slice(0, maxResults);
-
-        // Fetch full trial data for top results
-        const enrichedResults = topResults.map(ranked => {
-          const trial = trials.find(t => 
-            t.protocolSection.identificationModule.nctId === ranked.nctId
-          )!;
-          
-          return {
-            trial,
-            relevanceScore: ranked.relevanceScore,
-            matchReasons: ranked.matchReasons,
-            lineOfTherapy: ranked.lineOfTherapy,
-            hasChicagoSite: ranked.hasChicagoSite
-          };
-        });
-
-        // Store full results for UI rendering
-        const fullResultsId = `clinical-trials-${Date.now()}`;
-        dataStream?.writeMessageAnnotation({
-          type: 'clinical_trials_full_results',
-          data: {
-            id: fullResultsId,
-            results: enrichedResults,
-            totalCount: trials.length
-          }
+          type: 'trial_details',
+          data: rankedTrials.map(trial => ({
+            nctId: trial.protocolSection.identificationModule.nctId,
+            fullTitle: trial.protocolSection.identificationModule.briefTitle,
+            officialTitle: trial.protocolSection.identificationModule.officialTitle,
+            status: trial.protocolSection.statusModule.overallStatus,
+            phase: trial.protocolSection.designModule?.phases,
+            conditions: trial.protocolSection.conditionsModule?.conditions,
+            interventions: trial.protocolSection.armsInterventionsModule?.interventions,
+            eligibility: trial.protocolSection.eligibilityModule?.eligibilityCriteria,
+            locations: trial.protocolSection.contactsLocationsModule?.locations,
+            description: trial.protocolSection.descriptionModule?.briefSummary,
+            matchReason: trial.matchReason
+          }))
         });
 
         dataStream?.writeMessageAnnotation({
           type: 'search_status',
           data: {
             status: 'completed',
-            totalResults: trials.length,
-            returnedResults: enrichedResults.length,
-            message: `Found ${enrichedResults.length} highly relevant trials`,
-            fullResultsId
+            totalResults: uniqueTrials.length,
+            returnedResults: compressedResults.length,
+            searchQueries,
+            message: `Found ${uniqueTrials.length} trials using ${searchQueries.length} targeted searches`
           }
         });
 
-        // Return compressed results for AI context
-        const compressedResults = enrichedResults.slice(0, 5).map(result => 
-          createCompressedTrialSummary(
-            result.trial,
-            result.relevanceScore,
-            result.matchReasons
-          )
-        );
-
         return {
           success: true,
-          // Send compressed matches to AI
-          matches: compressedResults,
-          totalCount: trials.length,
-          returnedCount: enrichedResults.length,
-          searchSummary: {
-            entities,
-            queriesExecuted: queries.length,
-            topQueryTypes: queries.slice(0, 3).map(q => q.type)
-          },
-          hasMore: trials.length > maxResults,
-          message: `Found ${enrichedResults.length} trials matching your search for "${userQuery}"`,
-          // Reference to full results for UI
-          fullResultsAvailable: true,
-          fullResultsId
+          results: compressedResults,
+          totalCount: uniqueTrials.length,
+          queriesUsed: searchQueries,
+          message: `Found ${uniqueTrials.length} clinical trials. Showing the ${compressedResults.length} most relevant matches based on your health profile.`
         };
 
       } catch (error) {
@@ -474,7 +341,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
         
         return {
           success: false,
-          matches: [],
+          results: [],
           totalCount: 0,
           error: error instanceof Error ? error.message : 'Search failed',
           message: 'Unable to search clinical trials at this time. Please try again.'
