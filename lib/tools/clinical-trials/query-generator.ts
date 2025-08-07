@@ -13,7 +13,17 @@ interface QuerySet {
 
 interface HealthProfile {
   cancer_type?: string;
+  cancerType?: string; // Alternative format from production
   mutations?: string[];
+  molecularMarkers?: { // Production format
+    KRAS_G12C?: 'POSITIVE' | 'NEGATIVE';
+    EGFR?: 'POSITIVE' | 'NEGATIVE';
+    ALK?: 'POSITIVE' | 'NEGATIVE';
+    ROS1?: 'POSITIVE' | 'NEGATIVE';
+    BRAF?: 'POSITIVE' | 'NEGATIVE';
+    PDL1?: 'POSITIVE' | 'HIGH' | 'LOW' | 'NEGATIVE';
+    [key: string]: any;
+  };
   treatments?: string[];
   location?: string;
   stage?: string;
@@ -71,19 +81,71 @@ export class QueryGenerator {
     const fields: string[] = [];
     const descriptions: string[] = [];
 
+    // Normalize cancer type (handle both formats)
+    const cancerType = profile.cancer_type || profile.cancerType;
+    
+    // Extract mutations from either format
+    const mutations: string[] = [];
+    
+    // Handle new format (molecularMarkers)
+    if (profile.molecularMarkers) {
+      // Map molecular markers to mutation strings
+      const markerMap: Record<string, string> = {
+        'KRAS_G12C': 'KRAS G12C',
+        'EGFR': 'EGFR',
+        'ALK': 'ALK',
+        'ROS1': 'ROS1',
+        'BRAF': 'BRAF',
+        'PDL1': 'PD-L1'
+      };
+      
+      Object.entries(profile.molecularMarkers).forEach(([key, value]) => {
+        if (value === 'POSITIVE' || value === 'HIGH') {
+          const mutationName = markerMap[key] || key.replace(/_/g, ' ');
+          mutations.push(mutationName);
+        }
+      });
+    }
+    
+    // Handle old format (mutations array)
+    if (profile.mutations?.length) {
+      mutations.push(...profile.mutations);
+    }
+
     // Cancer type and mutations (primary queries)
-    if (profile.cancer_type && profile.mutations?.length) {
-      profile.mutations.forEach(mutation => {
+    if (cancerType && mutations.length > 0) {
+      mutations.forEach(mutation => {
         // Use query.term for broadest search
-        queries.push(`${mutation} ${profile.cancer_type}`);
+        queries.push(`${mutation} ${cancerType}`);
         fields.push('query.term');
-        descriptions.push(`Broad search for ${mutation} in ${profile.cancer_type}`);
+        descriptions.push(`Broad search for ${mutation} in ${cancerType}`);
 
         // Use query.cond for condition-specific
         queries.push(`${mutation}`);
         fields.push('query.cond');
         descriptions.push(`Condition search for ${mutation}`);
+        
+        // Use query.intr for intervention-specific (important for drug trials)
+        queries.push(`${mutation}`);
+        fields.push('query.intr');
+        descriptions.push(`Intervention search for ${mutation}`);
+        
+        // Add drug-specific queries for KRAS G12C
+        if (mutation === 'KRAS G12C') {
+          // Add key KRAS G12C drugs
+          const krasG12CDrugs = ['sotorasib', 'adagrasib', 'divarasib'];
+          krasG12CDrugs.forEach(drug => {
+            queries.push(drug);
+            fields.push('query.intr');
+            descriptions.push(`Drug search for ${drug}`);
+          });
+        }
       });
+    } else if (cancerType) {
+      // If we have cancer type but no mutations, still search for it
+      queries.push(cancerType);
+      fields.push('query.term');
+      descriptions.push(`Cancer type search for ${cancerType}`);
     }
 
     // Treatment-specific queries
