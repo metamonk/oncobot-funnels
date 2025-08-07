@@ -41,34 +41,32 @@ export class QueryGenerator {
   }
 
   /**
-   * Extract drug names from common KRAS G12C inhibitors
+   * Extract potential drug names from text using generic patterns
+   * This is model-agnostic and doesn't hard-code specific drugs
    */
   static extractDrugNames(text: string): string[] {
-    const drugPatterns = [
-      { pattern: /sotorasib/gi, name: 'sotorasib' },
-      { pattern: /lumakras/gi, name: 'sotorasib' },
-      { pattern: /amg[\s-]?510/gi, name: 'sotorasib AMG510' },
-      { pattern: /adagrasib/gi, name: 'adagrasib' },
-      { pattern: /krazati/gi, name: 'adagrasib' },
-      { pattern: /mrtx849/gi, name: 'adagrasib MRTX849' },
-      { pattern: /divarasib/gi, name: 'divarasib' },
-      { pattern: /gdc[\s-]?6036/gi, name: 'divarasib GDC-6036' },
-      { pattern: /glecirasib/gi, name: 'glecirasib' },
-      { pattern: /jdq443/gi, name: 'glecirasib JDQ443' },
-      { pattern: /garsorasib/gi, name: 'garsorasib' },
-      { pattern: /d[\s-]?1553/gi, name: 'garsorasib D-1553' },
-      { pattern: /rmcc[\s-]?[\s]?6236/gi, name: 'RMC-6236' },
-      { pattern: /opnua[\s-]?7b/gi, name: 'OPNUA-7B' },
-      { pattern: /lyl[\s-]?01022/gi, name: 'LYL01022' },
-      { pattern: /bi[\s-]?1823911/gi, name: 'BI 1823911' }
-    ];
-
     const found = new Set<string>();
-    drugPatterns.forEach(({ pattern, name }) => {
-      if (pattern.test(text)) {
-        found.add(name);
+    
+    // Generic drug name patterns (ends with common drug suffixes)
+    const drugSuffixPattern = /\b\w+(?:mab|nib|ib|ab|stat|pril|olol|azole|cillin|mycin|cycline|floxacin|sartan|dipine|gliptin|tide|vir)\b/gi;
+    const matches = text.match(drugSuffixPattern) || [];
+    matches.forEach(match => found.add(match.toLowerCase()));
+    
+    // Clinical trial codes (letter-number combinations)
+    const trialCodePattern = /\b[A-Z]{2,4}[\s-]?\d{3,6}\b/g;
+    const codes = text.match(trialCodePattern) || [];
+    codes.forEach(code => found.add(code));
+    
+    // Extract any quoted drug names
+    const quotedPattern = /["']([^"']+)["']/g;
+    let quotedMatch;
+    while ((quotedMatch = quotedPattern.exec(text)) !== null) {
+      const potentialDrug = quotedMatch[1];
+      // Only add if it looks like a drug name (not too long, contains letters)
+      if (potentialDrug.length < 30 && /[a-zA-Z]/.test(potentialDrug)) {
+        found.add(potentialDrug);
       }
-    });
+    }
 
     return Array.from(found);
   }
@@ -130,16 +128,8 @@ export class QueryGenerator {
         fields.push('query.intr');
         descriptions.push(`Intervention search for ${mutation}`);
         
-        // Add drug-specific queries for KRAS G12C
-        if (mutation === 'KRAS G12C') {
-          // Add key KRAS G12C drugs
-          const krasG12CDrugs = ['sotorasib', 'adagrasib', 'divarasib'];
-          krasG12CDrugs.forEach(drug => {
-            queries.push(drug);
-            fields.push('query.intr');
-            descriptions.push(`Drug search for ${drug}`);
-          });
-        }
+        // Add mutation-specific search (without hard-coded drugs)
+        // The comprehensive search will find drugs through the mutation query itself
       });
     } else if (cancerType) {
       // If we have cancer type but no mutations, still search for it
