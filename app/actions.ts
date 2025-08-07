@@ -1024,9 +1024,14 @@ const groupInstructions = {
   - completion_status: Check which sections of the profile are complete
   
   **clinical_trials tool:**
-  - search: Find trials based on user criteria or health profile
-  - details: Get comprehensive information about a specific trial (needs NCT ID)
-  - eligibility_check: Check if user might qualify for a specific trial
+  - search: Find trials based on user criteria or health profile (returns searchId for follow-ups)
+  - filter_by_location: Filter previous search results by location
+    • REQUIRES: searchParams with BOTH searchId AND location
+    • Example: { action: "filter_by_location", searchParams: { searchId: "abc", location: "Chicago" } }
+  - list_more: Get more results from previous search (pagination)
+    • REQUIRES: searchParams with searchId
+  - details: Get comprehensive information about a specific trial (needs NCT ID) [coming soon]
+  - eligibility_check: Check if user might qualify for a specific trial [coming soon]
   - When searching, use the user's location (if available) to find nearby trials
 
   **Location tool (find_place_on_map):**
