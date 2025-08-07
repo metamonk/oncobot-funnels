@@ -3,10 +3,24 @@ import { z } from 'zod';
 import { DataStreamWriter, generateObject } from 'ai';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
 import { oncobot } from '@/ai/providers';
+import crypto from 'crypto';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
 const STUDIES_ENDPOINT = `${BASE_URL}/studies`;
+
+// Search result cache for session persistence
+interface CachedSearch {
+  searchId: string;
+  trials: ClinicalTrial[];
+  healthProfile: any;
+  searchQueries: string[];
+  timestamp: number;
+}
+
+// Simple in-memory cache (resets on server restart)
+const searchCache = new Map<string, CachedSearch>();
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 // Only process trials with these statuses
 const VIABLE_STUDY_STATUSES = [
@@ -64,45 +78,170 @@ function truncateText(text: string | undefined, maxLength: number): string {
   return text.substring(0, maxLength) + '...';
 }
 
+// Cache management functions
+function getCachedSearch(searchId: string): CachedSearch | null {
+  const cached = searchCache.get(searchId);
+  if (!cached) return null;
+  
+  // Check if cache is expired
+  if (Date.now() - cached.timestamp > CACHE_TTL) {
+    searchCache.delete(searchId);
+    return null;
+  }
+  
+  return cached;
+}
+
+function setCachedSearch(trials: ClinicalTrial[], healthProfile: any, searchQueries: string[]): string {
+  const searchId = crypto.randomUUID();
+  searchCache.set(searchId, {
+    searchId,
+    trials,
+    healthProfile,
+    searchQueries,
+    timestamp: Date.now()
+  });
+  
+  // Clean up old entries
+  for (const [id, cached] of searchCache.entries()) {
+    if (Date.now() - cached.timestamp > CACHE_TTL) {
+      searchCache.delete(id);
+    }
+  }
+  
+  return searchId;
+}
+
+
+// Build safety net queries based on health profile
+function buildSafetyQueries(healthProfile: any, userQuery: string): string[] {
+  const safetyQueries = new Set<string>();
+  
+  // Always include the user's original query as a fallback
+  if (userQuery && userQuery !== 'clinical trials') {
+    safetyQueries.add(userQuery);
+  }
+  
+  // Add cancer type queries
+  if (healthProfile?.cancerType) {
+    // Broad cancer type query
+    safetyQueries.add(healthProfile.cancerType);
+    
+    // Common variations
+    if (healthProfile.cancerType.toLowerCase().includes('lung')) {
+      safetyQueries.add('NSCLC'); // Common abbreviation
+      safetyQueries.add('lung cancer');
+    }
+  }
+  
+  // Add molecular marker queries (but keep them simple)
+  if (healthProfile?.molecularMarkers) {
+    // KRAS G12C specific
+    if (healthProfile.molecularMarkers.KRAS_G12C === 'POSITIVE') {
+      safetyQueries.add('KRAS G12C');
+      // Don't combine with cancer type here - let AI do specific combinations
+    }
+    
+    // Other common markers
+    if (healthProfile.molecularMarkers.EGFR === 'POSITIVE') {
+      safetyQueries.add('EGFR');
+    }
+    if (healthProfile.molecularMarkers.ALK === 'POSITIVE') {
+      safetyQueries.add('ALK');
+    }
+    if (healthProfile.molecularMarkers.PDL1 === 'POSITIVE' || healthProfile.molecularMarkers.PDL1 === 'HIGH') {
+      safetyQueries.add('PD-L1');
+    }
+  }
+  
+  // Add stage-based queries if applicable
+  if (healthProfile?.stage) {
+    if (healthProfile.stage.includes('IV') || healthProfile.stage.toLowerCase().includes('metastatic')) {
+      safetyQueries.add('metastatic');
+      if (healthProfile.cancerType) {
+        safetyQueries.add(`metastatic ${healthProfile.cancerType}`);
+      }
+    }
+    if (healthProfile.stage.toLowerCase().includes('advanced')) {
+      safetyQueries.add('advanced');
+    }
+  }
+  
+  return Array.from(safetyQueries);
+}
 
 // Helper function to generate intelligent search queries using AI
 async function generateSearchQueries(userQuery: string, healthProfile: any) {
+  // Build safety net queries first
+  const safetyQueries = buildSafetyQueries(healthProfile, userQuery);
+  
   try {
     const { object: queryPlan } = await generateObject({
       model: oncobot.languageModel('oncobot-x-fast'),
       schema: z.object({
         queries: z.array(z.object({
           query: z.string().describe('A specific search query for ClinicalTrials.gov'),
-          rationale: z.string().describe('Why this query is important for this patient')
-        })).min(3).max(5).describe('3-5 targeted search queries')
+          rationale: z.string().describe('Why this query is important for this patient'),
+          priority: z.enum(['high', 'medium', 'low']).describe('Priority of this query')
+        })).min(3).max(7).describe('3-7 targeted search queries')
       }),
-      prompt: `Generate 3-5 targeted clinical trial search queries for ClinicalTrials.gov based on:
+      prompt: `Generate 3-7 targeted clinical trial search queries for ClinicalTrials.gov based on:
       
 User Query: ${userQuery}
 Health Profile: ${JSON.stringify(healthProfile, null, 2)}
 
 Guidelines:
-- Create specific queries that cover different aspects of the patient's condition
-- Include queries for specific mutations (e.g., "KRAS G12C lung cancer")
-- Include broader queries for the cancer type
-- Include treatment-line specific queries if relevant
-- Queries should be 2-8 words, optimized for ClinicalTrials.gov search
+- Create a MIX of specific AND broad queries to ensure comprehensive coverage
+- Include at least one BROAD query (just cancer type or just mutation)
+- Include specific combination queries (e.g., "KRAS G12C lung cancer")
+- Include drug-specific queries when relevant:
+  * For KRAS G12C: sotorasib, adagrasib, MRTX849, JDQ443, LY3537982, GDC-6036
+  * For EGFR: osimertinib, erlotinib, afatinib, dacomitinib
+  * For ALK: alectinib, brigatinib, lorlatinib, crizotinib
+  * For immunotherapy: pembrolizumab, nivolumab, atezolizumab, durvalumab
 - Consider both targeted therapies and immunotherapies
-- If molecular markers are present, create specific queries for them`
+- Queries should be 1-8 words, optimized for ClinicalTrials.gov search
+- Mark queries as high/medium/low priority based on relevance
+
+Important: Balance specificity with coverage. Too specific = miss trials. Too broad = too many irrelevant.`
     });
 
-    return queryPlan.queries.map(q => q.query);
-  } catch (error) {
-    console.error('Error generating search queries:', error);
-    // Fallback to simple query generation
-    const queries = [];
-    if (healthProfile?.cancerType) {
-      queries.push(healthProfile.cancerType);
-      if (healthProfile.molecularMarkers?.KRAS_G12C === 'POSITIVE') {
-        queries.push(`${healthProfile.cancerType} KRAS G12C`);
+    // Extract high and medium priority queries
+    const aiQueries = queryPlan.queries
+      .filter(q => q.priority !== 'low' || queryPlan.queries.length <= 4)
+      .map(q => q.query);
+    
+    // Combine AI queries with safety queries, removing duplicates
+    const allQueries = new Set([...aiQueries]);
+    
+    // Add safety queries that aren't already covered
+    safetyQueries.forEach(sq => {
+      // Check if this safety query is already covered by AI queries
+      const isCovered = aiQueries.some(aq => 
+        aq.toLowerCase().includes(sq.toLowerCase()) ||
+        sq.toLowerCase().includes(aq.toLowerCase())
+      );
+      
+      if (!isCovered) {
+        allQueries.add(sq);
       }
-    }
-    return queries.length > 0 ? queries : [userQuery];
+    });
+    
+    // Limit total queries to prevent API overload
+    const finalQueries = Array.from(allQueries).slice(0, 8);
+    
+    console.log('Search queries generated:', {
+      ai: aiQueries,
+      safety: safetyQueries,
+      final: finalQueries
+    });
+    
+    return finalQueries;
+    
+  } catch (error) {
+    console.error('Error generating AI search queries, using safety queries:', error);
+    // Return safety queries as fallback
+    return safetyQueries.length > 0 ? safetyQueries : [userQuery];
   }
 }
 
@@ -186,13 +325,163 @@ Return the trials ranked by relevance score.`
   }
 }
 
+// Map of common city to state abbreviations for better matching
+const CITY_STATE_MAP: Record<string, string[]> = {
+  'chicago': ['illinois', 'il'],
+  'new york': ['new york', 'ny'],
+  'los angeles': ['california', 'ca'],
+  'houston': ['texas', 'tx'],
+  'philadelphia': ['pennsylvania', 'pa'],
+  'phoenix': ['arizona', 'az'],
+  'san antonio': ['texas', 'tx'],
+  'san diego': ['california', 'ca'],
+  'dallas': ['texas', 'tx'],
+  'san jose': ['california', 'ca'],
+  'boston': ['massachusetts', 'ma'],
+  'seattle': ['washington', 'wa'],
+  'denver': ['colorado', 'co'],
+  'atlanta': ['georgia', 'ga'],
+  'miami': ['florida', 'fl']
+};
+
+// Helper function to check if a trial has a location in a specific city/area
+function trialHasLocation(trial: ClinicalTrial, targetLocation: string): boolean {
+  const locations = trial.protocolSection.contactsLocationsModule?.locations || [];
+  const normalizedTarget = targetLocation.toLowerCase().trim();
+  
+  return locations.some((loc: any) => {
+    const city = loc.city?.toLowerCase() || '';
+    const state = loc.state?.toLowerCase() || '';
+    const country = loc.country?.toLowerCase() || '';
+    
+    // Direct city match
+    if (city.includes(normalizedTarget)) return true;
+    
+    // Direct state match
+    if (state.includes(normalizedTarget)) return true;
+    
+    // Check if target is a known city and match against its state
+    const expectedStates = CITY_STATE_MAP[normalizedTarget];
+    if (expectedStates) {
+      return expectedStates.some(expectedState => 
+        state.includes(expectedState) || city.includes(normalizedTarget)
+      );
+    }
+    
+    // Country match for international trials
+    if (country.includes(normalizedTarget)) return true;
+    
+    return false;
+  });
+}
+
+// Create comprehensive location summary without truncation
+function createLocationSummary(trial: ClinicalTrial, targetLocation?: string) {
+  const locations = trial.protocolSection.contactsLocationsModule?.locations || [];
+  
+  if (locations.length === 0) {
+    return {
+      summary: 'Locations not specified',
+      totalSites: 0,
+      hasTargetLocation: false,
+      targetSites: [],
+      primarySites: [],
+      allStates: []
+    };
+  }
+  
+  // Format a location for display
+  const formatLocation = (loc: any) => {
+    const parts = [];
+    if (loc.city) parts.push(loc.city);
+    if (loc.state) parts.push(loc.state);
+    else if (loc.country && loc.country !== 'United States') parts.push(loc.country);
+    return parts.join(', ') || 'Location incomplete';
+  };
+  
+  // Get unique states/countries
+  const uniqueStates = new Set<string>();
+  locations.forEach((loc: any) => {
+    if (loc.state) uniqueStates.add(loc.state);
+    else if (loc.country) uniqueStates.add(loc.country);
+  });
+  
+  const result: any = {
+    totalSites: locations.length,
+    allStates: Array.from(uniqueStates),
+    hasTargetLocation: false,
+    targetSites: [],
+    primarySites: locations.slice(0, 3).map(formatLocation)
+  };
+  
+  // If we have a target location, find matching sites
+  if (targetLocation) {
+    const normalizedTarget = targetLocation.toLowerCase().trim();
+    const matchingSites = locations.filter((loc: any) => {
+      const city = loc.city?.toLowerCase() || '';
+      const state = loc.state?.toLowerCase() || '';
+      const country = loc.country?.toLowerCase() || '';
+      
+      // Direct city match
+      if (city.includes(normalizedTarget)) return true;
+      
+      // Direct state match
+      if (state.includes(normalizedTarget)) return true;
+      
+      // Check if target is a known city and match against its state
+      const expectedStates = CITY_STATE_MAP[normalizedTarget];
+      if (expectedStates) {
+        return expectedStates.some(expectedState => 
+          state.includes(expectedState) || city.includes(normalizedTarget)
+        );
+      }
+      
+      // Country match for international trials
+      if (country.includes(normalizedTarget)) return true;
+      
+      return false;
+    });
+    
+    result.hasTargetLocation = matchingSites.length > 0;
+    result.targetSites = matchingSites.map(formatLocation);
+    
+    // Build a comprehensive summary
+    if (result.hasTargetLocation) {
+      result.summary = `${matchingSites.length} site${matchingSites.length > 1 ? 's' : ''} in ${targetLocation}`;
+      if (locations.length > matchingSites.length) {
+        result.summary += ` (${locations.length} total sites)`;
+      }
+    } else {
+      // Show closest alternatives
+      const firstFewSites = locations.slice(0, 3).map(formatLocation);
+      result.summary = `No ${targetLocation} sites. Available in: ${firstFewSites.join('; ')}`;
+      if (locations.length > 3) {
+        result.summary += ` and ${locations.length - 3} other locations`;
+      }
+    }
+  } else {
+    // No target location - show overview
+    if (locations.length === 1) {
+      result.summary = formatLocation(locations[0]);
+    } else if (locations.length <= 3) {
+      result.summary = locations.map(formatLocation).join('; ');
+    } else {
+      const firstThree = locations.slice(0, 3).map(formatLocation);
+      result.summary = `${firstThree.join('; ')} and ${locations.length - 3} more locations`;
+    }
+  }
+  
+  return result;
+}
+
 // Create match objects for UI component
-function createMatchObjects(trials: any[], healthProfile: any) {
+function createMatchObjects(trials: any[], healthProfile: any, targetLocation?: string) {
   return trials.map(trial => {
     const locations = trial.protocolSection.contactsLocationsModule?.locations || [];
-    const locationSummary = locations.slice(0, 3)
-      .map((loc: any) => `${loc.city}, ${loc.state || loc.country || 'USA'}`)
-      .join('; ') || 'Locations not specified';
+    
+    // Use the new comprehensive location summary
+    const locationInfo = createLocationSummary(trial, targetLocation);
+    const locationSummary = locationInfo.summary;
     
     // Create eligibility analysis based on available data
     const eligibilityAnalysis = {
@@ -258,8 +547,12 @@ function createMatchObjects(trials: any[], healthProfile: any) {
           eligibilityCriteria: trial.protocolSection.eligibilityModule?.eligibilityCriteria ? 'Available' : 'Not specified'
         },
         contactsLocationsModule: {
-          locations: locations.slice(0, 3),
-          centralContacts: trial.protocolSection.contactsLocationsModule?.centralContacts?.slice(0, 2)
+          // Include slightly more locations to avoid missing key sites
+          locations: locations.slice(0, 5), // Increased from 3 to 5
+          centralContacts: trial.protocolSection.contactsLocationsModule?.centralContacts?.slice(0, 2),
+          // Add location metadata
+          totalLocations: locations.length,
+          hasTargetLocation: locationInfo.hasTargetLocation
         }
       }
     };
@@ -269,7 +562,14 @@ function createMatchObjects(trials: any[], healthProfile: any) {
       matchScore: trial.relevanceScore || 75, // Use AI score or default
       matchingCriteria: eligibilityAnalysis.inclusionMatches,
       eligibilityAnalysis,
-      locationSummary
+      locationSummary,
+      // Add additional location details for UI
+      locationDetails: {
+        totalSites: locationInfo.totalSites,
+        hasTargetLocation: locationInfo.hasTargetLocation,
+        targetSites: locationInfo.targetSites,
+        allStates: locationInfo.allStates
+      }
     };
   });
 }
@@ -277,32 +577,136 @@ function createMatchObjects(trials: any[], healthProfile: any) {
 // Main tool export
 export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
   return tool({
-    description: 'Search for clinical trials. Always use action: "search" with searchParams for health-related queries.',
+    description: `Search and explore clinical trials. 
+    - Use 'search' for initial queries (returns top 5, caches all results)
+    - Use 'list_more' with searchId to see more trials (pagination)
+    - Use 'filter_by_location' to filter cached results by location
+    Always start with 'search' for health-related queries.`,
     parameters: z.object({
-      action: z.enum(['search', 'details', 'eligibility_check']).describe('Always use "search" for finding trials'),
+      action: z.enum(['search', 'list_more', 'filter_by_location', 'details', 'eligibility_check']).describe('Action to perform'),
       searchParams: z.object({
         condition: z.string().optional().describe('The condition or query to search for'),
         location: z.string().optional().describe('Location to search near (e.g., "Chicago")'), 
         useProfile: z.boolean().optional().describe('Whether to use the user health profile (default: true)'),
-        maxResults: z.number().optional().describe('Maximum number of results to return (default: 10)'),
-        previousSearchId: z.string().optional().describe('For pagination (not currently used)')
-      }).optional().describe('Parameters for search action'),
-      trialId: z.string().optional().describe('NCT ID for details/eligibility (not currently implemented)'),
-      previousSearchId: z.string().optional().describe('For pagination (not currently used)')
+        maxResults: z.number().optional().describe('Maximum number of results to return (default: 5)'),
+        searchId: z.string().optional().describe('ID from previous search for pagination/filtering'),
+        offset: z.number().optional().describe('For list_more: start index (default: 5)'),
+        limit: z.number().optional().describe('For list_more: number to return (default: 5)')
+      }).optional().describe('Parameters for the action'),
+      trialId: z.string().optional().describe('NCT ID for details/eligibility (not currently implemented)')
     }),
     execute: async ({ action, searchParams }) => {
-      // Only implement the search action
-      if (action !== 'search') {
+      // Handle list_more action - pagination through cached results
+      if (action === 'list_more') {
+        const searchId = searchParams?.searchId;
+        if (!searchId) {
+          return {
+            success: false,
+            error: 'searchId is required for list_more action',
+            message: 'Please provide the searchId from a previous search.'
+          };
+        }
+
+        const cached = getCachedSearch(searchId);
+        if (!cached) {
+          return {
+            success: false,
+            error: 'Search results not found or expired',
+            message: 'Please perform a new search. Previous results may have expired.'
+          };
+        }
+
+        const offset = searchParams?.offset || 5;
+        const limit = searchParams?.limit || 5;
+        const paginatedTrials = cached.trials.slice(offset, offset + limit);
+        
+        // Rank the paginated trials
+        const rankedTrials = await rankTrials(paginatedTrials, cached.healthProfile, limit);
+        const matches = createMatchObjects(rankedTrials, cached.healthProfile, undefined);
+
         return {
-          success: false,
-          error: 'Only search action is currently implemented',
-          message: 'Details and eligibility check features are coming soon.'
+          success: true,
+          matches: matches,
+          totalCount: cached.trials.length,
+          currentOffset: offset,
+          hasMore: offset + limit < cached.trials.length,
+          searchId: searchId,
+          message: `Showing trials ${offset + 1} to ${Math.min(offset + limit, cached.trials.length)} of ${cached.trials.length} total.`
         };
       }
 
+      // Handle filter_by_location action
+      if (action === 'filter_by_location') {
+        const searchId = searchParams?.searchId;
+        const filterLocation = searchParams?.location;
+        
+        if (!searchId) {
+          return {
+            success: false,
+            error: 'searchId is required for filter_by_location action',
+            message: 'Please provide the searchId from a previous search.'
+          };
+        }
+
+        if (!filterLocation) {
+          return {
+            success: false,
+            error: 'location is required for filter_by_location action',
+            message: 'Please specify a location to filter by.'
+          };
+        }
+
+        const cached = getCachedSearch(searchId);
+        if (!cached) {
+          return {
+            success: false,
+            error: 'Search results not found or expired',
+            message: 'Please perform a new search. Previous results may have expired.'
+          };
+        }
+
+        // Filter trials by location
+        const filteredTrials = cached.trials.filter(trial => trialHasLocation(trial, filterLocation));
+        
+        if (filteredTrials.length === 0) {
+          return {
+            success: true,
+            matches: [],
+            totalCount: 0,
+            searchId: searchId,
+            filterLocation: filterLocation,
+            message: `No trials found with sites in or near ${filterLocation}.`
+          };
+        }
+
+        // Rank and return top results
+        const maxResults = Math.min(searchParams?.maxResults || 5, 10);
+        const rankedTrials = await rankTrials(filteredTrials, cached.healthProfile, maxResults);
+        const matches = createMatchObjects(rankedTrials, cached.healthProfile, filterLocation);
+
+        return {
+          success: true,
+          matches: matches,
+          totalCount: filteredTrials.length,
+          searchId: searchId,
+          filterLocation: filterLocation,
+          message: `Found ${filteredTrials.length} trials with sites in or near ${filterLocation}. Showing top ${matches.length}.`
+        };
+      }
+
+      // Handle details and eligibility_check (not implemented yet)
+      if (action === 'details' || action === 'eligibility_check') {
+        return {
+          success: false,
+          error: `${action} action is not yet implemented`,
+          message: 'This feature is coming soon.'
+        };
+      }
+
+      // Default to search action
       const userQuery = searchParams?.condition || 'clinical trials';
       const useHealthProfile = searchParams?.useProfile ?? true;
-      const maxResults = Math.min(searchParams?.maxResults || 5, 5); // Limit to 5 for token management
+      const maxResults = Math.min(searchParams?.maxResults || 5, 10); // Allow up to 10 in initial search
       const location = searchParams?.location;
 
       try {
@@ -331,12 +735,14 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
         const searchQueries = await generateSearchQueries(userQuery, healthProfile);
         console.log('Generated search queries:', searchQueries);
 
-        // Execute all queries in parallel
+        // Execute all queries in parallel with better tracking
         const allTrials: ClinicalTrial[] = [];
+        const queryResultsMap = new Map<string, number>();
+        
         const queryPromises = searchQueries.map(async (query) => {
           const params = new URLSearchParams({
             'query.term': query,
-            pageSize: '20', // Get 20 per query for better coverage
+            pageSize: '25', // Increased from 20 for better coverage
             'filter.overallStatus': VIABLE_STUDY_STATUSES.join(',')
           });
 
@@ -345,17 +751,31 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           }
 
           const url = `${STUDIES_ENDPOINT}?${params}`;
-          const response = await fetch(url);
           
-          if (response.ok) {
-            const data = await response.json();
-            return data.studies || [];
+          try {
+            const response = await fetch(url);
+            
+            if (response.ok) {
+              const data = await response.json();
+              const trials = data.studies || [];
+              queryResultsMap.set(query, trials.length);
+              return trials;
+            }
+            console.warn(`Query "${query}" returned non-OK status: ${response.status}`);
+            queryResultsMap.set(query, 0);
+            return [];
+          } catch (error) {
+            console.error(`Error executing query "${query}":`, error);
+            queryResultsMap.set(query, -1); // -1 indicates error
+            return [];
           }
-          return [];
         });
 
         const queryResults = await Promise.all(queryPromises);
         queryResults.forEach(trials => allTrials.push(...trials));
+        
+        // Log query performance
+        console.log('Query results breakdown:', Object.fromEntries(queryResultsMap));
 
         // Deduplicate trials
         const uniqueTrials = deduplicateTrials(allTrials);
@@ -380,9 +800,31 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
         const rankedTrials = await rankTrials(uniqueTrials, healthProfile, maxResults);
 
         // Create match objects for UI component
-        const matches = createMatchObjects(rankedTrials, healthProfile);
+        const matches = createMatchObjects(rankedTrials, healthProfile, location);
 
-        // Store full trial data in annotations (doesn't count toward token limit)
+        // Count trials with specific location if location was requested
+        let locationMatchCount = 0;
+        if (location) {
+          locationMatchCount = uniqueTrials.filter(trial => trialHasLocation(trial, location)).length;
+        }
+
+        // Store ALL trial IDs and basic info in annotations for reference
+        dataStream?.writeMessageAnnotation({
+          type: 'all_trial_ids',
+          data: {
+            totalFound: uniqueTrials.length,
+            locationMatchCount: locationMatchCount,
+            searchLocation: location || null,
+            trials: uniqueTrials.map(trial => ({
+              nctId: trial.protocolSection.identificationModule.nctId,
+              title: trial.protocolSection.identificationModule.briefTitle,
+              status: trial.protocolSection.statusModule.overallStatus,
+              hasLocationMatch: location ? trialHasLocation(trial, location) : false
+            }))
+          }
+        });
+
+        // Store detailed data for the top ranked trials
         dataStream?.writeMessageAnnotation({
           type: 'trial_details',
           data: rankedTrials.map(trial => ({
@@ -396,7 +838,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
             eligibility: trial.protocolSection.eligibilityModule?.eligibilityCriteria || '',
             locations: trial.protocolSection.contactsLocationsModule?.locations || [],
             description: trial.protocolSection.descriptionModule?.briefSummary || '',
-            matchReason: trial.matchReason || ''
+            matchReason: trial.matchReason || '',
+            hasLocationMatch: location ? trialHasLocation(trial, location) : false
           }))
         });
 
@@ -411,11 +854,28 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           }
         });
 
+        // Cache the search results for follow-up actions
+        const searchId = setCachedSearch(uniqueTrials, healthProfile, searchQueries);
+
+        // Build message with location info if applicable
+        let message = `Found ${uniqueTrials.length} clinical trials. `;
+        if (location && locationMatchCount > 0) {
+          message += `${locationMatchCount} trials have sites in or near ${location}. `;
+        }
+        message += `Showing the ${matches.length} most relevant matches based on your health profile.`;
+        
+        // Add guidance for follow-up actions if more trials are available
+        if (uniqueTrials.length > maxResults) {
+          message += ` Use 'list_more' action with searchId to see additional results.`;
+        }
+
         // Return structure expected by UI component
         return {
           success: true,
+          searchId: searchId, // Include searchId for follow-up actions
           matches: matches, // UI expects 'matches' array, not 'results'
           totalCount: uniqueTrials.length,
+          locationMatchCount: locationMatchCount,
           searchCriteria: {
             condition: userQuery,
             location: location,
@@ -423,7 +883,9 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
             cancerType: healthProfile?.cancerType
           },
           query: searchQueries.join('; '),
-          message: `Found ${uniqueTrials.length} clinical trials. Showing the ${matches.length} most relevant matches based on your health profile.`
+          message: message,
+          additionalTrialsAvailable: uniqueTrials.length > maxResults,
+          availableActions: uniqueTrials.length > maxResults ? ['list_more', 'filter_by_location'] : ['filter_by_location']
         };
 
       } catch (error) {
