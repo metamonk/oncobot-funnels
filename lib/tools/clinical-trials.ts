@@ -619,7 +619,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
     - Always start with 'search' for new queries
     - Use returned searchId for follow-up actions
     - For filter_by_location: MUST include both searchId AND location in searchParams
-      Example: { action: "filter_by_location", searchParams: { searchId: "xyz", location: "Chicago" } }
+      WORKING EXAMPLE: { action: "filter_by_location", searchParams: { searchId: "abc-123", location: "Chicago" } }
+      COMMON MISTAKE: Forgetting the location parameter - this will cause an error!
     - Check loadingMetadata.shouldPrefetch for optimal UX
     - Filter by location when geographic proximity matters`,
     parameters: z.object({
@@ -636,6 +637,27 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
       trialId: z.string().optional().describe('NCT ID for details/eligibility (not currently implemented)')
     }),
     execute: async ({ action, searchParams }) => {
+      // Special validation for filter_by_location to ensure location is provided
+      if (action === 'filter_by_location') {
+        // Early validation to provide clear error message
+        if (!searchParams?.location) {
+          return {
+            success: false,
+            error: 'Missing required parameter: location',
+            message: 'The filter_by_location action REQUIRES a location parameter. Please provide it like this: searchParams: { searchId: "xxx", location: "Chicago" }',
+            hint: 'You must include BOTH searchId AND location in searchParams for filter_by_location to work.'
+          };
+        }
+        if (!searchParams?.searchId) {
+          return {
+            success: false,
+            error: 'Missing required parameter: searchId',
+            message: 'The filter_by_location action REQUIRES a searchId from a previous search.',
+            hint: 'You must include BOTH searchId AND location in searchParams for filter_by_location to work.'
+          };
+        }
+      }
+
       // Handle list_more action - pagination through cached results with progressive loading
       if (action === 'list_more') {
         const searchId = searchParams?.searchId;
