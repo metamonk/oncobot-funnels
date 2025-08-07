@@ -976,17 +976,24 @@ const groupInstructions = {
 
   ### 🚨 SUPER SIMPLE - ONE TOOL FOR EVERYTHING:
   - ⚠️ For ANY health, medical, or trial-related query → use clinical_trials tool
-  - ⚠️ Just pass the user's EXACT query as the 'query' parameter
-  - ⚠️ The tool understands natural language and handles everything automatically!
-  - ⚠️ NO NEED to parse location, condition, or intent - the tool does it all
+  - ⚠️ Pass the user's EXACT query as the 'query' parameter
+  - ⚠️ OPTIONAL: Help the tool by extracting key info in 'parsedIntent' (if obvious)
+  - ⚠️ The tool can understand natural language even without parsedIntent!
   
-  ### EXAMPLES - JUST PASS THE QUERY:
-  - "What clinical trials are available?" → { action: "search", query: "What clinical trials are available?" }
-  - "Find trials for lung cancer" → { action: "search", query: "Find trials for lung cancer" }
-  - "Show them near Chicago" → { action: "search", query: "Show them near Chicago" }
-  - "List more trials" → { action: "search", query: "List more trials" }
-  - "Filter those by Boston" → { action: "search", query: "Filter those by Boston" }
-  - ANY question → { action: "search", query: "[exactly what user said]" }
+  ### EXAMPLES WITH OPTIONAL PARSING:
+  - "What clinical trials are available?" → 
+    { action: "search", query: "What clinical trials are available?", 
+      parsedIntent: { isNewSearch: true, wantsMore: false } }
+  
+  - "Show them near Chicago" → 
+    { action: "search", query: "Show them near Chicago",
+      parsedIntent: { isNewSearch: false, wantsMore: false, location: "Chicago" } }
+  
+  - "List more trials" → 
+    { action: "search", query: "List more trials",
+      parsedIntent: { isNewSearch: false, wantsMore: true } }
+  
+  - If unsure, just pass the query without parsedIntent - the tool will figure it out!
   
   ### WHY THIS WORKS:
   - Tool has automatic fallbacks for missing profiles

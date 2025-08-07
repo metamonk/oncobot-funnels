@@ -672,13 +672,19 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
     parameters: z.object({
       action: z.enum(['search']).describe('Always use search - it handles everything intelligently'),
       query: z.string().describe('The user\'s natural language query - pass it exactly as they said it'),
+      parsedIntent: z.object({
+        isNewSearch: z.boolean().describe('True if this is a new search, false if referring to previous results'),
+        wantsMore: z.boolean().describe('True if user wants more/additional results'),
+        location: z.string().optional().describe('Any location mentioned (city, state, or country)'),
+        condition: z.string().optional().describe('Any medical condition or cancer type mentioned')
+      }).optional().describe('Help the tool understand the query better by extracting key information'),
       searchParams: z.object({
         useProfile: z.boolean().optional().describe('Whether to use the user health profile (default: true)'),
         maxResults: z.number().optional().describe('Maximum number of results to return (default: 5-10)'),
         forceNewSearch: z.boolean().optional().describe('Force a new search even if query looks like a filter (default: false)')
       }).optional().describe('Optional parameters to override defaults')
     }),
-    execute: async ({ query, searchParams }) => {
+    execute: async ({ query, parsedIntent, searchParams }) => {
       // Check if we have a chatId to work with
       if (!chatId) {
         console.warn('No chatId provided to clinical trials tool - using fallback mode');
@@ -687,9 +693,23 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
       // Check if we have cached results
       const hasCachedResults = chatId ? !!getCachedSearchByChat(chatId) : false;
       
-      // Detect the intent from the natural language query
-      const queryIntent = detectQueryIntent(query, hasCachedResults);
-      console.log('Query intent detected:', queryIntent);
+      // Use AI-parsed intent if provided, otherwise fall back to local parsing
+      let queryIntent;
+      if (parsedIntent) {
+        // Convert AI-parsed intent to our internal format
+        queryIntent = {
+          intent: parsedIntent.wantsMore ? 'show_more' : 
+                  parsedIntent.location && !parsedIntent.isNewSearch ? 'filter_location' :
+                  'new_search',
+          location: parsedIntent.location,
+          condition: parsedIntent.condition
+        };
+        console.log('Using AI-parsed intent:', queryIntent);
+      } else {
+        // Fall back to local parsing
+        queryIntent = detectQueryIntent(query, hasCachedResults);
+        console.log('Using locally-detected intent:', queryIntent);
+      }
 
       // Handle based on detected intent
       if (queryIntent.intent === 'show_more') {
