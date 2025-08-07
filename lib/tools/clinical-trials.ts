@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { DataStreamWriter, generateObject } from 'ai';
+import { DataStreamWriter } from 'ai';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
 import { oncobot } from '@/ai/providers';
 import { QueryGenerator } from './clinical-trials/query-generator';
@@ -180,82 +180,8 @@ function buildSafetyQueries(healthProfile: any, userQuery: string): string[] {
   return Array.from(safetyQueries);
 }
 
-// DEPRECATED: AI query generation was slow and not finding correct trials
-// Now using comprehensive search system directly
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function generateSearchQueries(userQuery: string, healthProfile: any) {
-  // Build safety net queries first
-  const safetyQueries = buildSafetyQueries(healthProfile, userQuery);
-  
-  try {
-    const { object: queryPlan } = await generateObject({
-      model: oncobot.languageModel('oncobot-x-fast'),
-      schema: z.object({
-        queries: z.array(z.object({
-          query: z.string().describe('A specific search query for ClinicalTrials.gov'),
-          rationale: z.string().describe('Why this query is important for this patient'),
-          priority: z.enum(['high', 'medium', 'low']).describe('Priority of this query')
-        })).min(3).max(7).describe('3-7 targeted search queries')
-      }),
-      prompt: `Generate 3-7 targeted clinical trial search queries for ClinicalTrials.gov based on:
-      
-User Query: ${userQuery}
-Health Profile: ${JSON.stringify(healthProfile, null, 2)}
-
-Guidelines:
-- Create a MIX of specific AND broad queries to ensure comprehensive coverage
-- Include at least one BROAD query (just cancer type or just mutation)
-- Include specific combination queries (e.g., "KRAS G12C lung cancer")
-- Include drug-specific queries when relevant:
-  * For KRAS G12C: sotorasib, adagrasib, MRTX849, JDQ443, LY3537982, GDC-6036
-  * For EGFR: osimertinib, erlotinib, afatinib, dacomitinib
-  * For ALK: alectinib, brigatinib, lorlatinib, crizotinib
-  * For immunotherapy: pembrolizumab, nivolumab, atezolizumab, durvalumab
-- Consider both targeted therapies and immunotherapies
-- Queries should be 1-8 words, optimized for ClinicalTrials.gov search
-- Mark queries as high/medium/low priority based on relevance
-
-Important: Balance specificity with coverage. Too specific = miss trials. Too broad = too many irrelevant.`
-    });
-
-    // Extract high and medium priority queries
-    const aiQueries = queryPlan.queries
-      .filter(q => q.priority !== 'low' || queryPlan.queries.length <= 4)
-      .map(q => q.query);
-    
-    // Combine AI queries with safety queries, removing duplicates
-    const allQueries = new Set([...aiQueries]);
-    
-    // Add safety queries that aren't already covered
-    safetyQueries.forEach(sq => {
-      // Check if this safety query is already covered by AI queries
-      const isCovered = aiQueries.some(aq => 
-        aq.toLowerCase().includes(sq.toLowerCase()) ||
-        sq.toLowerCase().includes(aq.toLowerCase())
-      );
-      
-      if (!isCovered) {
-        allQueries.add(sq);
-      }
-    });
-    
-    // Limit total queries to prevent API overload
-    const finalQueries = Array.from(allQueries).slice(0, 8);
-    
-    console.log('Search queries generated:', {
-      ai: aiQueries,
-      safety: safetyQueries,
-      final: finalQueries
-    });
-    
-    return finalQueries;
-    
-  } catch (error) {
-    console.error('Error generating AI search queries, using safety queries:', error);
-    // Return safety queries as fallback
-    return safetyQueries.length > 0 ? safetyQueries : [userQuery];
-  }
-}
+// DEPRECATED: AI query generation removed - we now use QueryGenerator.generateComprehensiveQueries
+// which provides better coverage and doesn't require AI calls
 
 // Deduplicate trials by NCT ID
 function deduplicateTrials(allTrials: ClinicalTrial[]): ClinicalTrial[] {
@@ -268,74 +194,9 @@ function deduplicateTrials(allTrials: ClinicalTrial[]): ClinicalTrial[] {
   });
 }
 
-// Score and rank trials based on relevance
-async function rankTrials(trials: ClinicalTrial[], healthProfile: any, maxResults: number) {
-  if (trials.length === 0) return [];
-  
-  try {
-    const { object: ranking } = await generateObject({
-      model: oncobot.languageModel('oncobot-x-fast'),
-      schema: z.object({
-        rankedTrials: z.array(z.object({
-          nctId: z.string(),
-          relevanceScore: z.number().min(0).max(100),
-          matchReason: z.string().describe('Brief explanation of why this trial matches')
-        }))
-      }),
-      prompt: `Rank these clinical trials by relevance to the patient's profile:
-
-Health Profile: ${JSON.stringify(healthProfile, null, 2)}
-
-Trials: ${JSON.stringify(trials.map(t => ({
-  nctId: t.protocolSection.identificationModule.nctId,
-  title: t.protocolSection.identificationModule.briefTitle,
-  conditions: t.protocolSection.conditionsModule?.conditions,
-  interventions: t.protocolSection.armsInterventionsModule?.interventions?.map(i => i.name),
-  eligibility: truncateText(t.protocolSection.eligibilityModule?.eligibilityCriteria, 500)
-})), null, 2)}
-
-Scoring criteria:
-- Exact molecular marker matches (e.g., KRAS G12C) = highest priority
-- Disease stage alignment
-- Treatment line appropriateness
-- Intervention type relevance
-- General cancer type match
-
-Return the trials ranked by relevance score.`
-    });
-
-    // Sort trials based on AI ranking
-    const rankedNctIds = ranking.rankedTrials
-      .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .slice(0, maxResults);
-    
-    // Create a map of rankings
-    const rankMap = new Map(rankedNctIds.map((r, idx) => [r.nctId, { rank: idx, ...r }]));
-    
-    // Sort original trials based on ranking
-    return trials
-      .filter(t => rankMap.has(t.protocolSection.identificationModule.nctId))
-      .sort((a, b) => {
-        const rankA = rankMap.get(a.protocolSection.identificationModule.nctId)?.rank ?? 999;
-        const rankB = rankMap.get(b.protocolSection.identificationModule.nctId)?.rank ?? 999;
-        return rankA - rankB;
-      })
-      .map(trial => ({
-        ...trial,
-        matchReason: rankMap.get(trial.protocolSection.identificationModule.nctId)?.matchReason,
-        relevanceScore: rankMap.get(trial.protocolSection.identificationModule.nctId)?.relevanceScore
-      }));
-
-  } catch (error) {
-    console.error('Error ranking trials:', error);
-    // Fallback to simple ranking
-    return trials.slice(0, maxResults).map(trial => ({
-      ...trial,
-      matchReason: 'Matches search criteria',
-      relevanceScore: 75
-    }));
-  }
-}
+// DEPRECATED: AI ranking removed for performance and accuracy
+// We now return trials directly from our comprehensive search system
+// which already provides relevant results based on the health profile
 
 // Map of common city to state abbreviations for better matching
 const CITY_STATE_MAP: Record<string, string[]> = {
@@ -749,8 +610,12 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         const limit = searchParams?.maxResults || defaultLimit;
         const paginatedTrials = cached.trials.slice(offset, offset + limit);
         
-        // Rank the paginated trials
-        const rankedTrials = await rankTrials(paginatedTrials, cached.healthProfile, limit);
+        // Skip AI ranking - use trials directly from cache
+        const rankedTrials = paginatedTrials.map(trial => ({
+          ...trial,
+          matchReason: 'Matches your search criteria',
+          relevanceScore: 85
+        }));
         const matches = createMatchObjects(rankedTrials, cached.healthProfile, undefined);
 
         // Calculate progressive loading metadata
@@ -821,10 +686,14 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           };
         }
 
-        // Rank and return top results
-        const maxResults = Math.min(searchParams?.maxResults || 5, 10);
-        const rankedTrials = await rankTrials(filteredTrials, cached.healthProfile, maxResults);
-        const matches = createMatchObjects(rankedTrials, cached.healthProfile, filterLocation);
+        // Return filtered results without AI ranking
+        const maxResults = Math.min(searchParams?.maxResults || 10, 20);
+        const selectedTrials = filteredTrials.slice(0, maxResults).map(trial => ({
+          ...trial,
+          matchReason: `Matches your criteria and has sites in ${filterLocation}`,
+          relevanceScore: 85
+        }));
+        const matches = createMatchObjects(selectedTrials, cached.healthProfile, filterLocation);
 
         return {
           success: true,
@@ -838,7 +707,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
       // Handle new search intent (default)
       const userQuery = queryIntent.condition || query || 'clinical trials';
       const useHealthProfile = searchParams?.useProfile ?? true;
-      const maxResults = Math.min(searchParams?.maxResults || 5, 10); // Allow up to 10 in initial search
+      const maxResults = Math.min(searchParams?.maxResults || 10, 20); // Default to 10, allow up to 20
       const location = queryIntent.location;
 
       try {
@@ -857,10 +726,21 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             const profileData = await getUserHealthProfile();
             if (profileData) {
               healthProfile = profileData.profile;
+              console.log('Health profile loaded successfully:', {
+                hasProfile: !!healthProfile,
+                hasCancerType: !!healthProfile?.cancerType,
+                hasMarkers: !!healthProfile?.molecularMarkers,
+                hasKRAS: healthProfile?.molecularMarkers?.KRAS_G12C
+              });
+            } else {
+              console.warn('No health profile data returned from getUserHealthProfile');
             }
           } catch (error) {
-            console.log('Could not load health profile, proceeding without it');
+            console.error('Failed to load health profile:', error);
+            console.log('Proceeding without health profile - results will be generic');
           }
+        } else {
+          console.log('Health profile loading disabled by searchParams');
         }
 
         // Skip AI query generation - use our comprehensive search system directly
@@ -879,8 +759,14 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           healthProfile
         );
         
-        // Log generated queries for debugging (reduced verbosity)
-        console.log(`Generated ${comprehensiveQueries.queries.length} comprehensive queries`);
+        // Log critical debugging info
+        console.log('Query generation:', {
+          userQuery,
+          profileUsed: !!healthProfile,
+          queryCount: comprehensiveQueries.queries.length,
+          firstQuery: comprehensiveQueries.queries[0],
+          hasKRASQuery: comprehensiveQueries.queries.some(q => q.includes('KRAS'))
+        });
         
         // Execute parallel searches across multiple API fields
         // IMPORTANT: We do NOT filter by location in API - we do it locally for better coverage
@@ -900,13 +786,21 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         const queryResultsMap = new Map<string, number>();
         searchResults.forEach(r => queryResultsMap.set(`${r.field}:${r.query}`, r.totalCount));
         
-        console.log(`Search results: ${aggregated.uniqueStudies.length} unique trials from ${aggregated.totalQueries} queries`);
+        // Log search results summary
+        console.log('Search results:', {
+          totalUnique: aggregated.uniqueStudies.length,
+          totalQueries: aggregated.totalQueries,
+          hasKRASTrials: aggregated.uniqueStudies.some(s => 
+            s.protocolSection.identificationModule.briefTitle?.includes('KRAS') ||
+            s.protocolSection.descriptionModule?.briefSummary?.includes('KRAS')
+          ),
+          firstTrial: aggregated.uniqueStudies[0]?.protocolSection.identificationModule.nctId
+        });
         
         // Use unique studies as our trial list
         allTrials = aggregated.uniqueStudies;
         
-        // Log query performance (commented for production)
-        // console.log('Query results breakdown:', Object.fromEntries(queryResultsMap));
+        // Query performance logging removed for production
 
         // Deduplicate trials
         const uniqueTrials = deduplicateTrials(allTrials);
