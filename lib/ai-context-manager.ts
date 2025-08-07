@@ -357,7 +357,7 @@ Focus on:
     });
   }
 
-  private compressToolOutput(content: string): string {
+  private compressToolOutputString(content: string): string {
     try {
       const parsed = JSON.parse(content);
       // Keep only essential fields based on tool type
