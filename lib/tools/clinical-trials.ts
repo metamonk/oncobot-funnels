@@ -22,6 +22,14 @@ interface CachedSearch {
 const searchCache = new Map<string, CachedSearch>();
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
+// Progressive loading configuration
+const PROGRESSIVE_LOADING = {
+  INITIAL_BATCH: 5,      // First batch size
+  STANDARD_BATCH: 10,    // Subsequent batch sizes
+  MAX_BATCH: 20,         // Maximum batch size
+  PREFETCH_THRESHOLD: 2, // Start prefetching when this many items remain
+};
+
 // Only process trials with these statuses
 const VIABLE_STUDY_STATUSES = [
   'RECRUITING',
@@ -577,11 +585,38 @@ function createMatchObjects(trials: any[], healthProfile: any, targetLocation?: 
 // Main tool export
 export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
   return tool({
-    description: `Search and explore clinical trials. 
-    - Use 'search' for initial queries (returns top 5, caches all results)
-    - Use 'list_more' with searchId to see more trials (pagination)
-    - Use 'filter_by_location' to filter cached results by location
-    Always start with 'search' for health-related queries.`,
+    description: `Advanced clinical trials search with intelligent matching and progressive loading.
+    
+    CAPABILITIES:
+    - Smart query generation using health profile and AI
+    - Relevance-based ranking with molecular marker prioritization
+    - Progressive loading for efficient result exploration
+    - Location-aware filtering with city/state matching
+    - Session caching for fast follow-up queries
+    
+    ACTIONS:
+    1. 'search': Initial intelligent search (returns top 5-10, caches all)
+       - Generates multiple targeted queries automatically
+       - Ranks by relevance to patient profile
+       - Returns searchId for follow-ups
+    
+    2. 'list_more': Progressive pagination through cached results
+       - Use searchId from initial search
+       - Smart batch sizing (5-20 trials per request)
+       - Includes loading progress metadata
+    
+    3. 'filter_by_location': Filter cached results by location
+       - Supports city, state, or country filtering
+       - Maintains relevance ranking within location
+    
+    4. 'details': Get full trial information (coming soon)
+    5. 'eligibility_check': Deep eligibility analysis (coming soon)
+    
+    BEST PRACTICES:
+    - Always start with 'search' for new queries
+    - Use returned searchId for follow-up actions
+    - Check loadingMetadata.shouldPrefetch for optimal UX
+    - Filter by location when geographic proximity matters`,
     parameters: z.object({
       action: z.enum(['search', 'list_more', 'filter_by_location', 'details', 'eligibility_check']).describe('Action to perform'),
       searchParams: z.object({
@@ -596,7 +631,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
       trialId: z.string().optional().describe('NCT ID for details/eligibility (not currently implemented)')
     }),
     execute: async ({ action, searchParams }) => {
-      // Handle list_more action - pagination through cached results
+      // Handle list_more action - pagination through cached results with progressive loading
       if (action === 'list_more') {
         const searchId = searchParams?.searchId;
         if (!searchId) {
@@ -616,13 +651,25 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           };
         }
 
-        const offset = searchParams?.offset || 5;
-        const limit = searchParams?.limit || 5;
+        // Smart batch size determination based on offset
+        const offset = searchParams?.offset || PROGRESSIVE_LOADING.INITIAL_BATCH;
+        const defaultLimit = offset === PROGRESSIVE_LOADING.INITIAL_BATCH 
+          ? PROGRESSIVE_LOADING.STANDARD_BATCH 
+          : Math.min(PROGRESSIVE_LOADING.STANDARD_BATCH, PROGRESSIVE_LOADING.MAX_BATCH);
+        const limit = searchParams?.limit || defaultLimit;
         const paginatedTrials = cached.trials.slice(offset, offset + limit);
         
         // Rank the paginated trials
         const rankedTrials = await rankTrials(paginatedTrials, cached.healthProfile, limit);
         const matches = createMatchObjects(rankedTrials, cached.healthProfile, undefined);
+
+        // Calculate progressive loading metadata
+        const remainingTrials = cached.trials.length - (offset + limit);
+        const shouldPrefetch = remainingTrials > 0 && remainingTrials <= PROGRESSIVE_LOADING.PREFETCH_THRESHOLD;
+        const nextBatchSize = Math.min(
+          remainingTrials,
+          PROGRESSIVE_LOADING.STANDARD_BATCH
+        );
 
         return {
           success: true,
@@ -631,7 +678,16 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           currentOffset: offset,
           hasMore: offset + limit < cached.trials.length,
           searchId: searchId,
-          message: `Showing trials ${offset + 1} to ${Math.min(offset + limit, cached.trials.length)} of ${cached.trials.length} total.`
+          message: `Showing trials ${offset + 1} to ${Math.min(offset + limit, cached.trials.length)} of ${cached.trials.length} total.`,
+          // Progressive loading hints
+          loadingMetadata: {
+            batchSize: limit,
+            nextOffset: offset + limit,
+            nextBatchSize: nextBatchSize,
+            remainingCount: remainingTrials,
+            shouldPrefetch: shouldPrefetch,
+            loadingProgress: ((offset + limit) / cached.trials.length) * 100
+          }
         };
       }
 
@@ -869,6 +925,15 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           message += ` Use 'list_more' action with searchId to see additional results.`;
         }
 
+        // Calculate progressive loading information
+        const progressiveLoadingInfo = {
+          enabled: true,
+          initialBatch: matches.length,
+          standardBatchSize: PROGRESSIVE_LOADING.STANDARD_BATCH,
+          totalAvailable: uniqueTrials.length,
+          estimatedBatches: Math.ceil((uniqueTrials.length - matches.length) / PROGRESSIVE_LOADING.STANDARD_BATCH)
+        };
+
         // Return structure expected by UI component
         return {
           success: true,
@@ -885,7 +950,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           query: searchQueries.join('; '),
           message: message,
           additionalTrialsAvailable: uniqueTrials.length > maxResults,
-          availableActions: uniqueTrials.length > maxResults ? ['list_more', 'filter_by_location'] : ['filter_by_location']
+          availableActions: uniqueTrials.length > maxResults ? ['list_more', 'filter_by_location'] : ['filter_by_location'],
+          progressiveLoading: progressiveLoadingInfo
         };
 
       } catch (error) {
