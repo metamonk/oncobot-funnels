@@ -606,9 +606,10 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
        - Includes loading progress metadata
     
     3. 'filter_by_location': Filter cached results by location
-       - REQUIRED: searchId AND location parameters in searchParams
-       - Example: searchParams: { searchId: "abc123", location: "Chicago" }
-       - Supports city, state, or country filtering
+       - REQUIRED PARAMETERS: Both searchId AND location MUST be in searchParams
+       - CORRECT FORMAT: { action: "filter_by_location", searchParams: { searchId: "xyz", location: "Chicago" } }
+       - COMMON ERROR: Missing location parameter - always include it!
+       - Supports city (Chicago), state (Illinois), or country filtering
        - Maintains relevance ranking within location
     
     4. 'details': Get full trial information (coming soon)
@@ -712,7 +713,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           return {
             success: false,
             error: 'location is required for filter_by_location action',
-            message: 'Please specify a location to filter by.'
+            message: 'Please specify a location to filter by. Example: searchParams: { searchId: "' + searchId + '", location: "Chicago" }'
           };
         }
 
