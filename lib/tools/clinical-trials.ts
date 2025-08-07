@@ -713,11 +713,11 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           location: parsedIntent.location,
           condition: parsedIntent.condition
         };
-        console.log('Using AI-parsed intent:', queryIntent);
+        // console.log('Using AI-parsed intent:', queryIntent);
       } else {
         // Fall back to local parsing
         queryIntent = detectQueryIntent(query, hasCachedResults);
-        console.log('Using locally-detected intent:', queryIntent);
+        // console.log('Using locally-detected intent:', queryIntent);
       }
 
       // Handle based on detected intent
@@ -863,7 +863,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
 
         // Generate intelligent search queries
         const searchQueries = await generateSearchQueries(userQuery, healthProfile);
-        console.log('Generated search queries:', searchQueries);
+        // console.log('Generated search queries:', searchQueries);
 
         // Execute all queries in parallel with better tracking
         let allTrials: ClinicalTrial[] = [];
@@ -877,12 +877,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           healthProfile
         );
         
-        // Log generated queries for debugging
-        console.log('Generated comprehensive queries:', {
-          count: comprehensiveQueries.queries.length,
-          queries: comprehensiveQueries.queries,
-          fields: comprehensiveQueries.fields
-        });
+        // Log generated queries for debugging (reduced verbosity)
+        console.log(`Generated ${comprehensiveQueries.queries.length} comprehensive queries`);
         
         // Execute parallel searches across multiple API fields
         // IMPORTANT: We do NOT filter by location in API - we do it locally for better coverage
@@ -902,22 +898,17 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         const queryResultsMap = new Map<string, number>();
         searchResults.forEach(r => queryResultsMap.set(`${r.field}:${r.query}`, r.totalCount));
         
-        console.log('Search execution results:', {
-          totalQueries: aggregated.totalQueries,
-          successful: aggregated.successfulQueries,
-          uniqueTrials: aggregated.uniqueStudies.length,
-          errors: aggregated.errors
-        });
+        console.log(`Search results: ${aggregated.uniqueStudies.length} unique trials from ${aggregated.totalQueries} queries`);
         
         // Use unique studies as our trial list
         allTrials = aggregated.uniqueStudies;
         
-        // Log query performance
-        console.log('Query results breakdown:', Object.fromEntries(queryResultsMap));
+        // Log query performance (commented for production)
+        // console.log('Query results breakdown:', Object.fromEntries(queryResultsMap));
 
         // Deduplicate trials
         const uniqueTrials = deduplicateTrials(allTrials);
-        console.log(`Found ${uniqueTrials.length} unique trials from ${allTrials.length} total`);
+        // console.log(`Found ${uniqueTrials.length} unique trials from ${allTrials.length} total`);
 
         if (uniqueTrials.length === 0) {
           return {
