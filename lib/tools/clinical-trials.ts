@@ -3,22 +3,21 @@ import { z } from 'zod';
 import { DataStreamWriter, generateObject } from 'ai';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
 import { oncobot } from '@/ai/providers';
-import crypto from 'crypto';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
 const STUDIES_ENDPOINT = `${BASE_URL}/studies`;
 
-// Search result cache for session persistence
+// Search result cache for conversation persistence
 interface CachedSearch {
-  searchId: string;
+  chatId: string;  // Using chatId instead of searchId
   trials: ClinicalTrial[];
   healthProfile: any;
   searchQueries: string[];
   timestamp: number;
 }
 
-// Simple in-memory cache (resets on server restart)
+// Simple in-memory cache keyed by chatId (resets on server restart)
 const searchCache = new Map<string, CachedSearch>();
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
@@ -86,24 +85,25 @@ function truncateText(text: string | undefined, maxLength: number): string {
   return text.substring(0, maxLength) + '...';
 }
 
-// Cache management functions
-function getCachedSearch(searchId: string): CachedSearch | null {
-  const cached = searchCache.get(searchId);
+// Cache management functions - now using chatId
+function getCachedSearchByChat(chatId: string): CachedSearch | null {
+  const cacheKey = `chat_${chatId}`;
+  const cached = searchCache.get(cacheKey);
   if (!cached) return null;
   
   // Check if cache is expired
   if (Date.now() - cached.timestamp > CACHE_TTL) {
-    searchCache.delete(searchId);
+    searchCache.delete(cacheKey);
     return null;
   }
   
   return cached;
 }
 
-function setCachedSearch(trials: ClinicalTrial[], healthProfile: any, searchQueries: string[]): string {
-  const searchId = crypto.randomUUID();
-  searchCache.set(searchId, {
-    searchId,
+function setCachedSearchForChat(chatId: string, trials: ClinicalTrial[], healthProfile: any, searchQueries: string[]): void {
+  const cacheKey = `chat_${chatId}`;
+  searchCache.set(cacheKey, {
+    chatId,
     trials,
     healthProfile,
     searchQueries,
@@ -111,13 +111,11 @@ function setCachedSearch(trials: ClinicalTrial[], healthProfile: any, searchQuer
   });
   
   // Clean up old entries
-  for (const [id, cached] of searchCache.entries()) {
+  for (const [key, cached] of searchCache.entries()) {
     if (Date.now() - cached.timestamp > CACHE_TTL) {
-      searchCache.delete(id);
+      searchCache.delete(key);
     }
   }
-  
-  return searchId;
 }
 
 
@@ -583,33 +581,32 @@ function createMatchObjects(trials: any[], healthProfile: any, targetLocation?: 
 }
 
 // Main tool export
-export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
+export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: string): any => {
   return tool({
-    description: `Advanced clinical trials search with intelligent matching and progressive loading.
+    description: `Advanced clinical trials search with intelligent matching and automatic context awareness.
     
     CAPABILITIES:
     - Smart query generation using health profile and AI
     - Relevance-based ranking with molecular marker prioritization
     - Progressive loading for efficient result exploration
     - Location-aware filtering with city/state matching
-    - Session caching for fast follow-up queries
+    - Automatic conversation context - no need to track IDs!
     
     ACTIONS:
     1. 'search': Initial intelligent search (returns top 5-10, caches all)
        - Generates multiple targeted queries automatically
        - Ranks by relevance to patient profile
-       - Returns searchId for follow-ups
+       - Results are automatically saved to this conversation
     
-    2. 'list_more': Progressive pagination through cached results
-       - Use searchId from initial search
+    2. 'list_more': Get more results from your last search
+       - No need to provide any ID - I remember your last search
        - Smart batch sizing (5-20 trials per request)
        - Includes loading progress metadata
     
-    3. 'filter_by_location': Filter cached results by location
-       - REQUIRED PARAMETERS: Both searchId AND location MUST be in searchParams
-       - CORRECT FORMAT: { action: "filter_by_location", searchParams: { searchId: "xyz", location: "Chicago" } }
-       - COMMON ERROR: Missing location parameter - always include it!
-       - Supports city (Chicago), state (Illinois), or country filtering
+    3. 'filter_by_location': Filter your last search results by location
+       - Just provide the location (e.g., "Chicago")
+       - I'll automatically use your most recent search results
+       - Supports city, state, or country filtering
        - Maintains relevance ranking within location
     
     4. 'details': Get full trial information (coming soon)
@@ -617,64 +614,66 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
     
     BEST PRACTICES:
     - Always start with 'search' for new queries
-    - Use returned searchId for follow-up actions
-    - For filter_by_location: MUST include both searchId AND location in searchParams
-      WORKING EXAMPLE: { action: "filter_by_location", searchParams: { searchId: "abc-123", location: "Chicago" } }
-      COMMON MISTAKE: Forgetting the location parameter - this will cause an error!
+    - For follow-up actions, just use the action - no IDs needed!
+    - For filter_by_location: Just provide the location
+      EXAMPLE: { action: "filter_by_location", searchParams: { location: "Chicago" } }
     - Check loadingMetadata.shouldPrefetch for optimal UX
     - Filter by location when geographic proximity matters`,
     parameters: z.object({
       action: z.enum(['search', 'list_more', 'filter_by_location', 'details', 'eligibility_check']).describe('Action to perform'),
       searchParams: z.object({
         condition: z.string().optional().describe('The condition or query to search for'),
-        location: z.string().optional().describe('REQUIRED for filter_by_location action. Location to filter by (e.g., "Chicago", "Illinois", "Boston")'), 
+        location: z.string().optional().describe('Location to filter by (e.g., "Chicago", "Illinois", "Boston")'), 
         useProfile: z.boolean().optional().describe('Whether to use the user health profile (default: true)'),
         maxResults: z.number().optional().describe('Maximum number of results to return (default: 5)'),
-        searchId: z.string().optional().describe('REQUIRED for list_more and filter_by_location actions. ID from previous search'),
         offset: z.number().optional().describe('For list_more: start index (default: 5)'),
         limit: z.number().optional().describe('For list_more: number to return (default: 5)')
       }).optional().describe('Parameters for the action'),
       trialId: z.string().optional().describe('NCT ID for details/eligibility (not currently implemented)')
     }),
     execute: async ({ action, searchParams }) => {
+      // Check if we have a chatId to work with
+      if (!chatId) {
+        console.warn('No chatId provided to clinical trials tool - using fallback mode');
+      }
+
       // Special validation for filter_by_location to ensure location is provided
       if (action === 'filter_by_location') {
-        // Early validation to provide clear error message
         if (!searchParams?.location) {
           return {
             success: false,
             error: 'Missing required parameter: location',
-            message: 'The filter_by_location action REQUIRES a location parameter. Please provide it like this: searchParams: { searchId: "xxx", location: "Chicago" }',
-            hint: 'You must include BOTH searchId AND location in searchParams for filter_by_location to work.'
+            message: 'Please provide a location to filter by (e.g., "Chicago", "Boston")',
+            hint: 'Just include the location in searchParams: { location: "Chicago" }'
           };
         }
-        if (!searchParams?.searchId) {
+        
+        // Check if we have cached results for this chat
+        if (!chatId) {
           return {
             success: false,
-            error: 'Missing required parameter: searchId',
-            message: 'The filter_by_location action REQUIRES a searchId from a previous search.',
-            hint: 'You must include BOTH searchId AND location in searchParams for filter_by_location to work.'
+            error: 'No conversation context available',
+            message: 'Unable to retrieve your previous search. Please perform a new search first.'
           };
         }
       }
 
       // Handle list_more action - pagination through cached results with progressive loading
       if (action === 'list_more') {
-        const searchId = searchParams?.searchId;
-        if (!searchId) {
+        if (!chatId) {
           return {
             success: false,
-            error: 'searchId is required for list_more action',
-            message: 'Please provide the searchId from a previous search.'
+            error: 'No conversation context available',
+            message: 'Unable to retrieve your previous search. Please perform a new search first.'
           };
         }
 
-        const cached = getCachedSearch(searchId);
+        const cached = getCachedSearchByChat(chatId);
         if (!cached) {
           return {
             success: false,
             error: 'Search results not found or expired',
-            message: 'Please perform a new search. Previous results may have expired.'
+            message: 'Please perform a new search first. No previous results found for this conversation.'
           };
         }
 
@@ -704,7 +703,6 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           totalCount: cached.trials.length,
           currentOffset: offset,
           hasMore: offset + limit < cached.trials.length,
-          searchId: searchId,
           message: `Showing trials ${offset + 1} to ${Math.min(offset + limit, cached.trials.length)} of ${cached.trials.length} total.`,
           // Progressive loading hints
           loadingMetadata: {
@@ -720,43 +718,34 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
 
       // Handle filter_by_location action
       if (action === 'filter_by_location') {
-        const searchId = searchParams?.searchId;
         const filterLocation = searchParams?.location;
         
-        if (!searchId) {
+        // Location validation already done above
+        if (!chatId) {
           return {
             success: false,
-            error: 'searchId is required for filter_by_location action',
-            message: 'Please provide the searchId from a previous search.'
+            error: 'No conversation context available',
+            message: 'Unable to retrieve your previous search. Please perform a new search first.'
           };
         }
 
-        if (!filterLocation) {
-          return {
-            success: false,
-            error: 'location is required for filter_by_location action',
-            message: 'Please specify a location to filter by. Example: searchParams: { searchId: "' + searchId + '", location: "Chicago" }'
-          };
-        }
-
-        const cached = getCachedSearch(searchId);
+        const cached = getCachedSearchByChat(chatId);
         if (!cached) {
           return {
             success: false,
             error: 'Search results not found or expired',
-            message: 'Please perform a new search. Previous results may have expired.'
+            message: 'Please perform a new search first. No previous results found for this conversation.'
           };
         }
 
         // Filter trials by location
-        const filteredTrials = cached.trials.filter(trial => trialHasLocation(trial, filterLocation));
+        const filteredTrials = cached.trials.filter((trial: any) => trialHasLocation(trial, filterLocation!));
         
         if (filteredTrials.length === 0) {
           return {
             success: true,
             matches: [],
             totalCount: 0,
-            searchId: searchId,
             filterLocation: filterLocation,
             message: `No trials found with sites in or near ${filterLocation}.`
           };
@@ -771,7 +760,6 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           success: true,
           matches: matches,
           totalCount: filteredTrials.length,
-          searchId: searchId,
           filterLocation: filterLocation,
           message: `Found ${filteredTrials.length} trials with sites in or near ${filterLocation}. Showing top ${matches.length}.`
         };
@@ -937,8 +925,10 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
           }
         });
 
-        // Cache the search results for follow-up actions
-        const searchId = setCachedSearch(uniqueTrials, healthProfile, searchQueries);
+        // Cache the search results for follow-up actions if we have a chatId
+        if (chatId) {
+          setCachedSearchForChat(chatId, uniqueTrials, healthProfile, searchQueries);
+        }
 
         // Build message with location info if applicable
         let message = `Found ${uniqueTrials.length} clinical trials. `;
@@ -949,7 +939,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
         
         // Add guidance for follow-up actions if more trials are available
         if (uniqueTrials.length > maxResults) {
-          message += ` Use 'list_more' action with searchId to see additional results.`;
+          message += ` You can use 'list_more' to see additional results or 'filter_by_location' to filter by a specific location.`;
         }
 
         // Calculate progressive loading information
@@ -964,7 +954,6 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
         // Return structure expected by UI component
         return {
           success: true,
-          searchId: searchId, // Include searchId for follow-up actions
           matches: matches, // UI expects 'matches' array, not 'results'
           totalCount: uniqueTrials.length,
           locationMatchCount: locationMatchCount,
