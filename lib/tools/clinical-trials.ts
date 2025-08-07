@@ -15,6 +15,7 @@ interface CachedSearch {
   healthProfile: any;
   searchQueries: string[];
   timestamp: number;
+  lastOffset?: number;  // Track pagination state
 }
 
 // Simple in-memory cache keyed by chatId (resets on server restart)
@@ -580,91 +581,123 @@ function createMatchObjects(trials: any[], healthProfile: any, targetLocation?: 
   });
 }
 
+// Helper function to detect query intent
+function detectQueryIntent(query: string, hasCache: boolean): { 
+  intent: 'new_search' | 'filter_location' | 'show_more' | 'filter_other';
+  location?: string;
+  condition?: string;
+} {
+  const lowerQuery = query.toLowerCase();
+  
+  // Check for pagination keywords
+  if (hasCache && (
+    lowerQuery.includes('more') || 
+    lowerQuery.includes('next') || 
+    lowerQuery.includes('additional') ||
+    lowerQuery.includes('other')
+  )) {
+    return { intent: 'show_more' };
+  }
+  
+  // Check for location filtering with context words
+  const locationPatterns = [
+    /(?:near|in|around|close to|proximity to|based on proximity to)\s+([A-Z][a-zA-Z\s]+)/i,
+    /(?:filter.*|list.*|show.*)\s+(?:by|for|in|near)\s+([A-Z][a-zA-Z\s]+)/i,
+    /([A-Z][a-zA-Z\s]+)\s+(?:area|region|location)/i
+  ];
+  
+  for (const pattern of locationPatterns) {
+    const match = query.match(pattern);
+    if (match && hasCache) {
+      return { 
+        intent: 'filter_location',
+        location: match[1].trim()
+      };
+    }
+  }
+  
+  // Check if this is a follow-up filter (has words like "them", "those", "these")
+  if (hasCache && (
+    lowerQuery.includes('them') || 
+    lowerQuery.includes('those') || 
+    lowerQuery.includes('these') ||
+    lowerQuery.includes('the trials') ||
+    lowerQuery.includes('the results')
+  )) {
+    // Look for location in the same query
+    const simpleLocationMatch = query.match(/(?:Chicago|Boston|New York|Los Angeles|Houston|Philadelphia|Phoenix|San Antonio|San Diego|Dallas|Austin|Jacksonville|Fort Worth|Columbus|San Francisco|Charlotte|Indianapolis|Seattle|Denver|Washington|Nashville|Oklahoma City|El Paso|Detroit|Portland|Las Vegas|Memphis|Louisville|Baltimore|Milwaukee|Albuquerque|Tucson|Fresno|Mesa|Sacramento|Atlanta|Kansas City|Colorado Springs|Miami|Raleigh|Omaha|Long Beach|Virginia Beach|Oakland|Minneapolis|Tulsa|Arlington|Tampa|New Orleans|Wichita|Cleveland|Bakersfield|Aurora|Anaheim|Honolulu|Santa Ana|Riverside|Corpus Christi|Lexington|Henderson|Stockton|Saint Paul|Cincinnati|St\. Louis|Pittsburgh|Greensboro|Lincoln|Anchorage|Plano|Orlando|Irvine|Newark|Durham|Chula Vista|Toledo|Fort Wayne|St\. Petersburg|Laredo|Jersey City|Chandler|Madison|Lubbock|Scottsdale|Reno|Buffalo|Gilbert|Glendale|North Las Vegas|Winston-Salem|Chesapeake|Norfolk|Fremont|Garland|Irving|Hialeah|Richmond|Boise|Spokane|Baton Rouge|Tacoma|San Bernardino|Modesto|Fontana|Des Moines|Moreno Valley|Santa Clarita|Fayetteville|Birmingham|Oxnard|Rochester|Port St\. Lucie|Grand Rapids|Huntsville|Salt Lake City|Frisco|Yonkers|Amarillo|Glendale|Huntington Beach|McKinney|Montgomery|Augusta|Aurora|Akron|Little Rock|Tempe|Columbus|Overland Park|Grand Prairie|Tallahassee|Cape Coral|Mobile|Knoxville|Shreveport|Worcester|Ontario|Vancouver|Sioux Falls|Chattanooga|Brownsville|Fort Lauderdale|Providence|Newport News|Rancho Cucamonga|Santa Rosa|Peoria|Oceanside|Elk Grove|Salem|Pembroke Pines|Eugene|Garden Grove|Cary|Fort Collins|Corona|Springfield|Jackson|Alexandria|Hayward|Clarksville|Lakewood|Lancaster|Salinas|Palmdale|Hollywood|Springfield|Macon|Kansas City|Sunnyvale|Pomona|Killeen|Escondido|Pasadena|Naperville|Bellevue|Joliet|Murfreesboro|Midland|Rockford|Paterson|Savannah|Bridgeport|Torrance|McAllen|Syracuse|Surprise|Denton|Roseville|Thornton|Miramar|Pasadena|Mesquite|Olathe|Dayton|Carrollton|Waco|Orange|Fullerton|Charleston|West Valley City|Visalia|Hampton|Gainesville|Warren|Coral Springs|Cedar Rapids|Round Rock|Sterling Heights|Kent|Columbia|Santa Clara|New Haven|Stamford|Concord|Elizabeth|Athens|Thousand Oaks|Simi Valley|Topeka|Norman|Fargo|Wilmington|Abilene|Odessa|Columbia|Pearland|Victorville|Hartford|Vallejo|Allentown|Berkeley|Richardson|Arvada|Ann Arbor|Rochester|Cambridge|Sugar Land|Lansing|Evansville|College Station|Fairfield|Clearwater|Beaumont|Independence|Provo|West Jordan|Murrieta|Palm Bay|El Monte|Carlsbad|North Charleston|Temecula|Clovis|Springfield|Meridian|Westminster|Costa Mesa|High Point|Manchester|Pueblo|Lakeland|Pompano Beach|West Palm Beach|Antioch|Everett|Downey|Lowell|Centennial|Elgin|Richmond|Peoria|Broken Arrow|Miami Gardens|Billings|Jurupa Valley|Sandy Springs|Gresham|Lewisville|Hillsboro|Ventura|Inglewood|Waterbury|League City|Santa Maria|Tyler|Davie|Lakewood|Daly City|Boulder|Allen|West Covina|Sparks|Wichita Falls|Green Bay|San Mateo|Norwalk|Rialto|Las Cruces|Chico|El Cajon|Burbank|South Bend|Renton|Vista|Davenport|Edinburg|Tuscaloosa|Carmel|Spokane Valley|San Angelo|Vacaville|Clinton|Bend|Woodbridge)/i);
+    if (simpleLocationMatch) {
+      return {
+        intent: 'filter_location',
+        location: simpleLocationMatch[0]
+      };
+    }
+    
+    return { intent: 'filter_other' };
+  }
+  
+  // Default to new search
+  return { 
+    intent: 'new_search',
+    condition: query
+  };
+}
+
 // Main tool export
 export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: string): any => {
   return tool({
-    description: `Advanced clinical trials search with intelligent matching and automatic context awareness.
+    description: `Smart clinical trials search that understands natural language queries.
     
-    CAPABILITIES:
-    - Smart query generation using health profile and AI
-    - Relevance-based ranking with molecular marker prioritization
-    - Progressive loading for efficient result exploration
-    - Location-aware filtering with city/state matching
-    - Automatic conversation context - no need to track IDs!
+    SIMPLIFIED USAGE:
+    Just use 'search' action for EVERYTHING! The tool will automatically understand:
+    - New searches: "find trials for lung cancer"
+    - Location filters: "show them near Chicago" or "list those in Boston"
+    - More results: "show me more" or "what other trials are there"
+    - Combined queries: "find NSCLC trials near Boston"
     
-    ACTIONS:
-    1. 'search': Initial intelligent search (returns top 5-10, caches all)
-       - Generates multiple targeted queries automatically
-       - Ranks by relevance to patient profile
-       - Results are automatically saved to this conversation
+    The tool intelligently:
+    - Detects if you're asking about previous results ("them", "those", "these")
+    - Extracts locations from natural language
+    - Understands when you want more results
+    - Uses your health profile automatically
+    - Maintains conversation context without complex IDs
     
-    2. 'list_more': Get more results from your last search
-       - No need to provide any ID - I remember your last search
-       - Smart batch sizing (5-20 trials per request)
-       - Includes loading progress metadata
+    EXAMPLES:
+    - "Are there trials for my cancer?" → search with profile
+    - "Show them near Chicago" → filters previous results by Chicago
+    - "Find lung cancer trials in Boston" → new search with location
+    - "Show me more trials" → gets next batch of results
     
-    3. 'filter_by_location': Filter your last search results by location
-       - Just provide the location (e.g., "Chicago")
-       - I'll automatically use your most recent search results
-       - Supports city, state, or country filtering
-       - Maintains relevance ranking within location
-    
-    4. 'details': Get full trial information (coming soon)
-    5. 'eligibility_check': Deep eligibility analysis (coming soon)
-    
-    BEST PRACTICES:
-    - Always start with 'search' for new queries
-    - For follow-up actions, just use the action - no IDs needed!
-    - For filter_by_location: Just provide the location
-      EXAMPLE: { action: "filter_by_location", searchParams: { location: "Chicago" } }
-    - Check loadingMetadata.shouldPrefetch for optimal UX
-    - Filter by location when geographic proximity matters`,
+    Just pass the user's natural language query!`,
     parameters: z.object({
-      action: z.enum(['search', 'list_more', 'filter_by_location', 'details', 'eligibility_check']).describe('Action to perform'),
+      action: z.enum(['search']).describe('Always use search - it handles everything intelligently'),
+      query: z.string().describe('The user\'s natural language query - pass it exactly as they said it'),
       searchParams: z.object({
-        condition: z.string().optional().describe('The condition or query to search for'),
-        location: z.string().optional().describe('Location to filter by (e.g., "Chicago", "Illinois", "Boston")'), 
         useProfile: z.boolean().optional().describe('Whether to use the user health profile (default: true)'),
-        maxResults: z.number().optional().describe('Maximum number of results to return (default: 5)'),
-        offset: z.number().optional().describe('For list_more: start index (default: 5)'),
-        limit: z.number().optional().describe('For list_more: number to return (default: 5)')
-      }).optional().describe('Parameters for the action'),
-      trialId: z.string().optional().describe('NCT ID for details/eligibility (not currently implemented)')
+        maxResults: z.number().optional().describe('Maximum number of results to return (default: 5-10)'),
+        forceNewSearch: z.boolean().optional().describe('Force a new search even if query looks like a filter (default: false)')
+      }).optional().describe('Optional parameters to override defaults')
     }),
-    execute: async ({ action, searchParams }) => {
+    execute: async ({ query, searchParams }) => {
       // Check if we have a chatId to work with
       if (!chatId) {
         console.warn('No chatId provided to clinical trials tool - using fallback mode');
       }
 
-      // Special validation for filter_by_location to ensure location is provided
-      if (action === 'filter_by_location') {
-        if (!searchParams?.location) {
-          return {
-            success: false,
-            error: 'Missing required parameter: location',
-            message: 'Please provide a location to filter by (e.g., "Chicago", "Boston")',
-            hint: 'Just include the location in searchParams: { location: "Chicago" }'
-          };
-        }
-        
-        // Check if we have cached results for this chat
-        if (!chatId) {
-          return {
-            success: false,
-            error: 'No conversation context available',
-            message: 'Unable to retrieve your previous search. Please perform a new search first.'
-          };
-        }
-      }
+      // Check if we have cached results
+      const hasCachedResults = chatId ? !!getCachedSearchByChat(chatId) : false;
+      
+      // Detect the intent from the natural language query
+      const queryIntent = detectQueryIntent(query, hasCachedResults);
+      console.log('Query intent detected:', queryIntent);
 
-      // Handle list_more action - pagination through cached results with progressive loading
-      if (action === 'list_more') {
-        if (!chatId) {
+      // Handle based on detected intent
+      if (queryIntent.intent === 'show_more') {
+        if (!chatId || !hasCachedResults) {
           return {
             success: false,
-            error: 'No conversation context available',
-            message: 'Unable to retrieve your previous search. Please perform a new search first.'
+            error: 'No previous search results',
+            message: 'I need to search for trials first. What type of trials are you looking for?'
           };
         }
 
@@ -673,16 +706,16 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           return {
             success: false,
             error: 'Search results not found or expired',
-            message: 'Please perform a new search first. No previous results found for this conversation.'
+            message: 'Your previous search has expired. Let me search again for you.'
           };
         }
 
         // Smart batch size determination based on offset
-        const offset = searchParams?.offset || PROGRESSIVE_LOADING.INITIAL_BATCH;
+        const offset = cached.lastOffset || PROGRESSIVE_LOADING.INITIAL_BATCH;
         const defaultLimit = offset === PROGRESSIVE_LOADING.INITIAL_BATCH 
           ? PROGRESSIVE_LOADING.STANDARD_BATCH 
           : Math.min(PROGRESSIVE_LOADING.STANDARD_BATCH, PROGRESSIVE_LOADING.MAX_BATCH);
-        const limit = searchParams?.limit || defaultLimit;
+        const limit = searchParams?.maxResults || defaultLimit;
         const paginatedTrials = cached.trials.slice(offset, offset + limit);
         
         // Rank the paginated trials
@@ -697,6 +730,12 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           PROGRESSIVE_LOADING.STANDARD_BATCH
         );
 
+        // Update cache with pagination state
+        if (chatId) {
+          cached.lastOffset = offset + limit;
+          searchCache.set(`chat_${chatId}`, cached);
+        }
+        
         return {
           success: true,
           matches: matches,
@@ -715,10 +754,10 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           }
         };
       }
-
-      // Handle filter_by_location action
-      if (action === 'filter_by_location') {
-        const filterLocation = searchParams?.location;
+      
+      // Handle location filtering intent
+      if (queryIntent.intent === 'filter_location') {
+        const filterLocation = queryIntent.location;
         
         // Location validation already done above
         if (!chatId) {
@@ -765,20 +804,11 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         };
       }
 
-      // Handle details and eligibility_check (not implemented yet)
-      if (action === 'details' || action === 'eligibility_check') {
-        return {
-          success: false,
-          error: `${action} action is not yet implemented`,
-          message: 'This feature is coming soon.'
-        };
-      }
-
-      // Default to search action
-      const userQuery = searchParams?.condition || 'clinical trials';
+      // Handle new search intent (default)
+      const userQuery = queryIntent.condition || query || 'clinical trials';
       const useHealthProfile = searchParams?.useProfile ?? true;
       const maxResults = Math.min(searchParams?.maxResults || 5, 10); // Allow up to 10 in initial search
-      const location = searchParams?.location;
+      const location = queryIntent.location;
 
       try {
         dataStream?.writeMessageAnnotation({

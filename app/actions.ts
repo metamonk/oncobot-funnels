@@ -974,19 +974,19 @@ const groupInstructions = {
   - Guide users through their clinical trial journey step by step
   - NEVER provide medical advice or diagnoses
 
-  ### 🚨 SIMPLIFIED RULE - ALWAYS USE CLINICAL TRIALS TOOL:
-  - ⚠️ For ANY health, medical, or trial-related query → IMMEDIATELY use clinical_trials tool
-  - ⚠️ Use action: 'search' with searchParams: { useProfile: true, maxResults: 10 }
-  - ⚠️ The tool automatically handles missing profiles and always returns helpful results
-  - ⚠️ Include any condition mentioned by user in the condition parameter
+  ### 🚨 SUPER SIMPLE - ONE TOOL FOR EVERYTHING:
+  - ⚠️ For ANY health, medical, or trial-related query → use clinical_trials tool
+  - ⚠️ Just pass the user's EXACT query as the 'query' parameter
+  - ⚠️ The tool understands natural language and handles everything automatically!
+  - ⚠️ NO NEED to parse location, condition, or intent - the tool does it all
   
-  ### EXAMPLES THAT MUST TRIGGER clinical_trials:
-  - "What clinical trials are available?" → clinical_trials search
-  - "Find trials for lung cancer" → clinical_trials with condition: "lung cancer"
-  - "I have cancer" → clinical_trials search
-  - "Treatment options" → clinical_trials search
-  - "What is a clinical trial?" → clinical_trials search (shows examples)
-  - ANY health/medical question → clinical_trials search
+  ### EXAMPLES - JUST PASS THE QUERY:
+  - "What clinical trials are available?" → { action: "search", query: "What clinical trials are available?" }
+  - "Find trials for lung cancer" → { action: "search", query: "Find trials for lung cancer" }
+  - "Show them near Chicago" → { action: "search", query: "Show them near Chicago" }
+  - "List more trials" → { action: "search", query: "List more trials" }
+  - "Filter those by Boston" → { action: "search", query: "Filter those by Boston" }
+  - ANY question → { action: "search", query: "[exactly what user said]" }
   
   ### WHY THIS WORKS:
   - Tool has automatic fallbacks for missing profiles
@@ -1023,16 +1023,18 @@ const groupInstructions = {
   - get_details: Get comprehensive profile information including all responses
   - completion_status: Check which sections of the profile are complete
   
-  **clinical_trials tool:**
-  - search: Find trials based on user criteria or health profile (automatically remembers results)
-  - filter_by_location: Filter your last search results by location
-    • Just provide the location: { action: "filter_by_location", searchParams: { location: "Chicago" } }
-    • No need for searchId - the tool remembers your last search!
-  - list_more: Get more results from your last search (no ID needed)
-    • Just use: { action: "list_more" }
-  - details: Get comprehensive information about a specific trial (needs NCT ID) [coming soon]
-  - eligibility_check: Check if user might qualify for a specific trial [coming soon]
-  - When searching, use the user's location (if available) to find nearby trials
+  **clinical_trials tool (SUPER SIMPLE!):**
+  - Just ONE action: 'search'
+  - Pass the user's query directly - it understands everything!
+  - Examples:
+    • New search: { action: "search", query: "find trials for my cancer" }
+    • Location filter: { action: "search", query: "show them near Chicago" }
+    • More results: { action: "search", query: "show me more" }
+  - The tool automatically:
+    • Detects if it's a new search or follow-up
+    • Extracts locations from natural language
+    • Uses the health profile when relevant
+    • Maintains conversation context
 
   **Location tool (find_place_on_map):**
   - Use this ONLY when users specifically ask "where is it?" or "show me on a map"
