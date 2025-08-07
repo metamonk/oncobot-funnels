@@ -3,9 +3,6 @@ import { z } from 'zod';
 import { DataStreamWriter, generateObject } from 'ai';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
 import { oncobot } from '@/ai/providers';
-import { QueryGenerator } from './clinical-trials/query-generator';
-import { SearchExecutor } from './clinical-trials/search-executor';
-import { LocationMatcher } from './clinical-trials/location-matcher';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -355,13 +352,7 @@ const CITY_STATE_MAP: Record<string, string[]> = {
 };
 
 // Helper function to check if a trial has a location in a specific city/area
-// Now delegates to LocationMatcher for comprehensive metro area matching
 function trialHasLocation(trial: ClinicalTrial, targetLocation: string): boolean {
-  return LocationMatcher.matchesLocation(trial, targetLocation);
-}
-
-// Original basic location check (kept for reference)
-function trialHasLocationBasic(trial: ClinicalTrial, targetLocation: string): boolean {
   const locations = trial.protocolSection.contactsLocationsModule?.locations || [];
   const normalizedTarget = targetLocation.toLowerCase().trim();
   
@@ -866,51 +857,43 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         console.log('Generated search queries:', searchQueries);
 
         // Execute all queries in parallel with better tracking
-        let allTrials: ClinicalTrial[] = [];
-        
-        // Use our new comprehensive search system
-        const executor = new SearchExecutor();
-        
-        // Generate comprehensive queries using our QueryGenerator
-        const comprehensiveQueries = QueryGenerator.generateComprehensiveQueries(
-          userQuery,
-          healthProfile
-        );
-        
-        // Log generated queries for debugging
-        console.log('Generated comprehensive queries:', {
-          count: comprehensiveQueries.queries.length,
-          queries: comprehensiveQueries.queries,
-          fields: comprehensiveQueries.fields
-        });
-        
-        // Execute parallel searches across multiple API fields
-        // IMPORTANT: We do NOT filter by location in API - we do it locally for better coverage
-        const searchResults = await executor.executeParallelSearches(
-          comprehensiveQueries.queries,
-          comprehensiveQueries.fields,
-          {
-            maxResults: 50, // Get more results for better filtering
-            includeStatuses: VIABLE_STUDY_STATUSES,
-            dataStream,
-            cacheKey: chatId || 'default'
-          }
-        );
-        
-        // Aggregate results
-        const aggregated = SearchExecutor.aggregateResults(searchResults);
+        const allTrials: ClinicalTrial[] = [];
         const queryResultsMap = new Map<string, number>();
-        searchResults.forEach(r => queryResultsMap.set(`${r.field}:${r.query}`, r.totalCount));
         
-        console.log('Search execution results:', {
-          totalQueries: aggregated.totalQueries,
-          successful: aggregated.successfulQueries,
-          uniqueTrials: aggregated.uniqueStudies.length,
-          errors: aggregated.errors
+        const queryPromises = searchQueries.map(async (query) => {
+          const params = new URLSearchParams({
+            'query.term': query,
+            pageSize: '25', // Increased from 20 for better coverage
+            'filter.overallStatus': VIABLE_STUDY_STATUSES.join(',')
+          });
+
+          if (location) {
+            params.append('query.locn', location);
+          }
+
+          const url = `${STUDIES_ENDPOINT}?${params}`;
+          
+          try {
+            const response = await fetch(url);
+            
+            if (response.ok) {
+              const data = await response.json();
+              const trials = data.studies || [];
+              queryResultsMap.set(query, trials.length);
+              return trials;
+            }
+            console.warn(`Query "${query}" returned non-OK status: ${response.status}`);
+            queryResultsMap.set(query, 0);
+            return [];
+          } catch (error) {
+            console.error(`Error executing query "${query}":`, error);
+            queryResultsMap.set(query, -1); // -1 indicates error
+            return [];
+          }
         });
-        
-        // Use unique studies as our trial list
-        allTrials = aggregated.uniqueStudies;
+
+        const queryResults = await Promise.all(queryPromises);
+        queryResults.forEach(trials => allTrials.push(...trials));
         
         // Log query performance
         console.log('Query results breakdown:', Object.fromEntries(queryResultsMap));
