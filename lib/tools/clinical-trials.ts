@@ -606,6 +606,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
        - Includes loading progress metadata
     
     3. 'filter_by_location': Filter cached results by location
+       - REQUIRED: searchId AND location parameters in searchParams
+       - Example: searchParams: { searchId: "abc123", location: "Chicago" }
        - Supports city, state, or country filtering
        - Maintains relevance ranking within location
     
@@ -615,16 +617,18 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter): any => {
     BEST PRACTICES:
     - Always start with 'search' for new queries
     - Use returned searchId for follow-up actions
+    - For filter_by_location: MUST include both searchId AND location in searchParams
+      Example: { action: "filter_by_location", searchParams: { searchId: "xyz", location: "Chicago" } }
     - Check loadingMetadata.shouldPrefetch for optimal UX
     - Filter by location when geographic proximity matters`,
     parameters: z.object({
       action: z.enum(['search', 'list_more', 'filter_by_location', 'details', 'eligibility_check']).describe('Action to perform'),
       searchParams: z.object({
         condition: z.string().optional().describe('The condition or query to search for'),
-        location: z.string().optional().describe('Location to search near (e.g., "Chicago")'), 
+        location: z.string().optional().describe('REQUIRED for filter_by_location action. Location to filter by (e.g., "Chicago", "Illinois", "Boston")'), 
         useProfile: z.boolean().optional().describe('Whether to use the user health profile (default: true)'),
         maxResults: z.number().optional().describe('Maximum number of results to return (default: 5)'),
-        searchId: z.string().optional().describe('ID from previous search for pagination/filtering'),
+        searchId: z.string().optional().describe('REQUIRED for list_more and filter_by_location actions. ID from previous search'),
         offset: z.number().optional().describe('For list_more: start index (default: 5)'),
         limit: z.number().optional().describe('For list_more: number to return (default: 5)')
       }).optional().describe('Parameters for the action'),
