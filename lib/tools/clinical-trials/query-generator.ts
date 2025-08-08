@@ -204,8 +204,9 @@ export class QueryGenerator {
       descriptions.push(`Broad search: ${drug}`);
     });
 
-    // Handle mutation patterns (e.g., KRAS G12C)
-    const mutationPattern = /\b(KRAS|EGFR|ALK|ROS1|BRAF|MET|RET|NTRK|HER2|PIK3CA)\s+[A-Z]\d+[A-Z]?\b/gi;
+    // Handle mutation patterns generically (e.g., GENE VAR123X)
+    // Pattern: uppercase word followed by alphanumeric variant code
+    const mutationPattern = /\b[A-Z]{2,10}\s+[A-Z]?\d{1,4}[A-Z]?\b/gi;
     const mutations = searchTerm.match(mutationPattern) || [];
     mutations.forEach(mutation => {
       // Search mutation in multiple fields
@@ -255,11 +256,12 @@ export class QueryGenerator {
       
       profileSet.descriptions.forEach((desc, i) => {
         const query = profileSet.queries[i].toLowerCase();
-        if (desc.includes('Intervention search for KRAS') || 
-            desc.includes('Condition search for KRAS') ||
-            desc.includes('Broad search for KRAS')) {
+        // Generic mutation detection - look for patterns like "GENE VARIANT"
+        const hasMutation = /\b[A-Z]{2,10}\s+[A-Z]?\d{1,4}[A-Z]?\b/i.test(profileSet.queries[i]);
+        
+        if ((desc.includes('Intervention search') || desc.includes('Condition search')) && hasMutation) {
           // Pure mutation queries first
-          if (!query.includes('cancer') && !query.includes('nsclc')) {
+          if (!query.includes('cancer') && !query.includes('carcinoma')) {
             mutationIndices.push(i);
           } else {
             combinedIndices.push(i);
@@ -283,7 +285,7 @@ export class QueryGenerator {
 
     // Only add discovery queries if they contain specific medical entities
     // Skip generic queries like "Are there any trials for my type and stage"
-    const medicalPattern = /\b(KRAS|EGFR|ALK|BRAF|lung|breast|colon|cancer|metastatic|stage)\b/i;
+    const medicalPattern = /\b(cancer|carcinoma|tumor|malignancy|metastatic|stage|mutation|therapy|treatment)\b/i;
     const genericPattern = /^(are there any|what|which|find|show|list).*\b(my|me|I)\b/i;
     
     if (!genericPattern.test(searchTerm) && medicalPattern.test(searchTerm)) {
@@ -339,38 +341,48 @@ export class QueryGenerator {
     const fields: string[] = [];
     const descriptions: string[] = [];
 
-    // Cancer type expansions
-    const cancerTypes = [
-      { pattern: /lung/i, expansions: ['NSCLC', 'non-small cell lung', 'lung adenocarcinoma'] },
-      { pattern: /colorectal|colon/i, expansions: ['CRC', 'colorectal', 'colon', 'rectal'] },
-      { pattern: /pancreatic/i, expansions: ['PDAC', 'pancreatic adenocarcinoma'] }
-    ];
-
-    cancerTypes.forEach(({ pattern, expansions }) => {
-      if (pattern.test(searchTerm)) {
-        expansions.forEach(expansion => {
-          // Replace the cancer type with expansion
-          const expanded = searchTerm.replace(pattern, expansion);
-          if (expanded !== searchTerm) {
-            queries.push(expanded);
+    // Generic cancer type variations
+    // Instead of hard-coding, we'll search for the exact term and common variations
+    const cancerKeywords = ['cancer', 'carcinoma', 'tumor', 'malignancy', 'neoplasm'];
+    const hasCanerTerm = cancerKeywords.some(term => searchTerm.toLowerCase().includes(term));
+    
+    if (hasCanerTerm) {
+      // Add searches with and without "cancer" keyword for better coverage
+      cancerKeywords.forEach(keyword => {
+        if (searchTerm.toLowerCase().includes(keyword)) {
+          const withoutKeyword = searchTerm.replace(new RegExp(keyword, 'gi'), '').trim();
+          if (withoutKeyword && withoutKeyword !== searchTerm) {
+            queries.push(withoutKeyword);
             fields.push('query.term');
-            descriptions.push(`Expanded: ${expansion}`);
+            descriptions.push(`Without "${keyword}": ${withoutKeyword}`);
           }
-        });
-      }
-    });
+        }
+      });
+      
+      // Also search for just the organ/tissue if mentioned
+      const organPattern = /\b(lung|breast|colon|prostate|pancreatic|liver|kidney|brain|ovarian|bladder)\b/gi;
+      const organs = searchTerm.match(organPattern) || [];
+      organs.forEach(organ => {
+        queries.push(organ);
+        fields.push('query.cond');
+        descriptions.push(`Organ-specific: ${organ}`);
+      });
+    }
 
-    // Add combination therapies if drug detected
+    // Add combination therapy searches if drug detected
     const drugs = this.extractDrugNames(searchTerm);
     if (drugs.length > 0) {
-      // Common combination partners
-      const partners = ['pembrolizumab', 'nivolumab', 'chemotherapy', 'cetuximab'];
+      // Search for combinations generically
       drugs.forEach(drug => {
-        partners.forEach(partner => {
-          queries.push(`${drug} ${partner}`);
-          fields.push('query.intr');
-          descriptions.push(`Combination: ${drug} + ${partner}`);
-        });
+        // Search for drug + "combination"
+        queries.push(`${drug} combination`);
+        fields.push('query.intr');
+        descriptions.push(`Combination therapy with ${drug}`);
+        
+        // Search for drug + "plus" or "with"
+        queries.push(`${drug} plus`);
+        fields.push('query.intr');
+        descriptions.push(`${drug} plus other agents`);
       });
     }
 
@@ -382,60 +394,43 @@ export class QueryGenerator {
    */
   static generateLocationVariations(location: string): string[] {
     const variations = new Set<string>([location]);
-
-    // Chicago metro area
-    if (/chicago/i.test(location)) {
-      variations.add('Chicago');
-      variations.add('IL');
-      variations.add('Illinois');
-      variations.add('Chicagoland');
-      // Major medical centers
-      variations.add('Northwestern');
-      variations.add('Rush');
-      variations.add('University of Chicago');
-      variations.add('Loyola');
-      variations.add('Advocate');
-      // Nearby suburbs
-      variations.add('Evanston');
-      variations.add('Oak Park');
-      variations.add('Naperville');
-      variations.add('Aurora');
-      variations.add('Joliet');
+    
+    // Add original location
+    variations.add(location);
+    
+    // Add case variations
+    variations.add(location.toLowerCase());
+    variations.add(location.toUpperCase());
+    
+    // Extract potential state abbreviations (2 uppercase letters)
+    const statePattern = /\b[A-Z]{2}\b/g;
+    const states = location.match(statePattern) || [];
+    states.forEach(state => variations.add(state));
+    
+    // Extract city names (words before comma or state)
+    const cityPattern = /^([^,]+)/;
+    const cityMatch = location.match(cityPattern);
+    if (cityMatch) {
+      variations.add(cityMatch[1].trim());
     }
-
-    // New York metro area
-    if (/new york|nyc/i.test(location)) {
-      variations.add('New York');
-      variations.add('NY');
-      variations.add('NYC');
-      variations.add('Manhattan');
-      variations.add('Brooklyn');
-      variations.add('Queens');
-      variations.add('Bronx');
-      variations.add('Staten Island');
-      // Major medical centers
-      variations.add('Memorial Sloan Kettering');
-      variations.add('Mount Sinai');
-      variations.add('NYU');
-      variations.add('Columbia');
-      variations.add('Cornell');
-    }
-
-    // Los Angeles metro area
-    if (/los angeles|la/i.test(location)) {
-      variations.add('Los Angeles');
-      variations.add('LA');
-      variations.add('CA');
-      variations.add('California');
-      variations.add('UCLA');
-      variations.add('USC');
-      variations.add('Cedars-Sinai');
-      variations.add('City of Hope');
-      // Nearby areas
-      variations.add('Beverly Hills');
-      variations.add('Santa Monica');
-      variations.add('Pasadena');
-      variations.add('Long Beach');
+    
+    // Common location keywords to search for
+    const keywords = ['university', 'medical', 'center', 'hospital', 'clinic', 'institute'];
+    keywords.forEach(keyword => {
+      if (location.toLowerCase().includes(keyword)) {
+        // Add the location without these institutional keywords for broader search
+        const withoutKeyword = location.replace(new RegExp(keyword, 'gi'), '').trim();
+        if (withoutKeyword) {
+          variations.add(withoutKeyword);
+        }
+      }
+    });
+    
+    // If location contains "metro" or "area", also search without it
+    const areaPattern = /\s*(metro|area|region|greater)\s*/gi;
+    if (areaPattern.test(location)) {
+      const withoutArea = location.replace(areaPattern, ' ').trim();
+      variations.add(withoutArea);
     }
 
     return Array.from(variations);

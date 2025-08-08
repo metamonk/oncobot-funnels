@@ -79,26 +79,14 @@ export class RelevanceScorer {
         score += 20;
       }
       
-      // Special bonus for KRAS G12C specific drugs (without hard-coding)
-      const krasG12CDrugPatterns = [
-        /sotorasib/i,
-        /adagrasib/i,
-        /divarasib/i,
-        /lumakras/i,
-        /krazati/i,
-        /mrtx849/i,
-        /gdc-6036/i,
-        /ly3537982/i,
-        /jdq443/i,
-        /bi 1823911/i
-      ];
+      // Bonus for drugs targeting the specific mutation
+      // Detect drug names generically (ends with common drug suffixes)
+      const drugPattern = /\b\w+(?:mab|nib|ib|ab|stat|pril|olol|azole|cillin|mycin|cycline|floxacin|sartan|dipine|gliptin|tide|vir)\b/gi;
+      const drugsInTrial = fullText.match(drugPattern) || [];
       
-      if (mutation.includes('kras') && mutation.includes('g12c')) {
-        krasG12CDrugPatterns.forEach(pattern => {
-          if (pattern.test(fullText)) {
-            score += 35; // Significant bonus for KRAS G12C-specific drugs
-          }
-        });
+      // If the trial mentions specific drugs AND the mutation, give bonus
+      if (drugsInTrial.length > 0 && fullText.includes(mutation)) {
+        score += 35; // Bonus for targeted therapy drugs
       }
     });
     
@@ -109,12 +97,14 @@ export class RelevanceScorer {
       if (fullText.includes(normalizedCancerType)) {
         score += 15;
       }
-      // Check for common abbreviations
-      if (normalizedCancerType.includes('lung')) {
-        if (fullText.includes('nsclc') || fullText.includes('non-small cell')) {
-          score += 15;
+      // Check for related terms or abbreviations (generic approach)
+      // Look for exact match or partial matches with the cancer type
+      const cancerWords = normalizedCancerType.split(/\s+/);
+      cancerWords.forEach(word => {
+        if (word.length > 3 && fullText.includes(word)) {
+          score += 5; // Partial match bonus
         }
-      }
+      });
     }
     
     // Score based on stage match
@@ -155,13 +145,13 @@ export class RelevanceScorer {
       score += 5;
     }
     
-    // Bonus for immunotherapy combinations (often relevant for NSCLC)
-    const immunotherapyTerms = ['pembrolizumab', 'nivolumab', 'atezolizumab', 'durvalumab', 'ipilimumab', 'pd-1', 'pd-l1', 'ctla-4'];
-    immunotherapyTerms.forEach(term => {
-      if (fullText.includes(term)) {
-        score += 8;
-      }
-    });
+    // Bonus for targeted therapies and immunotherapies (generic)
+    // Detect by common patterns in drug names and mechanisms
+    const targetedTherapyPattern = /\b(inhibitor|antibody|blocker|antagonist|agonist|modulator)\b/gi;
+    const targetedTherapyMatches = fullText.match(targetedTherapyPattern) || [];
+    if (targetedTherapyMatches.length > 0) {
+      score += Math.min(targetedTherapyMatches.length * 3, 15); // Cap at 15 points
+    }
     
     return score;
   }
