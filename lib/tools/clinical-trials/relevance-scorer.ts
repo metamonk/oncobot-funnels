@@ -100,7 +100,7 @@ export class RelevanceScorer {
       // Check for related terms or abbreviations (generic approach)
       // Look for exact match or partial matches with the cancer type
       const cancerWords = normalizedCancerType.split(/\s+/);
-      cancerWords.forEach(word => {
+      cancerWords.forEach((word: string) => {
         if (word.length > 3 && fullText.includes(word)) {
           score += 5; // Partial match bonus
         }
