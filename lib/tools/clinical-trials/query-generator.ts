@@ -243,27 +243,65 @@ export class QueryGenerator {
     const allFields: string[] = [];
     const allDescriptions: string[] = [];
 
-    // Generate discovery queries from search term
-    const discoverySet = this.generateDiscoveryQueries(searchTerm);
-    allQueries.push(...discoverySet.queries);
-    allFields.push(...discoverySet.fields);
-    allDescriptions.push(...discoverySet.descriptions);
-
-    // Generate profile-based queries if available
+    // IMPORTANT: Prioritize health profile queries FIRST (most specific)
     if (healthProfile) {
       const profileSet = this.generateFromHealthProfile(healthProfile);
-      allQueries.push(...profileSet.queries);
-      allFields.push(...profileSet.fields);
-      allDescriptions.push(...profileSet.descriptions);
+      
+      // Sort profile queries by specificity: mutations > cancer+mutation > cancer > other
+      const mutationIndices: number[] = [];
+      const combinedIndices: number[] = [];
+      const cancerIndices: number[] = [];
+      const otherIndices: number[] = [];
+      
+      profileSet.descriptions.forEach((desc, i) => {
+        const query = profileSet.queries[i].toLowerCase();
+        if (desc.includes('Intervention search for KRAS') || 
+            desc.includes('Condition search for KRAS') ||
+            desc.includes('Broad search for KRAS')) {
+          // Pure mutation queries first
+          if (!query.includes('cancer') && !query.includes('nsclc')) {
+            mutationIndices.push(i);
+          } else {
+            combinedIndices.push(i);
+          }
+        } else if (desc.includes('Drug search')) {
+          mutationIndices.push(i); // Drug searches are also high priority
+        } else if (desc.includes('Cancer type search')) {
+          cancerIndices.push(i);
+        } else {
+          otherIndices.push(i);
+        }
+      });
+      
+      // Add in priority order
+      [...mutationIndices, ...combinedIndices, ...cancerIndices, ...otherIndices].forEach(i => {
+        allQueries.push(profileSet.queries[i]);
+        allFields.push(profileSet.fields[i]);
+        allDescriptions.push(profileSet.descriptions[i]);
+      });
     }
 
-    // Add expanded queries for common variations
-    const expandedQueries = this.generateExpandedQueries(searchTerm);
-    allQueries.push(...expandedQueries.queries);
-    allFields.push(...expandedQueries.fields);
-    allDescriptions.push(...expandedQueries.descriptions);
+    // Only add discovery queries if they contain specific medical entities
+    // Skip generic queries like "Are there any trials for my type and stage"
+    const medicalPattern = /\b(KRAS|EGFR|ALK|BRAF|lung|breast|colon|cancer|metastatic|stage)\b/i;
+    const genericPattern = /^(are there any|what|which|find|show|list).*\b(my|me|I)\b/i;
+    
+    if (!genericPattern.test(searchTerm) && medicalPattern.test(searchTerm)) {
+      const discoverySet = this.generateDiscoveryQueries(searchTerm);
+      allQueries.push(...discoverySet.queries);
+      allFields.push(...discoverySet.fields);
+      allDescriptions.push(...discoverySet.descriptions);
+    }
 
-    // Deduplicate while preserving order
+    // Skip expanded queries for generic "my cancer" type queries
+    if (!genericPattern.test(searchTerm)) {
+      const expandedQueries = this.generateExpandedQueries(searchTerm);
+      allQueries.push(...expandedQueries.queries);
+      allFields.push(...expandedQueries.fields);
+      allDescriptions.push(...expandedQueries.descriptions);
+    }
+
+    // Deduplicate while preserving order (mutations stay first)
     const seen = new Set<string>();
     const uniqueQueries: string[] = [];
     const uniqueFields: string[] = [];
@@ -277,6 +315,13 @@ export class QueryGenerator {
         uniqueFields.push(allFields[i]);
         uniqueDescriptions.push(allDescriptions[i]);
       }
+    }
+
+    // If no queries generated (shouldn't happen with profile), add fallback
+    if (uniqueQueries.length === 0) {
+      uniqueQueries.push('cancer clinical trials');
+      uniqueFields.push('query.term');
+      uniqueDescriptions.push('Fallback generic search');
     }
 
     return {

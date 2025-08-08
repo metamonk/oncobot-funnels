@@ -6,6 +6,7 @@ import { oncobot } from '@/ai/providers';
 import { QueryGenerator } from './clinical-trials/query-generator';
 import { SearchExecutor } from './clinical-trials/search-executor';
 import { LocationMatcher } from './clinical-trials/location-matcher';
+import { QueryInterpreter } from './clinical-trials/query-interpreter';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -753,15 +754,41 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         // Use our new comprehensive search system
         const executor = new SearchExecutor();
         
+        // FIRST: Interpret the user's query to understand intent
+        const interpretation = QueryInterpreter.interpret(userQuery, healthProfile);
+        console.log('Query interpretation:', {
+          userQuery,
+          strategy: interpretation.strategy,
+          usesProfile: interpretation.usesProfile,
+          confidence: interpretation.confidence,
+          reasoning: interpretation.reasoning,
+          detectedEntities: interpretation.detectedEntities
+        });
+        
+        // Generate appropriate search term based on interpretation
+        let searchTerm = userQuery;
+        if (interpretation.strategy === 'profile-based' && healthProfile) {
+          // For profile-based queries, use a focused search term
+          // This prevents generic queries like "my cancer" from polluting results
+          const searchStrategy = QueryInterpreter.generateSearchStrategy(
+            interpretation,
+            healthProfile,
+            userQuery
+          );
+          searchTerm = searchStrategy.queries[0] || userQuery;
+          console.log('Using profile-based search term:', searchTerm);
+        }
+        
         // Generate comprehensive queries using our QueryGenerator
         const comprehensiveQueries = QueryGenerator.generateComprehensiveQueries(
-          userQuery,
+          searchTerm,
           healthProfile
         );
         
         // Log critical debugging info
         console.log('Query generation:', {
-          userQuery,
+          originalQuery: userQuery,
+          searchTerm,
           profileUsed: !!healthProfile,
           queryCount: comprehensiveQueries.queries.length,
           firstQuery: comprehensiveQueries.queries[0],
