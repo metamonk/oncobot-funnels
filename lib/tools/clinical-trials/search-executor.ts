@@ -6,6 +6,7 @@
  */
 
 import { DataStreamWriter } from 'ai';
+import type { ClinicalTrial } from './types';
 
 interface SearchQuery {
   query: string;
@@ -16,7 +17,7 @@ interface SearchQuery {
 interface SearchResult {
   query: string;
   field: string;
-  studies: any[];
+  studies: ClinicalTrial[];
   totalCount: number;
   error?: string;
   cached?: boolean;
@@ -241,7 +242,7 @@ export class SearchExecutor {
           query: searchQuery.query,
           field: searchQuery.field,
           status: 'error',
-          error: errorResult.error
+          error: errorResult.error || 'Unknown error'
         }
       });
     }
@@ -316,14 +317,14 @@ export class SearchExecutor {
    * Aggregate results from multiple searches
    */
   static aggregateResults(searchResults: SearchResult[]): {
-    allStudies: any[];
-    uniqueStudies: any[];
+    allStudies: ClinicalTrial[];
+    uniqueStudies: ClinicalTrial[];
     totalQueries: number;
     successfulQueries: number;
     errors: string[];
   } {
-    const allStudies: any[] = [];
-    const studyMap = new Map<string, any>();
+    const allStudies: ClinicalTrial[] = [];
+    const studyMap = new Map<string, ClinicalTrial>();
     const errors: string[] = [];
 
     searchResults.forEach(result => {

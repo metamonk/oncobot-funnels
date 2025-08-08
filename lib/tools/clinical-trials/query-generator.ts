@@ -12,6 +12,7 @@ interface QuerySet {
 }
 
 import type { HealthProfile } from './types';
+import { formatMarkerName, isPositiveMarker } from './types';
 
 export class QueryGenerator {
   /**
@@ -81,8 +82,8 @@ export class QueryGenerator {
       };
       
       Object.entries(profile.molecularMarkers).forEach(([key, value]) => {
-        if (value === 'POSITIVE' || value === 'HIGH') {
-          const mutationName = markerMap[key] || key.replace(/_/g, ' ');
+        if (isPositiveMarker(value)) {
+          const mutationName = markerMap[key] || formatMarkerName(key);
           mutations.push(mutationName);
         }
       });

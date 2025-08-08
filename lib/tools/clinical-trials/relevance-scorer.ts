@@ -6,6 +6,7 @@
  */
 
 import type { HealthProfile, ClinicalTrial, ScoredTrial } from './types';
+import { formatMarkerName, isPositiveMarker } from './types';
 
 interface ScoringContext {
   userQuery: string;
@@ -38,7 +39,7 @@ export class RelevanceScorer {
     const summary = trial.protocolSection?.descriptionModule?.briefSummary?.toLowerCase() || '';
     const conditions = trial.protocolSection?.conditionsModule?.conditions?.join(' ').toLowerCase() || '';
     const keywords = trial.protocolSection?.conditionsModule?.keywords?.join(' ').toLowerCase() || '';
-    const interventions = trial.protocolSection?.armsInterventionsModule?.interventions?.map((i: any) => 
+    const interventions = trial.protocolSection?.armsInterventionsModule?.interventions?.map((i: { name?: string; description?: string }) => 
       `${i.name || ''} ${i.description || ''}`.toLowerCase()
     ).join(' ') || '';
     
@@ -48,8 +49,8 @@ export class RelevanceScorer {
     const mutations: string[] = [];
     if (context.healthProfile?.molecularMarkers) {
       Object.entries(context.healthProfile.molecularMarkers).forEach(([key, value]) => {
-        if (value === 'POSITIVE' || value === 'HIGH') {
-          const mutationName = key.replace(/_/g, ' ');
+        if (isPositiveMarker(value)) {
+          const mutationName = formatMarkerName(key);
           mutations.push(mutationName.toLowerCase());
         }
       });
@@ -181,8 +182,8 @@ export class RelevanceScorer {
     
     if (context.healthProfile?.molecularMarkers) {
       Object.entries(context.healthProfile.molecularMarkers).forEach(([key, value]) => {
-        if (value === 'POSITIVE' || value === 'HIGH') {
-          mutations.push(key.replace(/_/g, ' ').toLowerCase());
+        if (isPositiveMarker(value)) {
+          mutations.push(formatMarkerName(key).toLowerCase());
         }
       });
     }

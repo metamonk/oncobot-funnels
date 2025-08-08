@@ -6,6 +6,7 @@
  */
 
 import type { HealthProfile } from './types';
+import { formatMarkerName, isPositiveMarker } from './types';
 
 interface InterpretedQuery {
   strategy: 'profile-based' | 'entity-based' | 'literal';
@@ -230,8 +231,8 @@ export class QueryInterpreter {
           // Start with most specific (mutations)
           if (healthProfile.molecularMarkers) {
             Object.entries(healthProfile.molecularMarkers).forEach(([marker, value]) => {
-              if (value === 'POSITIVE' || value === 'HIGH') {
-                const markerName = marker.replace(/_/g, ' ');
+              if (isPositiveMarker(value)) {
+                const markerName = formatMarkerName(marker);
                 queries.push(markerName);
                 queries.push(`${markerName} mutation`);
               }

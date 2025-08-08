@@ -155,7 +155,7 @@ export class LocationMatcher {
   /**
    * Check if a study location matches the user's location
    */
-  static matchesLocation(study: any, userLocation: string): boolean {
+  static matchesLocation(study: { protocolSection?: { contactsLocationsModule?: any; sponsorCollaboratorsModule?: any } }, userLocation: string): boolean {
     if (!userLocation) return true; // No location filter
 
     const locationVariations = this.generateLocationTerms(userLocation);
@@ -220,7 +220,7 @@ export class LocationMatcher {
   /**
    * Extract all locations from a study
    */
-  private static extractStudyLocations(study: any): LocationInfo[] {
+  private static extractStudyLocations(study: { protocolSection?: { contactsLocationsModule?: any; sponsorCollaboratorsModule?: any } }): LocationInfo[] {
     const locations: LocationInfo[] = [];
 
     // Extract from locations module
@@ -294,9 +294,9 @@ export class LocationMatcher {
       if (isUserInMetro) {
         const isStudyInMetro = 
           (studyLoc.city && metro.cities.some(city => 
-            city.toLowerCase() === studyLoc.city.toLowerCase())) ||
+            city.toLowerCase() === studyLoc.city!.toLowerCase())) ||
           (studyLoc.facility && metro.majorFacilities.some(facility => 
-            studyLoc.facility.toLowerCase().includes(facility.toLowerCase())));
+            studyLoc.facility!.toLowerCase().includes(facility.toLowerCase())));
 
         if (isStudyInMetro) {
           return true;
@@ -333,7 +333,7 @@ export class LocationMatcher {
   /**
    * Filter studies by location
    */
-  static filterByLocation(studies: any[], userLocation: string): any[] {
+  static filterByLocation<T extends { protocolSection?: { contactsLocationsModule?: any; sponsorCollaboratorsModule?: any } }>(studies: T[], userLocation: string): T[] {
     if (!userLocation) return studies;
 
     return studies.filter(study => this.matchesLocation(study, userLocation));
@@ -342,7 +342,7 @@ export class LocationMatcher {
   /**
    * Get location summary for a study
    */
-  static getLocationSummary(study: any): string[] {
+  static getLocationSummary(study: { protocolSection?: { contactsLocationsModule?: any } }): string[] {
     const locations = this.extractStudyLocations(study);
     const uniqueLocations = new Set<string>();
 

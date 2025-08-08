@@ -9,6 +9,7 @@ import { LocationMatcher } from './clinical-trials/location-matcher';
 import { QueryInterpreter } from './clinical-trials/query-interpreter';
 import { RelevanceScorer } from './clinical-trials/relevance-scorer';
 import type { HealthProfile, ClinicalTrial, StudyLocation } from './clinical-trials/types';
+import { formatMarkerName, isPositiveMarker } from './clinical-trials/types';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -110,9 +111,9 @@ function buildSafetyQueries(healthProfile: HealthProfile | null, userQuery: stri
   if (healthProfile?.molecularMarkers) {
     // Add queries for any positive markers
     Object.entries(healthProfile.molecularMarkers).forEach(([marker, value]) => {
-      if (value === 'POSITIVE' || value === 'HIGH') {
+      if (isPositiveMarker(value)) {
         // Convert marker format (e.g., KRAS_G12C -> KRAS G12C)
-        const markerName = marker.replace(/_/g, ' ');
+        const markerName = formatMarkerName(marker);
         safetyQueries.add(markerName);
       }
     });
@@ -124,7 +125,7 @@ function buildSafetyQueries(healthProfile: HealthProfile | null, userQuery: stri
     if (healthProfile.molecularMarkers.ALK === 'POSITIVE') {
       safetyQueries.add('ALK');
     }
-    if (healthProfile.molecularMarkers.PDL1 === 'POSITIVE' || healthProfile.molecularMarkers.PDL1 === 'HIGH') {
+    if (isPositiveMarker(healthProfile.molecularMarkers.PDL1)) {
       safetyQueries.add('PD-L1');
     }
   }
@@ -163,60 +164,10 @@ function deduplicateTrials(allTrials: ClinicalTrial[]): ClinicalTrial[] {
 // We now return trials directly from our comprehensive search system
 // which already provides relevant results based on the health profile
 
-// Map of common city to state abbreviations for better matching
-const CITY_STATE_MAP: Record<string, string[]> = {
-  'chicago': ['illinois', 'il'],
-  'new york': ['new york', 'ny'],
-  'los angeles': ['california', 'ca'],
-  'houston': ['texas', 'tx'],
-  'philadelphia': ['pennsylvania', 'pa'],
-  'phoenix': ['arizona', 'az'],
-  'san antonio': ['texas', 'tx'],
-  'san diego': ['california', 'ca'],
-  'dallas': ['texas', 'tx'],
-  'san jose': ['california', 'ca'],
-  'boston': ['massachusetts', 'ma'],
-  'seattle': ['washington', 'wa'],
-  'denver': ['colorado', 'co'],
-  'atlanta': ['georgia', 'ga'],
-  'miami': ['florida', 'fl']
-};
-
 // Helper function to check if a trial has a location in a specific city/area
-// Now delegates to LocationMatcher for comprehensive metro area matching
+// Delegates to LocationMatcher for comprehensive metro area matching
 function trialHasLocation(trial: ClinicalTrial, targetLocation: string): boolean {
   return LocationMatcher.matchesLocation(trial, targetLocation);
-}
-
-// Original basic location check (kept for reference)
-function trialHasLocationBasic(trial: ClinicalTrial, targetLocation: string): boolean {
-  const locations = trial.protocolSection.contactsLocationsModule?.locations || [];
-  const normalizedTarget = targetLocation.toLowerCase().trim();
-  
-  return locations.some((loc: StudyLocation) => {
-    const city = loc.city?.toLowerCase() || '';
-    const state = loc.state?.toLowerCase() || '';
-    const country = loc.country?.toLowerCase() || '';
-    
-    // Direct city match
-    if (city.includes(normalizedTarget)) return true;
-    
-    // Direct state match
-    if (state.includes(normalizedTarget)) return true;
-    
-    // Check if target is a known city and match against its state
-    const expectedStates = CITY_STATE_MAP[normalizedTarget];
-    if (expectedStates) {
-      return expectedStates.some(expectedState => 
-        state.includes(expectedState) || city.includes(normalizedTarget)
-      );
-    }
-    
-    // Country match for international trials
-    if (country.includes(normalizedTarget)) return true;
-    
-    return false;
-  });
 }
 
 // Create comprehensive location summary without truncation
@@ -265,32 +216,19 @@ function createLocationSummary(trial: ClinicalTrial, targetLocation?: string) {
     primarySites: locations.slice(0, 3).map(formatLocation)
   };
   
-  // If we have a target location, find matching sites
+  // If we have a target location, find matching sites using LocationMatcher
   if (targetLocation) {
-    const normalizedTarget = targetLocation.toLowerCase().trim();
+    // Create a temporary trial object with just the locations to check each site
     const matchingSites = locations.filter((loc: StudyLocation) => {
-      const city = loc.city?.toLowerCase() || '';
-      const state = loc.state?.toLowerCase() || '';
-      const country = loc.country?.toLowerCase() || '';
-      
-      // Direct city match
-      if (city.includes(normalizedTarget)) return true;
-      
-      // Direct state match
-      if (state.includes(normalizedTarget)) return true;
-      
-      // Check if target is a known city and match against its state
-      const expectedStates = CITY_STATE_MAP[normalizedTarget];
-      if (expectedStates) {
-        return expectedStates.some(expectedState => 
-          state.includes(expectedState) || city.includes(normalizedTarget)
-        );
-      }
-      
-      // Country match for international trials
-      if (country.includes(normalizedTarget)) return true;
-      
-      return false;
+      const tempTrial = {
+        protocolSection: {
+          contactsLocationsModule: {
+            locations: [loc]
+          }
+        }
+      };
+      // Use LocationMatcher for consistent metro area matching
+      return LocationMatcher.matchesLocation(tempTrial, targetLocation);
     });
     
     result.hasTargetLocation = matchingSites.length > 0;
@@ -350,8 +288,8 @@ function createMatchObjects(trials: ClinicalTrial[], healthProfile: HealthProfil
     // Add specific matches based on health profile
     if (healthProfile?.molecularMarkers) {
       Object.entries(healthProfile.molecularMarkers).forEach(([marker, value]) => {
-        if ((value === 'POSITIVE' || value === 'HIGH')) {
-          const markerName = marker.replace(/_/g, ' ');
+        if (isPositiveMarker(value)) {
+          const markerName = formatMarkerName(marker);
           const markerBase = markerName.split(' ')[0]; // Get gene name (e.g., "KRAS" from "KRAS G12C")
           if (trial.protocolSection.identificationModule.briefTitle?.includes(markerBase) ||
               trial.protocolSection.descriptionModule?.briefSummary?.includes(markerBase)) {
@@ -782,7 +720,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           comprehensiveQueries.fields,
           {
             maxResults: 100, // Get more results for better filtering and scoring
-            includeStatuses: VIABLE_STUDY_STATUSES,
+            includeStatuses: [...VIABLE_STUDY_STATUSES],
             dataStream,
             cacheKey: chatId || 'default'
           }
@@ -843,19 +781,19 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           // Build match reason based on profile
           let matchReason = 'Potentially relevant based on your profile';
           
-          if (trial.relevanceScore > 100) {
+          if ((trial as any).relevanceScore > 100) {
             // For high scores, mention specific mutations if present
             const positiveMarkers = healthProfile?.molecularMarkers ? 
               Object.entries(healthProfile.molecularMarkers)
-                .filter(([_, value]) => value === 'POSITIVE' || value === 'HIGH')
-                .map(([marker, _]) => marker.replace(/_/g, ' ')) : [];
+                .filter(([_, value]) => isPositiveMarker(value))
+                .map(([marker, _]) => formatMarkerName(marker)) : [];
             
             if (positiveMarkers.length > 0) {
               matchReason = `Highly relevant: Matches your ${positiveMarkers.join(', ')} mutation(s)`;
             } else {
               matchReason = 'Highly relevant: Matches your specific cancer profile';
             }
-          } else if (trial.relevanceScore > 50) {
+          } else if ((trial as any).relevanceScore > 50) {
             matchReason = 'Relevant: Matches your cancer type and profile';
           }
           
@@ -885,7 +823,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             trials: uniqueTrials.map(trial => ({
               nctId: trial.protocolSection.identificationModule.nctId,
               title: trial.protocolSection.identificationModule.briefTitle,
-              status: trial.protocolSection.statusModule.overallStatus,
+              status: trial.protocolSection.statusModule?.overallStatus || 'UNKNOWN',
               hasLocationMatch: location ? trialHasLocation(trial, location) : false
             }))
           }
@@ -898,12 +836,19 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             nctId: trial.protocolSection.identificationModule.nctId,
             fullTitle: trial.protocolSection.identificationModule.briefTitle,
             officialTitle: trial.protocolSection.identificationModule.officialTitle || '',
-            status: trial.protocolSection.statusModule.overallStatus,
+            status: trial.protocolSection.statusModule?.overallStatus || 'UNKNOWN',
             phase: trial.protocolSection.designModule?.phases || [],
             conditions: trial.protocolSection.conditionsModule?.conditions || [],
-            interventions: trial.protocolSection.armsInterventionsModule?.interventions || [],
+            interventions: (trial.protocolSection.armsInterventionsModule?.interventions || []).map((i: { name?: string; description?: string }) => ({
+              name: i.name || '',
+              description: i.description || ''
+            })),
             eligibility: trial.protocolSection.eligibilityModule?.eligibilityCriteria || '',
-            locations: trial.protocolSection.contactsLocationsModule?.locations || [],
+            locations: (trial.protocolSection.contactsLocationsModule?.locations || []).map((l: { city?: string; state?: string; country?: string }) => ({
+              city: l.city || '',
+              state: l.state || '',
+              country: l.country || ''
+            })),
             description: trial.protocolSection.descriptionModule?.briefSummary || '',
             matchReason: (trial as any).matchReason || '',
             hasLocationMatch: location ? trialHasLocation(trial, location) : false
