@@ -1,9 +1,6 @@
 NCT ID: NCT06497556
 URL: https://clinicaltrials.gov/study/NCT06497556?cond=NCT06497556&rank=1
 
-NCT ID: NCT05853575
-URL: https://clinicaltrials.gov/study/NCT05853575?cond=NCT05853575&rank=1
-
 NCT ID: NCT05609578
 URL: https://clinicaltrials.gov/study/NCT05609578?cond=NCT05609578&rank=1
 

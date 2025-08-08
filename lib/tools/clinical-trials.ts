@@ -7,6 +7,7 @@ import { QueryGenerator } from './clinical-trials/query-generator';
 import { SearchExecutor } from './clinical-trials/search-executor';
 import { LocationMatcher } from './clinical-trials/location-matcher';
 import { QueryInterpreter } from './clinical-trials/query-interpreter';
+import { RelevanceScorer } from './clinical-trials/relevance-scorer';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -28,9 +29,9 @@ const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 // Progressive loading configuration
 const PROGRESSIVE_LOADING = {
-  INITIAL_BATCH: 5,      // First batch size
-  STANDARD_BATCH: 10,    // Subsequent batch sizes
-  MAX_BATCH: 20,         // Maximum batch size
+  INITIAL_BATCH: 10,     // First batch size (increased from 5)
+  STANDARD_BATCH: 15,    // Subsequent batch sizes (increased from 10)
+  MAX_BATCH: 25,         // Maximum batch size (increased from 20)
   PREFETCH_THRESHOLD: 2, // Start prefetching when this many items remain
 };
 
@@ -801,7 +802,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           comprehensiveQueries.queries,
           comprehensiveQueries.fields,
           {
-            maxResults: 50, // Get more results for better filtering
+            maxResults: 100, // Get more results for better filtering and scoring
             includeStatuses: VIABLE_STUDY_STATUSES,
             dataStream,
             cacheKey: chatId || 'default'
@@ -848,12 +849,25 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           };
         }
 
-        // Skip AI ranking - return trials in order from API (they're already relevant)
-        // AI ranking was taking too long and missing relevant trials
-        const rankedTrials = uniqueTrials.slice(0, maxResults).map(trial => ({
+        // Apply relevance scoring to prioritize mutation-specific trials
+        const scoringContext = {
+          userQuery,
+          healthProfile,
+          searchStrategy: interpretation?.strategy || 'unknown'
+        };
+        
+        // Score and rank trials based on relevance to health profile
+        const scoredTrials = RelevanceScorer.scoreTrials(uniqueTrials, scoringContext);
+        
+        // Get top trials (limit to maxResults)
+        const rankedTrials = scoredTrials.slice(0, maxResults).map(trial => ({
           ...trial,
-          matchReason: 'Matches your KRAS G12C mutation and cancer type',
-          relevanceScore: 90
+          matchReason: trial.relevanceScore > 100 
+            ? 'Highly relevant: Matches your specific KRAS G12C mutation'
+            : trial.relevanceScore > 50
+            ? 'Relevant: Matches your cancer type and mutations'
+            : 'Potentially relevant based on your profile',
+          // Keep the relevanceScore from the scorer
         }));
 
         // Create match objects for UI component
