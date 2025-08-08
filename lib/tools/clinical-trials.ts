@@ -148,11 +148,14 @@ function buildSafetyQueries(healthProfile: any, userQuery: string): string[] {
   
   // Add molecular marker queries (but keep them simple)
   if (healthProfile?.molecularMarkers) {
-    // KRAS G12C specific
-    if (healthProfile.molecularMarkers.KRAS_G12C === 'POSITIVE') {
-      safetyQueries.add('KRAS G12C');
-      // Don't combine with cancer type here - let AI do specific combinations
-    }
+    // Add queries for any positive markers
+    Object.entries(healthProfile.molecularMarkers).forEach(([marker, value]) => {
+      if (value === 'POSITIVE' || value === 'HIGH') {
+        // Convert marker format (e.g., KRAS_G12C -> KRAS G12C)
+        const markerName = marker.replace(/_/g, ' ');
+        safetyQueries.add(markerName);
+      }
+    });
     
     // Other common markers
     if (healthProfile.molecularMarkers.EGFR === 'POSITIVE') {
@@ -378,10 +381,17 @@ function createMatchObjects(trials: any[], healthProfile: any, targetLocation?: 
     }
     
     // Add specific matches based on health profile
-    if (healthProfile?.molecularMarkers?.KRAS_G12C === 'POSITIVE' && 
-        (trial.protocolSection.identificationModule.briefTitle?.includes('KRAS') ||
-         trial.protocolSection.descriptionModule?.briefSummary?.includes('KRAS'))) {
-      eligibilityAnalysis.inclusionMatches.push('KRAS G12C mutation match');
+    if (healthProfile?.molecularMarkers) {
+      Object.entries(healthProfile.molecularMarkers).forEach(([marker, value]) => {
+        if ((value === 'POSITIVE' || value === 'HIGH')) {
+          const markerName = marker.replace(/_/g, ' ');
+          const markerBase = markerName.split(' ')[0]; // Get gene name (e.g., "KRAS" from "KRAS G12C")
+          if (trial.protocolSection.identificationModule.briefTitle?.includes(markerBase) ||
+              trial.protocolSection.descriptionModule?.briefSummary?.includes(markerBase)) {
+            eligibilityAnalysis.inclusionMatches.push(`${markerName} mutation match`);
+          }
+        }
+      });
     }
     
     if (healthProfile?.cancerType && 
@@ -732,7 +742,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
                 hasProfile: !!healthProfile,
                 hasCancerType: !!healthProfile?.cancerType,
                 hasMarkers: !!healthProfile?.molecularMarkers,
-                hasKRAS: healthProfile?.molecularMarkers?.KRAS_G12C
+                markerCount: healthProfile?.molecularMarkers ? Object.keys(healthProfile.molecularMarkers).length : 0
               });
             } else {
               console.warn('No health profile data returned from getUserHealthProfile');
@@ -745,9 +755,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           console.log('Health profile loading disabled by searchParams');
         }
 
-        // Skip AI query generation - use our comprehensive search system directly
-        // const searchQueries = await generateSearchQueries(userQuery, healthProfile);
-        const searchQueries = []; // Not used anymore
+        // We'll populate this with actual queries used
+        let searchQueries: string[] = [];
 
         // Execute all queries in parallel with better tracking
         let allTrials: ClinicalTrial[] = [];
@@ -783,8 +792,11 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         // Generate comprehensive queries using our QueryGenerator
         const comprehensiveQueries = QueryGenerator.generateComprehensiveQueries(
           searchTerm,
-          healthProfile
+          healthProfile as any
         );
+        
+        // Store the actual queries being used
+        searchQueries = comprehensiveQueries.queries;
         
         // Log critical debugging info
         console.log('Query generation:', {
@@ -793,7 +805,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           profileUsed: !!healthProfile,
           queryCount: comprehensiveQueries.queries.length,
           firstQuery: comprehensiveQueries.queries[0],
-          hasKRASQuery: comprehensiveQueries.queries.some(q => q.includes('KRAS'))
+          hasMutationQuery: comprehensiveQueries.queries.some(q => /\b[A-Z]{2,10}\s+[A-Z]?\d{1,4}[A-Z]?\b/i.test(q))
         });
         
         // Execute parallel searches across multiple API fields
@@ -860,15 +872,32 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         const scoredTrials = RelevanceScorer.scoreTrials(uniqueTrials, scoringContext);
         
         // Get top trials (limit to maxResults)
-        const rankedTrials = scoredTrials.slice(0, maxResults).map(trial => ({
-          ...trial,
-          matchReason: trial.relevanceScore > 100 
-            ? 'Highly relevant: Matches your specific KRAS G12C mutation'
-            : trial.relevanceScore > 50
-            ? 'Relevant: Matches your cancer type and mutations'
-            : 'Potentially relevant based on your profile',
-          // Keep the relevanceScore from the scorer
-        }));
+        const rankedTrials = scoredTrials.slice(0, maxResults).map(trial => {
+          // Build match reason based on profile
+          let matchReason = 'Potentially relevant based on your profile';
+          
+          if (trial.relevanceScore > 100) {
+            // For high scores, mention specific mutations if present
+            const positiveMarkers = healthProfile?.molecularMarkers ? 
+              Object.entries(healthProfile.molecularMarkers)
+                .filter(([_, value]) => value === 'POSITIVE' || value === 'HIGH')
+                .map(([marker, _]) => marker.replace(/_/g, ' ')) : [];
+            
+            if (positiveMarkers.length > 0) {
+              matchReason = `Highly relevant: Matches your ${positiveMarkers.join(', ')} mutation(s)`;
+            } else {
+              matchReason = 'Highly relevant: Matches your specific cancer profile';
+            }
+          } else if (trial.relevanceScore > 50) {
+            matchReason = 'Relevant: Matches your cancer type and profile';
+          }
+          
+          return {
+            ...trial,
+            matchReason,
+            // Keep the relevanceScore from the scorer
+          };
+        });
 
         // Create match objects for UI component
         const matches = createMatchObjects(rankedTrials, healthProfile, location);

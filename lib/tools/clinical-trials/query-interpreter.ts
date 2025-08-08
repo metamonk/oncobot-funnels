@@ -226,12 +226,14 @@ export class QueryInterpreter {
         // Use profile data to generate specific queries
         if (healthProfile) {
           // Start with most specific (mutations)
-          if (healthProfile.molecularMarkers?.KRAS_G12C === 'POSITIVE') {
-            queries.push('KRAS G12C');
-            queries.push('KRAS G12C mutation');
-          }
-          if (healthProfile.molecularMarkers?.EGFR === 'POSITIVE') {
-            queries.push('EGFR mutation');
+          if (healthProfile.molecularMarkers) {
+            Object.entries(healthProfile.molecularMarkers).forEach(([marker, value]) => {
+              if (value === 'POSITIVE' || value === 'HIGH') {
+                const markerName = marker.replace(/_/g, ' ');
+                queries.push(markerName);
+                queries.push(`${markerName} mutation`);
+              }
+            });
           }
           if (healthProfile.molecularMarkers?.ALK === 'POSITIVE') {
             queries.push('ALK fusion');
