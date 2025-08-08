@@ -5,6 +5,8 @@
  * resolves profile references, and generates optimal search strategies.
  */
 
+import type { HealthProfile } from './types';
+
 interface InterpretedQuery {
   strategy: 'profile-based' | 'entity-based' | 'literal';
   usesProfile: boolean;
@@ -75,7 +77,7 @@ export class QueryInterpreter {
   /**
    * Main interpretation method
    */
-  static interpret(userQuery: string, healthProfile: any): InterpretedQuery {
+  static interpret(userQuery: string, healthProfile: HealthProfile | null | undefined): InterpretedQuery {
     const query = userQuery.trim();
     
     // Check if query references the user's profile
@@ -215,7 +217,7 @@ export class QueryInterpreter {
    */
   static generateSearchStrategy(
     interpretation: InterpretedQuery,
-    healthProfile: any,
+    healthProfile: HealthProfile | null | undefined,
     userQuery: string
   ): { queries: string[]; reasoning: string } {
     const queries: string[] = [];

@@ -11,24 +11,7 @@ interface QuerySet {
   descriptions: string[];
 }
 
-interface HealthProfile {
-  cancer_type?: string;
-  cancerType?: string; // Alternative format from production
-  mutations?: string[];
-  molecularMarkers?: { // Production format
-    KRAS_G12C?: 'POSITIVE' | 'NEGATIVE';
-    EGFR?: 'POSITIVE' | 'NEGATIVE';
-    ALK?: 'POSITIVE' | 'NEGATIVE';
-    ROS1?: 'POSITIVE' | 'NEGATIVE';
-    BRAF?: 'POSITIVE' | 'NEGATIVE';
-    PDL1?: 'POSITIVE' | 'HIGH' | 'LOW' | 'NEGATIVE';
-    [key: string]: any;
-  };
-  treatments?: string[];
-  location?: string;
-  stage?: string;
-  previousTrials?: string[];
-}
+import type { HealthProfile } from './types';
 
 export class QueryGenerator {
   /**

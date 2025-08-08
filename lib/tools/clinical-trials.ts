@@ -8,6 +8,7 @@ import { SearchExecutor } from './clinical-trials/search-executor';
 import { LocationMatcher } from './clinical-trials/location-matcher';
 import { QueryInterpreter } from './clinical-trials/query-interpreter';
 import { RelevanceScorer } from './clinical-trials/relevance-scorer';
+import type { HealthProfile, ClinicalTrial, StudyLocation } from './clinical-trials/types';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -17,7 +18,7 @@ const STUDIES_ENDPOINT = `${BASE_URL}/studies`;
 interface CachedSearch {
   chatId: string;  // Using chatId instead of searchId
   trials: ClinicalTrial[];
-  healthProfile: any;
+  healthProfile: HealthProfile | null;
   searchQueries: string[];
   timestamp: number;
   lastOffset?: number;  // Track pagination state
@@ -43,47 +44,6 @@ const VIABLE_STUDY_STATUSES = [
   'NOT_YET_RECRUITING'
 ] as const;
 
-interface ClinicalTrial {
-  protocolSection: {
-    identificationModule: {
-      nctId: string;
-      briefTitle: string;
-      officialTitle?: string;
-    };
-    statusModule: {
-      overallStatus: string;
-    };
-    descriptionModule?: {
-      briefSummary?: string;
-    };
-    conditionsModule?: {
-      conditions?: string[];
-      keywords?: string[];
-    };
-    designModule?: {
-      phases?: string[];
-    };
-    armsInterventionsModule?: {
-      interventions?: Array<{
-        type: string;
-        name: string;
-        description?: string;
-      }>;
-    };
-    eligibilityModule?: {
-      eligibilityCriteria?: string;
-    };
-    contactsLocationsModule?: {
-      locations?: Array<{
-        facility?: string;
-        city?: string;
-        state?: string;
-        country?: string;
-      }>;
-    };
-  };
-}
-
 // Helper function to truncate text
 function truncateText(text: string | undefined, maxLength: number): string {
   if (!text) return '';
@@ -106,7 +66,7 @@ function getCachedSearchByChat(chatId: string): CachedSearch | null {
   return cached;
 }
 
-function setCachedSearchForChat(chatId: string, trials: ClinicalTrial[], healthProfile: any, searchQueries: string[]): void {
+function setCachedSearchForChat(chatId: string, trials: ClinicalTrial[], healthProfile: HealthProfile | null, searchQueries: string[]): void {
   const cacheKey = `chat_${chatId}`;
   searchCache.set(cacheKey, {
     chatId,
@@ -126,7 +86,7 @@ function setCachedSearchForChat(chatId: string, trials: ClinicalTrial[], healthP
 
 
 // Build safety net queries based on health profile
-function buildSafetyQueries(healthProfile: any, userQuery: string): string[] {
+function buildSafetyQueries(healthProfile: HealthProfile | null, userQuery: string): string[] {
   const safetyQueries = new Set<string>();
   
   // Always include the user's original query as a fallback
@@ -233,7 +193,7 @@ function trialHasLocationBasic(trial: ClinicalTrial, targetLocation: string): bo
   const locations = trial.protocolSection.contactsLocationsModule?.locations || [];
   const normalizedTarget = targetLocation.toLowerCase().trim();
   
-  return locations.some((loc: any) => {
+  return locations.some((loc: StudyLocation) => {
     const city = loc.city?.toLowerCase() || '';
     const state = loc.state?.toLowerCase() || '';
     const country = loc.country?.toLowerCase() || '';
@@ -275,7 +235,7 @@ function createLocationSummary(trial: ClinicalTrial, targetLocation?: string) {
   }
   
   // Format a location for display
-  const formatLocation = (loc: any) => {
+  const formatLocation = (loc: StudyLocation) => {
     const parts = [];
     if (loc.city) parts.push(loc.city);
     if (loc.state) parts.push(loc.state);
@@ -285,12 +245,19 @@ function createLocationSummary(trial: ClinicalTrial, targetLocation?: string) {
   
   // Get unique states/countries
   const uniqueStates = new Set<string>();
-  locations.forEach((loc: any) => {
+  locations.forEach((loc: StudyLocation) => {
     if (loc.state) uniqueStates.add(loc.state);
     else if (loc.country) uniqueStates.add(loc.country);
   });
   
-  const result: any = {
+  const result: {
+    totalSites: number;
+    allStates: string[];
+    hasTargetLocation: boolean;
+    targetSites: string[];
+    primarySites: string[];
+    summary?: string;
+  } = {
     totalSites: locations.length,
     allStates: Array.from(uniqueStates),
     hasTargetLocation: false,
@@ -301,7 +268,7 @@ function createLocationSummary(trial: ClinicalTrial, targetLocation?: string) {
   // If we have a target location, find matching sites
   if (targetLocation) {
     const normalizedTarget = targetLocation.toLowerCase().trim();
-    const matchingSites = locations.filter((loc: any) => {
+    const matchingSites = locations.filter((loc: StudyLocation) => {
       const city = loc.city?.toLowerCase() || '';
       const state = loc.state?.toLowerCase() || '';
       const country = loc.country?.toLowerCase() || '';
@@ -359,7 +326,7 @@ function createLocationSummary(trial: ClinicalTrial, targetLocation?: string) {
 }
 
 // Create match objects for UI component
-function createMatchObjects(trials: any[], healthProfile: any, targetLocation?: string) {
+function createMatchObjects(trials: ClinicalTrial[], healthProfile: HealthProfile | null, targetLocation?: string) {
   return trials.map(trial => {
     const locations = trial.protocolSection.contactsLocationsModule?.locations || [];
     
@@ -376,8 +343,8 @@ function createMatchObjects(trials: any[], healthProfile: any, targetLocation?: 
     };
     
     // Add match reasons based on the trial's match reason
-    if (trial.matchReason) {
-      eligibilityAnalysis.inclusionMatches.push(trial.matchReason);
+    if ((trial as any).matchReason) {
+      eligibilityAnalysis.inclusionMatches.push((trial as any).matchReason);
     }
     
     // Add specific matches based on health profile
@@ -396,12 +363,12 @@ function createMatchObjects(trials: any[], healthProfile: any, targetLocation?: 
     
     if (healthProfile?.cancerType && 
         trial.protocolSection.conditionsModule?.conditions?.some((c: string) => 
-          c.toLowerCase().includes(healthProfile.cancerType.toLowerCase()))) {
+          c.toLowerCase().includes(healthProfile.cancerType!.toLowerCase()))) {
       eligibilityAnalysis.inclusionMatches.push(`${healthProfile.cancerType} diagnosis match`);
     }
     
     // Add uncertainty for trials not yet recruiting
-    if (trial.protocolSection.statusModule.overallStatus === 'NOT_YET_RECRUITING') {
+    if (trial.protocolSection.statusModule?.overallStatus === 'NOT_YET_RECRUITING') {
       eligibilityAnalysis.uncertainFactors.push('Trial not yet recruiting - check back for updates');
     }
     
@@ -417,7 +384,7 @@ function createMatchObjects(trials: any[], healthProfile: any, targetLocation?: 
           officialTitle: trial.protocolSection.identificationModule.officialTitle
         },
         statusModule: {
-          overallStatus: trial.protocolSection.statusModule.overallStatus
+          overallStatus: trial.protocolSection.statusModule?.overallStatus || ''
         },
         descriptionModule: {
           briefSummary: truncateText(trial.protocolSection.descriptionModule?.briefSummary, 500)
@@ -528,7 +495,7 @@ function detectQueryIntent(query: string, hasCache: boolean): {
 }
 
 // Main tool export
-export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: string): any => {
+export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: string) => {
   return tool({
     description: `Smart clinical trials search that understands natural language queries.
     
@@ -686,7 +653,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         }
 
         // Filter trials by location
-        const filteredTrials = cached.trials.filter((trial: any) => trialHasLocation(trial, filterLocation!));
+        const filteredTrials = cached.trials.filter((trial: ClinicalTrial) => trialHasLocation(trial, filterLocation!));
         
         if (filteredTrials.length === 0) {
           return {
@@ -737,7 +704,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           try {
             const profileData = await getUserHealthProfile();
             if (profileData) {
-              healthProfile = profileData.profile;
+              healthProfile = profileData.profile as HealthProfile;
               console.log('Health profile loaded successfully:', {
                 hasProfile: !!healthProfile,
                 hasCancerType: !!healthProfile?.cancerType,
@@ -792,7 +759,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         // Generate comprehensive queries using our QueryGenerator
         const comprehensiveQueries = QueryGenerator.generateComprehensiveQueries(
           searchTerm,
-          healthProfile as any
+          healthProfile || undefined
         );
         
         // Store the actual queries being used
@@ -938,7 +905,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             eligibility: trial.protocolSection.eligibilityModule?.eligibilityCriteria || '',
             locations: trial.protocolSection.contactsLocationsModule?.locations || [],
             description: trial.protocolSection.descriptionModule?.briefSummary || '',
-            matchReason: trial.matchReason || '',
+            matchReason: (trial as any).matchReason || '',
             hasLocationMatch: location ? trialHasLocation(trial, location) : false
           }))
         });

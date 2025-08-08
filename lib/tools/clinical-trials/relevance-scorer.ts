@@ -5,9 +5,11 @@
  * Prioritizes mutation-specific trials over generic ones.
  */
 
+import type { HealthProfile, ClinicalTrial, ScoredTrial } from './types';
+
 interface ScoringContext {
   userQuery: string;
-  healthProfile?: any;
+  healthProfile?: HealthProfile | null;
   searchStrategy?: string;
 }
 
@@ -15,7 +17,7 @@ export class RelevanceScorer {
   /**
    * Score a trial based on relevance to the search context
    */
-  static scoreTrials(trials: any[], context: ScoringContext): any[] {
+  static scoreTrials(trials: ClinicalTrial[], context: ScoringContext): ScoredTrial[] {
     const scoredTrials = trials.map(trial => ({
       ...trial,
       relevanceScore: this.calculateScore(trial, context)
@@ -28,7 +30,7 @@ export class RelevanceScorer {
   /**
    * Calculate relevance score for a single trial
    */
-  private static calculateScore(trial: any, context: ScoringContext): number {
+  private static calculateScore(trial: ClinicalTrial, context: ScoringContext): number {
     let score = 0;
     
     const title = trial.protocolSection?.identificationModule?.briefTitle?.toLowerCase() || '';
@@ -159,7 +161,7 @@ export class RelevanceScorer {
   /**
    * Get top N trials by relevance
    */
-  static getTopTrials(trials: any[], context: ScoringContext, limit: number = 10): any[] {
+  static getTopTrials(trials: ClinicalTrial[], context: ScoringContext, limit: number = 10): ScoredTrial[] {
     const scored = this.scoreTrials(trials, context);
     return scored.slice(0, limit);
   }
@@ -167,7 +169,7 @@ export class RelevanceScorer {
   /**
    * Debug scoring for a specific trial
    */
-  static debugScore(trial: any, context: ScoringContext): {
+  static debugScore(trial: ClinicalTrial, context: ScoringContext): {
     score: number;
     breakdown: Record<string, number>;
   } {
