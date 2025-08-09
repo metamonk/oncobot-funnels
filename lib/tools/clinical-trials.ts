@@ -13,7 +13,6 @@ import { formatMarkerName, isPositiveMarker } from '@/lib/utils';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
-const STUDIES_ENDPOINT = `${BASE_URL}/studies`;
 
 // Search result cache for conversation persistence
 interface CachedSearch {
