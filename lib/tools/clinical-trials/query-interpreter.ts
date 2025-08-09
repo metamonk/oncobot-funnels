@@ -9,9 +9,10 @@ import type { HealthProfile } from './types';
 import { formatMarkerName, isPositiveMarker } from '@/lib/utils';
 
 interface InterpretedQuery {
-  strategy: 'profile-based' | 'entity-based' | 'literal';
+  strategy: 'profile-based' | 'entity-based' | 'literal' | 'nct-lookup';
   usesProfile: boolean;
   detectedEntities: {
+    nctId?: string;
     mutations?: string[];
     cancerTypes?: string[];
     drugs?: string[];
@@ -50,6 +51,11 @@ export class QueryInterpreter {
   ];
 
   /**
+   * NCT ID pattern - ClinicalTrials.gov identifier
+   */
+  private static readonly NCT_ID_PATTERN = /\bNCT\d{8}\b/i;
+
+  /**
    * Patterns for specific medical entities
    */
   private static readonly ENTITY_PATTERNS = {
@@ -81,6 +87,23 @@ export class QueryInterpreter {
   static interpret(userQuery: string, healthProfile: HealthProfile | null | undefined): InterpretedQuery {
     const query = userQuery.trim();
     
+    // First check for NCT ID - this takes priority
+    const nctIdMatch = query.match(this.NCT_ID_PATTERN);
+    if (nctIdMatch) {
+      const nctId = nctIdMatch[0].toUpperCase();
+      // Check if there's also a location in the query (e.g., "NCT05568550 near Boston")
+      const detectedEntities = this.extractEntities(query);
+      detectedEntities.nctId = nctId;
+      
+      return {
+        strategy: 'nct-lookup',
+        usesProfile: false,
+        detectedEntities,
+        confidence: 1.0,
+        reasoning: `Direct NCT ID lookup requested: ${nctId}`
+      };
+    }
+    
     // Check if query references the user's profile
     const usesProfile = this.detectsProfileReference(query);
     
@@ -88,7 +111,7 @@ export class QueryInterpreter {
     const detectedEntities = this.extractEntities(query);
     
     // Determine strategy based on what we found
-    let strategy: 'profile-based' | 'entity-based' | 'literal';
+    let strategy: 'profile-based' | 'entity-based' | 'literal' | 'nct-lookup';
     let confidence = 0;
     let reasoning = '';
     

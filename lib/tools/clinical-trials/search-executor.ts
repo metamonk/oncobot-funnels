@@ -251,6 +251,102 @@ export class SearchExecutor {
   }
 
   /**
+   * Execute direct NCT ID lookup
+   */
+  async executeLookup(
+    nctId: string,
+    dataStream?: DataStreamWriter
+  ): Promise<SearchResult> {
+    // Notify lookup start
+    if (dataStream) {
+      dataStream.writeMessageAnnotation({
+        type: 'clinical_trials_lookup',
+        data: {
+          nctId,
+          status: 'started'
+        }
+      });
+    }
+
+    try {
+      // Direct API call to get specific trial
+      const response = await fetch(`https://clinicaltrials.gov/api/v2/studies/${nctId}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          // Trial not found
+          if (dataStream) {
+            dataStream.writeMessageAnnotation({
+              type: 'clinical_trials_lookup',
+              data: {
+                nctId,
+                status: 'not_found'
+              }
+            });
+          }
+          
+          return {
+            query: nctId,
+            field: 'nctId',
+            studies: [],
+            totalCount: 0,
+            error: `Trial ${nctId} not found`
+          };
+        }
+        
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // The direct lookup returns a single study, not an array
+      const study = data.studySection ? { protocolSection: data.studySection } : data;
+      
+      // Notify success
+      if (dataStream) {
+        dataStream.writeMessageAnnotation({
+          type: 'clinical_trials_lookup',
+          data: {
+            nctId,
+            status: 'completed',
+            title: study.protocolSection?.identificationModule?.briefTitle
+          }
+        });
+      }
+
+      return {
+        query: nctId,
+        field: 'nctId',
+        studies: [study],
+        totalCount: 1
+      };
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Notify error
+      if (dataStream) {
+        dataStream.writeMessageAnnotation({
+          type: 'clinical_trials_lookup',
+          data: {
+            nctId,
+            status: 'error',
+            error: errorMessage
+          }
+        });
+      }
+
+      return {
+        query: nctId,
+        field: 'nctId',
+        studies: [],
+        totalCount: 0,
+        error: errorMessage
+      };
+    }
+  }
+
+  /**
    * Execute location-filtered search (Phase 2 strategy)
    */
   async executeLocationSearch(

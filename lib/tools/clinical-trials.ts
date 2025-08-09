@@ -686,6 +686,59 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           detectedEntities: interpretation.detectedEntities
         });
         
+        // Handle NCT ID lookup - direct API call for specific trial
+        if (interpretation.strategy === 'nct-lookup' && interpretation.detectedEntities.nctId) {
+          const executor = new SearchExecutor();
+          const lookupResult = await executor.executeLookup(
+            interpretation.detectedEntities.nctId,
+            dataStream
+          );
+          
+          if (lookupResult.error || lookupResult.studies.length === 0) {
+            return {
+              success: false,
+              matches: [],
+              totalCount: 0,
+              error: lookupResult.error || `Trial ${interpretation.detectedEntities.nctId} not found`,
+              message: `Could not find trial ${interpretation.detectedEntities.nctId}. Please verify the NCT ID and try again.`
+            };
+          }
+          
+          // Process the single trial result
+          const trial = lookupResult.studies[0];
+          const scoredTrial = {
+            ...trial,
+            matchReason: 'Direct NCT ID lookup',
+            relevanceScore: 100
+          };
+          
+          // Check if a location was also specified (e.g., "NCT05568550 near Boston")
+          const location = interpretation.detectedEntities.locations?.[0];
+          
+          // Create match object for UI
+          const matches = createMatchObjects([scoredTrial], healthProfile, location);
+          
+          // Cache the result for potential follow-up queries
+          if (chatId) {
+            setCachedSearchForChat(chatId, [trial], healthProfile, [interpretation.detectedEntities.nctId]);
+          }
+          
+          return {
+            success: true,
+            matches: matches,
+            totalCount: 1,
+            searchCriteria: {
+              condition: interpretation.detectedEntities.nctId,
+              location: location,
+              useProfile: false,
+              cancerType: healthProfile?.cancerType
+            },
+            query: interpretation.detectedEntities.nctId,
+            message: `Found trial ${interpretation.detectedEntities.nctId}: ${trial.protocolSection?.identificationModule?.briefTitle || 'Untitled'}`,
+            directLookup: true
+          };
+        }
+        
         // Check if confidence is too low - indicates need for profile or more info
         if (interpretation.confidence < 0.5 && interpretation.usesProfile && !healthProfile) {
           // User referenced their profile but doesn't have one
