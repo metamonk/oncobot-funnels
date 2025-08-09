@@ -67,6 +67,7 @@ import {
   redditSearchTool,
   extremeSearchTool,
   clinicalTrialsTool,
+  clinicalTrialsInfoTool,
   healthProfileTool,
 } from '@/lib/tools';
 import { contextManager, type MessageWithMetadata } from '@/lib/ai-context-manager';
@@ -423,6 +424,7 @@ export async function POST(req: Request) {
           reddit_search: redditSearchTool,
           retrieve: retrieveTool,
           clinical_trials: clinicalTrialsTool(dataStream, id),
+          clinical_trials_info: clinicalTrialsInfoTool(dataStream),
           health_profile: healthProfileTool(dataStream),
 
           // Media & Entertainment

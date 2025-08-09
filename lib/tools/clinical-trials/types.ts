@@ -95,20 +95,3 @@ export interface ScoredTrial extends ClinicalTrial {
   relevanceScore?: number;
   matchReason?: string;
 }
-
-/**
- * Utility function to format molecular marker names
- * Converts underscore-separated names to space-separated
- * e.g., "KRAS_G12C" -> "KRAS G12C"
- */
-export function formatMarkerName(marker: string): string {
-  return marker.replace(/_/g, ' ');
-}
-
-/**
- * Check if a molecular marker value is positive
- * Returns true for 'POSITIVE' or 'HIGH' values
- */
-export function isPositiveMarker(value: string | undefined): boolean {
-  return value === 'POSITIVE' || value === 'HIGH';
-}

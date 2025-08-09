@@ -6,7 +6,7 @@
  */
 
 import type { HealthProfile, ClinicalTrial, ScoredTrial } from './types';
-import { formatMarkerName, isPositiveMarker } from './types';
+import { formatMarkerName, isPositiveMarker } from '@/lib/utils';
 
 interface ScoringContext {
   userQuery: string;

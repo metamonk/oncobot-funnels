@@ -9,7 +9,7 @@ import { LocationMatcher } from './clinical-trials/location-matcher';
 import { QueryInterpreter } from './clinical-trials/query-interpreter';
 import { RelevanceScorer } from './clinical-trials/relevance-scorer';
 import type { HealthProfile, ClinicalTrial, StudyLocation } from './clinical-trials/types';
-import { formatMarkerName, isPositiveMarker } from './clinical-trials/types';
+import { formatMarkerName, isPositiveMarker } from '@/lib/utils';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -435,10 +435,10 @@ function detectQueryIntent(query: string, hasCache: boolean): {
 // Main tool export
 export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: string) => {
   return tool({
-    description: `Smart clinical trials search that understands natural language queries.
+    description: `ONLY use this tool to SEARCH for specific clinical trials. DO NOT use for informational questions about how trials work, eligibility, costs, etc - use clinical_trials_info for those.
     
     SIMPLIFIED USAGE:
-    Just use 'search' action for EVERYTHING! The tool will automatically understand:
+    Just use 'search' action for EVERYTHING search-related:
     - New searches: "find trials for lung cancer"
     - Location filters: "show them near Chicago" or "list those in Boston"
     - More results: "show me more" or "what other trials are there"
@@ -679,6 +679,34 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           reasoning: interpretation.reasoning,
           detectedEntities: interpretation.detectedEntities
         });
+        
+        // Check if confidence is too low - indicates need for profile or more info
+        if (interpretation.confidence < 0.5 && interpretation.usesProfile && !healthProfile) {
+          // User referenced their profile but doesn't have one
+          dataStream?.writeMessageAnnotation({
+            type: 'profile_required',
+            data: {
+              reason: 'User referenced personal health information but has no profile',
+              confidence: interpretation.confidence,
+              query: userQuery
+            }
+          });
+          
+          return {
+            success: true,
+            matches: [],
+            totalCount: 0,
+            searchCriteria: {
+              condition: userQuery,
+              location: location,
+              useProfile: useHealthProfile,
+              cancerType: null
+            },
+            requiresProfile: true,
+            message: 'To search for trials matching "your" specific condition, I need your health information. Would you like to create a health profile for personalized trial matching? This will help me find trials specifically relevant to your cancer type, stage, and genetic markers.',
+            actionRequired: 'create_profile'
+          };
+        }
         
         // Generate appropriate search term based on interpretation
         let searchTerm = userQuery;

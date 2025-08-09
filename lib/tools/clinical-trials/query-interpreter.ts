@@ -6,7 +6,7 @@
  */
 
 import type { HealthProfile } from './types';
-import { formatMarkerName, isPositiveMarker } from './types';
+import { formatMarkerName, isPositiveMarker } from '@/lib/utils';
 
 interface InterpretedQuery {
   strategy: 'profile-based' | 'entity-based' | 'literal';
@@ -92,7 +92,14 @@ export class QueryInterpreter {
     let confidence = 0;
     let reasoning = '';
     
-    if (usesProfile && healthProfile) {
+    // CRITICAL: Handle the case where user references profile but has none
+    if (usesProfile && !healthProfile) {
+      // User is trying to reference their profile but doesn't have one
+      // We should prompt them to create one rather than doing a bad search
+      strategy = 'literal'; // Will trigger profile prompt
+      confidence = 0.3; // Low confidence indicates we need user input
+      reasoning = 'User references personal information but no profile exists - profile creation recommended';
+    } else if (usesProfile && healthProfile) {
       strategy = 'profile-based';
       confidence = 0.9;
       reasoning = 'User is referring to their personal health profile';
@@ -101,6 +108,11 @@ export class QueryInterpreter {
       strategy = 'profile-based';
       confidence = 0.8;
       reasoning = 'Generic trial request, using profile for personalization';
+    } else if (this.isGenericTrialRequest(query) && !healthProfile) {
+      // Generic request without profile - needs guidance
+      strategy = 'literal';
+      confidence = 0.4;
+      reasoning = 'Generic trial request without profile - specific information needed';
     } else if (this.hasSignificantEntities(detectedEntities)) {
       strategy = 'entity-based';
       confidence = 0.85;
@@ -113,7 +125,7 @@ export class QueryInterpreter {
     
     return {
       strategy,
-      usesProfile: strategy === 'profile-based',
+      usesProfile: usesProfile, // Always reflect if profile was referenced, regardless of strategy
       detectedEntities,
       confidence,
       reasoning

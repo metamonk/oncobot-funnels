@@ -21,4 +21,5 @@ export { redditSearchTool } from './reddit-search';
 export { extremeSearchTool } from './extreme-search';
 export { greetingTool } from './greeting';
 export { clinicalTrialsTool } from './clinical-trials';
+export { clinicalTrialsInfoTool } from './clinical-trials-info';
 export { healthProfileTool } from './health-profile';

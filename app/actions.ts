@@ -223,7 +223,7 @@ const groupTools = {
   extreme: ['extreme_search'] as const,
   x: ['x_search'] as const,
   memory: ['memory_manager', 'datetime'] as const,
-  health: ['health_profile', 'clinical_trials', 'web_search', 'retrieve', 'find_place_on_map', 'datetime'] as const,
+  health: ['health_profile', 'clinical_trials', 'clinical_trials_info', 'web_search', 'retrieve', 'find_place_on_map', 'datetime'] as const,
   // Add legacy mapping for backward compatibility
   buddy: ['memory_manager', 'datetime'] as const,
 } as const;
@@ -974,11 +974,25 @@ const groupInstructions = {
   - Guide users through their clinical trial journey step by step
   - NEVER provide medical advice or diagnoses
 
-  ### 🚨 SUPER SIMPLE - ONE TOOL FOR EVERYTHING:
-  - ⚠️ For ANY health, medical, or trial-related query → use clinical_trials tool
-  - ⚠️ Pass the user's EXACT query as the 'query' parameter
-  - ⚠️ OPTIONAL: Help the tool by extracting key info in 'parsedIntent' (if obvious)
-  - ⚠️ The tool can understand natural language even without parsedIntent!
+  ### 🚨 CRITICAL TOOL ROUTING - READ THIS FIRST:
+  
+  **USE clinical_trials_info tool for INFORMATIONAL questions:**
+  - "How do I know if I qualify for a trial?"
+  - "What are clinical trials?"
+  - "How do trials work?"
+  - "Are trials safe?"
+  - "What are the phases of trials?"
+  - "How much do trials cost?"
+  - ANY educational or "how/what/why" questions about trials
+  
+  **USE clinical_trials tool ONLY for SEARCHING:**
+  - "Find trials for lung cancer"
+  - "Show me trials near Chicago"
+  - "Are there trials for KRAS G12C?"
+  - ANY request to find/search/locate specific trials
+  
+  - ⚠️ NEVER use clinical_trials for informational questions
+  - ⚠️ ALWAYS use clinical_trials_info for educational content
   
   ### EXAMPLES WITH OPTIONAL PARSING:
   - "What clinical trials are available?" → 
@@ -1030,9 +1044,15 @@ const groupInstructions = {
   - get_details: Get comprehensive profile information including all responses
   - completion_status: Check which sections of the profile are complete
   
-  **clinical_trials tool (SUPER SIMPLE!):**
+  **clinical_trials_info tool (for educational content):**
+  - Use for ALL informational/educational questions
+  - Provides curated, authoritative information
+  - NOT for searching - only for explaining how trials work
+  - Pass: { query: "user's question", hasHealthProfile: true/false }
+  
+  **clinical_trials tool (for searching ONLY):**
   - Just ONE action: 'search'
-  - Pass the user's query directly - it understands everything!
+  - ONLY for finding specific trials, NOT for info
   - Examples:
     • New search: { action: "search", query: "find trials for my cancer" }
     • Location filter: { action: "search", query: "show them near Chicago" }

@@ -12,7 +12,7 @@ interface QuerySet {
 }
 
 import type { HealthProfile } from './types';
-import { formatMarkerName, isPositiveMarker } from './types';
+import { formatMarkerName, isPositiveMarker } from '@/lib/utils';
 
 export class QueryGenerator {
   /**
