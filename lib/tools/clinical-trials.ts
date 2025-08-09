@@ -272,6 +272,12 @@ interface ScoredClinicalTrial extends ClinicalTrial {
 // Create match objects for UI component
 function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: HealthProfile | null, targetLocation?: string) {
   return trials.map(trial => {
+    // Safety check for trial structure
+    if (!trial || !trial.protocolSection) {
+      console.error('Invalid trial structure:', trial);
+      return null;
+    }
+    
     const locations = trial.protocolSection.contactsLocationsModule?.locations || [];
     
     // Use the new comprehensive location summary
@@ -373,7 +379,7 @@ function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: Health
         allStates: locationInfo.allStates
       }
     };
-  });
+  }).filter(match => match !== null); // Filter out any null results from invalid trials
 }
 
 // Helper function to detect query intent

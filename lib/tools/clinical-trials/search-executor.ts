@@ -299,8 +299,11 @@ export class SearchExecutor {
 
       const data = await response.json();
       
-      // The direct lookup returns a single study, not an array
-      const study = data.studySection ? { protocolSection: data.studySection } : data;
+      // The direct lookup API returns data differently than the search API
+      // It returns { studySection: {...} } instead of { protocolSection: {...} }
+      const study = { 
+        protocolSection: data.studySection || data.protocolSection || data 
+      };
       
       // Notify success
       if (dataStream) {
