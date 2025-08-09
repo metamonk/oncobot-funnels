@@ -472,19 +472,17 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
     parameters: z.object({
       action: z.enum(['search']).describe('Always use search - it handles everything intelligently'),
       query: z.string().describe('The user\'s natural language query - pass it exactly as they said it'),
-      parsedIntent: z.object({
-        isNewSearch: z.boolean().optional().describe('True if this is a new search, false if referring to previous results'),
-        wantsMore: z.boolean().optional().describe('True if user wants more/additional results'),
-        location: z.string().optional().describe('Any location mentioned (city, state, or country)'),
-        condition: z.string().optional().describe('Any medical condition or cancer type mentioned')
-      }).optional().describe('Help the tool understand the query better by extracting key information'),
-      searchParams: z.object({
-        useProfile: z.boolean().optional().describe('Whether to use the user health profile (default: true)'),
-        maxResults: z.number().optional().describe('Maximum number of results to return (default: 5-10)'),
-        forceNewSearch: z.boolean().optional().describe('Force a new search even if query looks like a filter (default: false)')
-      }).optional().describe('Optional parameters to override defaults')
+      // Flattened schema to avoid OpenAI's strict validation issues with nested optional objects
+      isNewSearch: z.boolean().optional().describe('True if this is a new search, false if referring to previous results'),
+      wantsMore: z.boolean().optional().describe('True if user wants more/additional results'), 
+      location: z.string().optional().describe('Any location mentioned in the query (city, state, or country)'),
+      condition: z.string().optional().describe('Any medical condition or cancer type mentioned'),
+      // Search parameters
+      useProfile: z.boolean().optional().describe('Whether to use the user health profile (default: true)'),
+      maxResults: z.number().optional().describe('Maximum number of results to return (default: 5-10)'),
+      forceNewSearch: z.boolean().optional().describe('Force a new search even if query looks like a filter (default: false)')
     }),
-    execute: async ({ query, parsedIntent, searchParams }) => {
+    execute: async ({ query, isNewSearch, wantsMore, location, condition, useProfile, maxResults, forceNewSearch }) => {
       // Check if we have a chatId to work with
       if (!chatId) {
         console.warn('No chatId provided to clinical trials tool - using fallback mode');
@@ -495,14 +493,14 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
       
       // Use AI-parsed intent if provided, otherwise fall back to local parsing
       let queryIntent;
-      if (parsedIntent) {
-        // Convert AI-parsed intent to our internal format
+      if (isNewSearch !== undefined || wantsMore !== undefined || location !== undefined || condition !== undefined) {
+        // Convert AI-parsed parameters to our internal format
         queryIntent = {
-          intent: parsedIntent.wantsMore === true ? 'show_more' : 
-                  parsedIntent.location && parsedIntent.isNewSearch !== true ? 'filter_location' :
+          intent: wantsMore === true ? 'show_more' : 
+                  location && isNewSearch !== true ? 'filter_location' :
                   'new_search',
-          location: parsedIntent.location,
-          condition: parsedIntent.condition
+          location: location,
+          condition: condition
         };
         // console.log('Using AI-parsed intent:', queryIntent);
       } else {
@@ -535,7 +533,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         const defaultLimit = offset === PROGRESSIVE_LOADING.INITIAL_BATCH 
           ? PROGRESSIVE_LOADING.STANDARD_BATCH 
           : Math.min(PROGRESSIVE_LOADING.STANDARD_BATCH, PROGRESSIVE_LOADING.MAX_BATCH);
-        const limit = searchParams?.maxResults || defaultLimit;
+        const limit = maxResults || defaultLimit;
         const paginatedTrials = cached.trials.slice(offset, offset + limit);
         
         // Skip AI ranking - use trials directly from cache
@@ -615,8 +613,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         }
 
         // Return filtered results without AI ranking
-        const maxResults = Math.min(searchParams?.maxResults || 10, 20);
-        const selectedTrials = filteredTrials.slice(0, maxResults).map(trial => ({
+        const filteredMaxResults = Math.min(maxResults || 10, 20);
+        const selectedTrials = filteredTrials.slice(0, filteredMaxResults).map(trial => ({
           ...trial,
           matchReason: `Matches your criteria and has sites in ${filterLocation}`,
           relevanceScore: 85
@@ -634,9 +632,9 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
 
       // Handle new search intent (default)
       const userQuery = queryIntent.condition || query || 'clinical trials';
-      const useHealthProfile = searchParams?.useProfile ?? true;
-      const maxResults = Math.min(searchParams?.maxResults || 10, 20); // Default to 10, allow up to 20
-      const location = queryIntent.location;
+      const useHealthProfile = useProfile ?? true;
+      const searchMaxResults = Math.min(maxResults || 10, 20); // Default to 10, allow up to 20
+      const searchLocation = queryIntent.location;
 
       try {
         dataStream?.writeMessageAnnotation({
@@ -718,10 +716,10 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           };
           
           // Check if a location was also specified (e.g., "NCT05568550 near Boston")
-          const location = interpretation.detectedEntities.locations?.[0];
+          const detectedLocation = interpretation.detectedEntities.locations?.[0];
           
           // Create match object for UI
-          const matches = createMatchObjects([scoredTrial], healthProfile, location);
+          const matches = createMatchObjects([scoredTrial], healthProfile, detectedLocation);
           
           // Cache the result for potential follow-up queries
           if (chatId) {
@@ -734,7 +732,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             totalCount: 1,
             searchCriteria: {
               condition: interpretation.detectedEntities.nctId,
-              location: location,
+              location: detectedLocation,
               useProfile: false,
               cancerType: healthProfile?.cancerType
             },
@@ -868,8 +866,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         // Score and rank trials based on relevance to health profile
         const scoredTrials = RelevanceScorer.scoreTrials(uniqueTrials, scoringContext);
         
-        // Get top trials (limit to maxResults)
-        const rankedTrials = scoredTrials.slice(0, maxResults).map(trial => {
+        // Get top trials (limit to searchMaxResults)
+        const rankedTrials = scoredTrials.slice(0, searchMaxResults).map(trial => {
           // Build match reason based on profile
           let matchReason = 'Potentially relevant based on your profile';
           
@@ -897,12 +895,12 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         });
 
         // Create match objects for UI component
-        const matches = createMatchObjects(rankedTrials, healthProfile, location);
+        const matches = createMatchObjects(rankedTrials, healthProfile, searchLocation);
 
         // Count trials with specific location if location was requested
         let locationMatchCount = 0;
-        if (location) {
-          locationMatchCount = uniqueTrials.filter(trial => trialHasLocation(trial, location)).length;
+        if (searchLocation) {
+          locationMatchCount = uniqueTrials.filter(trial => trialHasLocation(trial, searchLocation)).length;
         }
 
         // Store ALL trial IDs and basic info in annotations for reference
@@ -916,7 +914,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
               nctId: trial.protocolSection.identificationModule.nctId,
               title: trial.protocolSection.identificationModule.briefTitle,
               status: trial.protocolSection.statusModule?.overallStatus || 'UNKNOWN',
-              hasLocationMatch: location ? trialHasLocation(trial, location) : false
+              hasLocationMatch: searchLocation ? trialHasLocation(trial, searchLocation) : false
             }))
           }
         });
@@ -965,13 +963,13 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
 
         // Build message with location info if applicable
         let message = `Found ${uniqueTrials.length} clinical trials. `;
-        if (location && locationMatchCount > 0) {
-          message += `${locationMatchCount} trials have sites in or near ${location}. `;
+        if (searchLocation && locationMatchCount > 0) {
+          message += `${locationMatchCount} trials have sites in or near ${searchLocation}. `;
         }
         message += `Showing the ${matches.length} most relevant matches based on your health profile.`;
         
         // Add guidance for follow-up actions if more trials are available
-        if (uniqueTrials.length > maxResults) {
+        if (uniqueTrials.length > searchMaxResults) {
           message += ` You can use 'list_more' to see additional results or 'filter_by_location' to filter by a specific location.`;
         }
 
@@ -992,14 +990,14 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           locationMatchCount: locationMatchCount,
           searchCriteria: {
             condition: userQuery,
-            location: location,
+            location: searchLocation,
             useProfile: useHealthProfile,
             cancerType: healthProfile?.cancerType
           },
           query: searchQueries.join('; '),
           message: message,
-          additionalTrialsAvailable: uniqueTrials.length > maxResults,
-          availableActions: uniqueTrials.length > maxResults ? ['list_more', 'filter_by_location'] : ['filter_by_location'],
+          additionalTrialsAvailable: uniqueTrials.length > searchMaxResults,
+          availableActions: uniqueTrials.length > searchMaxResults ? ['list_more', 'filter_by_location'] : ['filter_by_location'],
           progressiveLoading: progressiveLoadingInfo
         };
 
