@@ -3,7 +3,8 @@
 import React from 'react';
 import { X, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 
 interface HealthProfilePromptDialogProps {
   open: boolean;
@@ -31,6 +32,9 @@ export const HealthProfilePromptDialog = React.memo(({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[420px] p-0 gap-0 border border-neutral-200/60 dark:border-neutral-800/60 shadow-xl">
+        <VisuallyHidden>
+          <DialogTitle>Create Your Health Profile</DialogTitle>
+        </VisuallyHidden>
         <div className="p-6 space-y-5">
           {/* Header */}
           <div className="space-y-3">
