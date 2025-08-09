@@ -473,8 +473,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
       action: z.enum(['search']).describe('Always use search - it handles everything intelligently'),
       query: z.string().describe('The user\'s natural language query - pass it exactly as they said it'),
       parsedIntent: z.object({
-        isNewSearch: z.boolean().describe('True if this is a new search, false if referring to previous results'),
-        wantsMore: z.boolean().describe('True if user wants more/additional results'),
+        isNewSearch: z.boolean().optional().describe('True if this is a new search, false if referring to previous results'),
+        wantsMore: z.boolean().optional().describe('True if user wants more/additional results'),
         location: z.string().optional().describe('Any location mentioned (city, state, or country)'),
         condition: z.string().optional().describe('Any medical condition or cancer type mentioned')
       }).optional().describe('Help the tool understand the query better by extracting key information'),
@@ -498,8 +498,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
       if (parsedIntent) {
         // Convert AI-parsed intent to our internal format
         queryIntent = {
-          intent: parsedIntent.wantsMore ? 'show_more' : 
-                  parsedIntent.location && !parsedIntent.isNewSearch ? 'filter_location' :
+          intent: parsedIntent.wantsMore === true ? 'show_more' : 
+                  parsedIntent.location && parsedIntent.isNewSearch !== true ? 'filter_location' :
                   'new_search',
           location: parsedIntent.location,
           condition: parsedIntent.condition
