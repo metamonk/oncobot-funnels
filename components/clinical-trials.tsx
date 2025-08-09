@@ -302,8 +302,20 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
         {/* Trial Results */}
         <div className="space-y-3">
           {matches.map((match, index) => {
+            // Defensive check for malformed data
+            if (!match || !match.trial || !match.trial.protocolSection) {
+              console.error('Invalid trial data structure:', match);
+              return null;
+            }
+            
             const trial = match.trial.protocolSection;
-            const isEligible = match.eligibilityAnalysis.likelyEligible;
+            const isEligible = match.eligibilityAnalysis?.likelyEligible ?? true;
+            
+            // Check for required fields
+            if (!trial.identificationModule?.nctId) {
+              console.error('Trial missing NCT ID:', trial);
+              return null;
+            }
             
             return (
               <div 
@@ -314,16 +326,18 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                 <div className="flex items-start justify-between gap-4 mb-3">
                   <div className="flex-1">
                     <h3 className="font-medium text-sm text-neutral-900 dark:text-neutral-100 line-clamp-2 mb-2">
-                      {trial.identificationModule.briefTitle}
+                      {trial.identificationModule?.briefTitle || 'Untitled Trial'}
                     </h3>
                     <div className="flex items-center gap-2 flex-wrap">
                       <NCTBadge nctId={trial.identificationModule.nctId} />
-                      <Badge 
-                        variant={trial.statusModule.overallStatus === 'RECRUITING' ? 'default' : 'secondary'}
-                        className="text-xs rounded-full px-2 py-0.5"
-                      >
-                        {trial.statusModule.overallStatus.replace(/_/g, ' ')}
-                      </Badge>
+                      {trial.statusModule?.overallStatus && (
+                        <Badge 
+                          variant={trial.statusModule.overallStatus === 'RECRUITING' ? 'default' : 'secondary'}
+                          className="text-xs rounded-full px-2 py-0.5"
+                        >
+                          {trial.statusModule.overallStatus.replace(/_/g, ' ')}
+                        </Badge>
+                      )}
                       {match.matchScore > 70 && (
                         <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 text-xs rounded-full px-2 py-0.5">
                           {match.matchScore}% match
