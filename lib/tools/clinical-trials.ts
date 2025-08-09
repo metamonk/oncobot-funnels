@@ -263,8 +263,14 @@ function createLocationSummary(trial: ClinicalTrial, targetLocation?: string) {
   return result;
 }
 
+// Type for trials with added scoring information
+interface ScoredClinicalTrial extends ClinicalTrial {
+  matchReason?: string;
+  relevanceScore?: number;
+}
+
 // Create match objects for UI component
-function createMatchObjects(trials: ClinicalTrial[], healthProfile: HealthProfile | null, targetLocation?: string) {
+function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: HealthProfile | null, targetLocation?: string) {
   return trials.map(trial => {
     const locations = trial.protocolSection.contactsLocationsModule?.locations || [];
     
@@ -281,8 +287,8 @@ function createMatchObjects(trials: ClinicalTrial[], healthProfile: HealthProfil
     };
     
     // Add match reasons based on the trial's match reason
-    if ((trial as any).matchReason) {
-      eligibilityAnalysis.inclusionMatches.push((trial as any).matchReason);
+    if (trial.matchReason) {
+      eligibilityAnalysis.inclusionMatches.push(trial.matchReason);
     }
     
     // Add specific matches based on health profile
@@ -809,7 +815,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           // Build match reason based on profile
           let matchReason = 'Potentially relevant based on your profile';
           
-          if ((trial as any).relevanceScore > 100) {
+          if (trial.relevanceScore && trial.relevanceScore > 100) {
             // For high scores, mention specific mutations if present
             const positiveMarkers = healthProfile?.molecularMarkers ? 
               Object.entries(healthProfile.molecularMarkers)
@@ -821,7 +827,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             } else {
               matchReason = 'Highly relevant: Matches your specific cancer profile';
             }
-          } else if ((trial as any).relevanceScore > 50) {
+          } else if (trial.relevanceScore && trial.relevanceScore > 50) {
             matchReason = 'Relevant: Matches your cancer type and profile';
           }
           
@@ -878,7 +884,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
               country: l.country || ''
             })),
             description: trial.protocolSection.descriptionModule?.briefSummary || '',
-            matchReason: (trial as any).matchReason || '',
+            matchReason: trial.matchReason || '',
             hasLocationMatch: location ? trialHasLocation(trial, location) : false
           }))
         });
