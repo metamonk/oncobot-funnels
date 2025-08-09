@@ -16,8 +16,9 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Drawer, DrawerContent } from '@/components/ui/drawer';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -323,6 +324,9 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
       {/* Image Viewer */}
       <ImageViewer open={isOpen} onOpenChange={setIsOpen}>
         <ImageViewerContent className={viewerContentClassName}>
+          <VisuallyHidden>
+            {isMobile ? <DrawerTitle>Image Viewer</DrawerTitle> : <DialogTitle>Image Viewer</DialogTitle>}
+          </VisuallyHidden>
           <div className="relative w-full h-full bg-white dark:bg-neutral-900">
             {/* Header */}
             <div className="absolute top-0 left-0 right-0 z-50 p-4 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-sm border-b border-neutral-200 dark:border-neutral-800">
