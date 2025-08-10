@@ -12,6 +12,7 @@ import { deleteTrailingMessages } from '@/app/actions';
 import { toast } from 'sonner';
 import { EnhancedErrorDisplay } from '@/components/message';
 import { HealthProfilePromptDialog } from '@/components/health-profile/HealthProfilePromptDialog';
+import { HealthProfileQuestionnaireModal } from '@/components/health-profile/HealthProfileQuestionnaireModal';
 
 // Define interface for part, messageIndex and partIndex objects
 interface PartInfo {
@@ -76,6 +77,10 @@ const Messages: React.FC<MessagesProps> = React.memo(
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
     
+    // State for automatic health profile prompt
+    const [showHealthPromptDialog, setShowHealthPromptDialog] = useState(false);
+    const [showHealthProfileModal, setShowHealthProfileModal] = useState(false);
+    
 
     // Scroll to bottom immediately (without animation) when opening existing chat
     useEffect(() => {
@@ -85,6 +90,28 @@ const Messages: React.FC<MessagesProps> = React.memo(
         setHasInitialScrolled(true);
       }
     }, [initialMessages, hasInitialScrolled]);
+
+    // Set up timer for automatic health profile prompt
+    useEffect(() => {
+      if (!user) return;
+
+      // Check if already dismissed recently
+      const lastDismissed = localStorage.getItem('healthProfilePromptLastDismissed');
+      if (lastDismissed) {
+        const dismissedTime = parseInt(lastDismissed, 10);
+        const hoursSinceDismissed = (Date.now() - dismissedTime) / (1000 * 60 * 60);
+        if (hoursSinceDismissed < 24) {
+          return; // Don't show if dismissed within 24 hours
+        }
+      }
+
+      // Set timer to show prompt after 30 seconds
+      const timer = setTimeout(() => {
+        setShowHealthPromptDialog(true);
+      }, 30000); // 30 seconds
+
+      return () => clearTimeout(timer);
+    }, [user]);
 
 
     // Filter messages to only show the ones we want to display
@@ -585,7 +612,31 @@ const Messages: React.FC<MessagesProps> = React.memo(
         <div ref={messagesEndRef} />
         
         {/* Automatic timed health profile prompt dialog */}
-        {user && <HealthProfilePromptDialog />}
+        {user && (
+          <HealthProfilePromptDialog 
+            open={showHealthPromptDialog}
+            onOpenChange={setShowHealthPromptDialog}
+            onStartProfile={() => {
+              setShowHealthPromptDialog(false);
+              setShowHealthProfileModal(true);
+            }}
+            onDismiss={() => {
+              setShowHealthPromptDialog(false);
+              localStorage.setItem('healthProfilePromptLastDismissed', Date.now().toString());
+            }}
+          />
+        )}
+        
+        {/* Health Profile Questionnaire Modal */}
+        <HealthProfileQuestionnaireModal
+          open={showHealthProfileModal}
+          onOpenChange={setShowHealthProfileModal}
+          onComplete={() => {
+            setShowHealthProfileModal(false);
+            toast.success('Health profile completed successfully!');
+            localStorage.removeItem('healthProfilePromptLastDismissed');
+          }}
+        />
       </div>
     );
   },
