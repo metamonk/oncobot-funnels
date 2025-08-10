@@ -837,6 +837,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
   setHasSubmitted,
   isLimitBlocked = false,
 }) => {
+  // Get available models once at the component level
+  const availableModels = getAvailableModels();
+  
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
   const isMounted = useRef(true);
   const isCompositionActive = useRef(false);
@@ -1075,11 +1078,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
         return;
       }
 
-      const currentModelData = models.find((m) => m.value === selectedModel);
+      const currentModelData = availableModels.find((m) => m.value === selectedModel);
       if (pdfFiles.length > 0 && (!currentModelData || !currentModelData.pdf)) {
         console.log('PDFs detected, switching to compatible model');
 
-        const compatibleModel = models.find((m) => m.pdf && m.vision);
+        const compatibleModel = availableModels.find((m) => m.pdf && m.vision);
 
         if (compatibleModel) {
           console.log('Switching to compatible model:', compatibleModel.value);
@@ -1217,8 +1220,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
   }, []);
 
   const getFirstVisionModel = useCallback(() => {
-    return models.find((model) => model.vision)?.value || selectedModel;
-  }, [selectedModel]);
+    return availableModels.find((model) => model.vision)?.value || selectedModel;
+  }, [availableModels, selectedModel]);
 
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
@@ -1287,11 +1290,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
         return;
       }
 
-      const currentModelData = models.find((m) => m.value === selectedModel);
+      const currentModelData = availableModels.find((m) => m.value === selectedModel);
       if (pdfFiles.length > 0 && (!currentModelData || !currentModelData.pdf)) {
         console.log('PDFs detected, switching to compatible model');
 
-        const compatibleModel = models.find((m) => m.pdf && m.vision);
+        const compatibleModel = availableModels.find((m) => m.pdf && m.vision);
 
         if (compatibleModel) {
           console.log('Switching to compatible model:', compatibleModel.value);
@@ -1357,7 +1360,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         let visionModel: string;
 
         if (pdfFiles.length > 0) {
-          const pdfCompatibleModel = models.find((m) => m.vision && m.pdf);
+          const pdfCompatibleModel = availableModels.find((m) => m.vision && m.pdf);
           if (pdfCompatibleModel) {
             visionModel = pdfCompatibleModel.value;
           } else {
@@ -1441,7 +1444,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         if (validFiles.length === 0) return;
       }
 
-      const currentModel = models.find((m) => m.value === selectedModel);
+      const currentModel = availableModels.find((m) => m.value === selectedModel);
       if (!currentModel?.vision) {
         const visionModel = getFirstVisionModel();
         setSelectedModel(visionModel);
