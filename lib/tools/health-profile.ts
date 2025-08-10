@@ -180,6 +180,15 @@ export const healthProfileTool = (dataStream?: DataStreamWriter) =>
               const profileData = await getUserHealthProfile();
               
               if (!profileData || !profileData.profile) {
+                // Send annotation to trigger UI prompt
+                dataStream?.writeMessageAnnotation({
+                  type: 'health_profile_prompt',
+                  data: {
+                    reason: 'no_profile',
+                    message: 'Complete your health profile for personalized clinical trial matches'
+                  }
+                });
+                
                 return {
                   hasProfile: false,
                   message: "No health profile found. Would you like to create one or share your health information?"
@@ -388,6 +397,17 @@ export const healthProfileTool = (dataStream?: DataStreamWriter) =>
           case 'completion_status': {
             // Check if profile is completed
             const isCompleted = await hasCompletedHealthProfile();
+            
+            if (!isCompleted) {
+              // Send annotation to trigger UI prompt for incomplete profile
+              dataStream?.writeMessageAnnotation({
+                type: 'health_profile_prompt',
+                data: {
+                  reason: 'incomplete_profile',
+                  message: 'Complete your health profile for better clinical trial matches'
+                }
+              });
+            }
             
             return {
               success: true,
