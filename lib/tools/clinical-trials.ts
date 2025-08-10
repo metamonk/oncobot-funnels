@@ -479,12 +479,11 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
     
     Just pass the user's query directly!`,
     parameters: z.object({
-      query: z.string().describe('The user\'s natural language query about clinical trials'),
-      chatId: z.string().optional().describe('Chat session ID for context')
+      query: z.string().describe('The user\'s natural language query about clinical trials')
     }),
-    execute: async ({ query, chatId: providedChatId }) => {
-      // Use provided chatId if available, otherwise use the one from closure
-      const effectiveChatId = providedChatId || chatId;
+    execute: async ({ query }) => {
+      // Use chatId from closure
+      const effectiveChatId = chatId;
       // Check if we have a chatId to work with
       if (!effectiveChatId) {
         debug.log(DebugCategory.TOOL, 'No chatId provided - using fallback mode');
@@ -522,9 +521,9 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         }
 
         // Smart batch size determination based on offset
-        const offset = cached.lastOffset || PROGRESSIVE_LOADING.INITIAL_BATCH;
-        const defaultLimit = offset === PROGRESSIVE_LOADING.INITIAL_BATCH 
-          ? PROGRESSIVE_LOADING.STANDARD_BATCH 
+        const offset = cached.lastOffset || 0;
+        const defaultLimit = offset === 0 
+          ? PROGRESSIVE_LOADING.INITIAL_BATCH 
           : Math.min(PROGRESSIVE_LOADING.STANDARD_BATCH, PROGRESSIVE_LOADING.MAX_BATCH);
         const limit = maxResults || defaultLimit;
         const paginatedTrials = cached.trials.slice(offset, offset + limit);
@@ -918,7 +917,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           data: {
             totalFound: uniqueTrials.length,
             locationMatchCount: locationMatchCount,
-            searchLocation: location || null,
+            searchLocation: searchLocation || null,
             trials: uniqueTrials.map(trial => ({
               nctId: trial.protocolSection.identificationModule.nctId,
               title: trial.protocolSection.identificationModule.briefTitle,

@@ -537,11 +537,11 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, responseCo
     );
   };
 
-  const renderHoverCard = (href: string, text: React.ReactNode, isCitation: boolean = false, citationText?: string) => {
+  const renderHoverCard = (href: string, text: React.ReactNode, isCitation: boolean = false, citationText?: string, key?: string) => {
     const title = citationText || (typeof text === 'string' ? text : '');
 
     return (
-      <HoverCard openDelay={10}>
+      <HoverCard openDelay={10} key={key}>
         <HoverCardTrigger asChild>
           <Link
             href={href}
@@ -577,9 +577,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, responseCo
   };
 
   const renderCitation = (index: number, citationText: string, href: string) => {
+    const citationKey = `citation-${index}-${href}`;
     return (
-      <span className="inline-flex items-baseline relative whitespace-normal" key={generateKey()}>
-        {renderHoverCard(href, index + 1, true, citationText)}
+      <span className="inline-flex items-baseline relative whitespace-normal" key={citationKey}>
+        {renderHoverCard(href, index + 1, true, citationText, citationKey)}
       </span>
     );
   };
@@ -601,7 +602,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, responseCo
 
       // Process the text to replace placeholders with LaTeX components
       let processedText = text;
-      const components: any[] = [];
+      const components: React.ReactNode[] = [];
       let lastEnd = 0;
 
       // Collect all matches (both block and inline)
@@ -746,7 +747,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, responseCo
       }
       
       return isValidUrl(href) ? (
-        renderHoverCard(href, text)
+        renderHoverCard(href, text, false, undefined, `link-${href}`)
       ) : (
         <a key={generateKey()} href={href} className="text-primary hover:underline font-medium">
           {text}

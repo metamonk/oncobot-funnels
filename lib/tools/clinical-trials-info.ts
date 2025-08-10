@@ -434,10 +434,9 @@ export const clinicalTrialsInfoTool = (dataStream?: DataStreamWriter) =>
     description: 'ALWAYS use this tool for questions about: how clinical trials work, eligibility requirements, how to qualify, trial phases, costs, safety, rights, or any general/educational questions about clinical trials. DO NOT use the clinical_trials search tool for these informational queries. This provides curated educational content, not trial searches.',
     parameters: z.object({
       query: z.string().describe('The user\'s question about clinical trials'),
-      hasHealthProfile: z.boolean().describe('Whether the user has a completed health profile'),
-      chatId: z.string().optional().describe('Chat session ID for context'),
+      hasHealthProfile: z.boolean().describe('Whether the user has a completed health profile')
     }),
-    execute: async ({ query, hasHealthProfile, chatId }) => {
+    execute: async ({ query, hasHealthProfile }) => {
       try {
         // Detect the information category
         const category = detectInfoCategory(query);

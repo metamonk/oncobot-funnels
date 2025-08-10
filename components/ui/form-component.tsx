@@ -7,12 +7,12 @@ import { toast } from 'sonner';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import {
-  models,
   requiresAuthentication,
   hasVisionSupport,
   hasPdfSupport,
   getAcceptedFileTypes,
 } from '@/ai/providers';
+import { getAvailableModels } from '@/lib/model-config';
 import { X, Check, ChevronsUpDown, Globe, Lock, Mic, Cpu, Upload } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
@@ -34,7 +34,7 @@ interface ModelSwitcherProps {
   attachments: Array<Attachment>;
   messages: Array<Message>;
   status: 'submitted' | 'streaming' | 'ready' | 'error';
-  onModelSelect?: (model: (typeof models)[0]) => void;
+  onModelSelect?: (model: ReturnType<typeof getAvailableModels>[0]) => void;
   user?: UserWithProStatus | null;
 }
 
@@ -50,10 +50,10 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     user,
   }) => {
 
-    const availableModels = useMemo(() => models, []);
+    const availableModels = useMemo(() => getAvailableModels(), []);
 
     const [showSignInDialog, setShowSignInDialog] = useState(false);
-    const [selectedAuthModel, setSelectedAuthModel] = useState<(typeof models)[0] | null>(null);
+    const [selectedAuthModel, setSelectedAuthModel] = useState<ReturnType<typeof getAvailableModels>[0] | null>(null);
     const [open, setOpen] = useState(false);
 
     const hasAttachments = useMemo(
@@ -1877,7 +1877,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            stop();
+                            if (stop && typeof stop === 'function') {
+                              stop();
+                            }
                           }}
                         >
                           <span className="block">

@@ -35,6 +35,7 @@ import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
 // Utility and type imports
 import { ChatSDKError } from '@/lib/errors';
 import { cn, SearchGroupId, invalidateChatsCache } from '@/lib/utils';
+import { validateModelSelection } from '@/lib/model-config';
 
 // State management imports
 import { chatReducer, createInitialState } from '@/components/chat-state';
@@ -64,8 +65,10 @@ const ChatInterface = memo(
     const [query] = useQueryState('query', parseAsString.withDefault(''));
     const [q] = useQueryState('q', parseAsString.withDefault(''));
 
-    // Use localStorage hook directly for model selection with a default
-    const [selectedModel, setSelectedModel] = useLocalStorage('oncobot-selected-model', 'oncobot-default');
+    // Use localStorage hook directly for model selection with validation
+    const [storedModel, setStoredModel] = useLocalStorage('oncobot-selected-model', 'oncobot-default');
+    const selectedModel = validateModelSelection(storedModel);
+    const setSelectedModel = setStoredModel;
     const [selectedGroup, setSelectedGroup] = useValidatedSearchMode('health');
     const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useLocalStorage(
       'oncobot-custom-instructions-enabled',
