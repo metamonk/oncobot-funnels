@@ -1186,7 +1186,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         event.target.value = '';
       }
     },
-    [attachments.length, setAttachments, selectedModel, setSelectedModel, uploadFile],
+    [attachments.length, setAttachments, selectedModel, setSelectedModel, uploadFile, availableModels],
   );
 
   const removeAttachment = useCallback(
@@ -1412,7 +1412,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         }
       }, 100);
     },
-    [attachments.length, setAttachments, uploadFile, selectedModel, setSelectedModel, getFirstVisionModel],
+    [attachments.length, setAttachments, uploadFile, selectedModel, setSelectedModel, getFirstVisionModel, availableModels],
   );
 
   const handlePaste = useCallback(
@@ -1497,7 +1497,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         setUploadQueue([]);
       }
     },
-    [attachments.length, setAttachments, uploadFile, selectedModel, setSelectedModel, getFirstVisionModel],
+    [attachments.length, setAttachments, uploadFile, selectedModel, setSelectedModel, getFirstVisionModel, availableModels],
   );
 
   useEffect(() => {

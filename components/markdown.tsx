@@ -303,7 +303,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, responseCo
         console.error('Failed to copy code:', error);
         toast.error('Failed to copy code');
       }
-    }, [children, language, trackContentCopy, responseContext]);
+    }, [children, language]);
 
     const toggleWrap = useCallback(() => {
       setIsWrapped((prev) => !prev);
@@ -485,7 +485,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, responseCo
         console.error('Failed to copy code:', error);
         toast.error('Failed to copy code');
       }
-    }, [code, trackContentCopy, responseContext]);
+    }, [code]);
 
     return (
       <code

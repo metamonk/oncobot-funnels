@@ -149,9 +149,10 @@ export const healthProfileTool = (dataStream?: DataStreamWriter) =>
       query: z.string().describe('The action to perform (check, get_details, get_summary, create, update, delete, completion_status) and any associated data as a natural language query')
     }),
     execute: async ({ query }) => {
+      let action = 'check'; // Default action, declared outside try block
+      
       try {
         // Parse the query to extract action and data
-        let action = 'check'; // Default action
         let profileData = undefined;
         let includeResponses = false;
         
