@@ -11,7 +11,7 @@ import ToolInvocationListView from '@/components/tool-invocation-list-view';
 import { deleteTrailingMessages } from '@/app/actions';
 import { toast } from 'sonner';
 import { EnhancedErrorDisplay } from '@/components/message';
-import { HealthProfileQuestionnaireModal } from '@/components/health-profile/HealthProfileQuestionnaireModal';
+import { HealthProfilePromptDialog } from '@/components/health-profile/HealthProfilePromptDialog';
 
 // Define interface for part, messageIndex and partIndex objects
 interface PartInfo {
@@ -76,8 +76,6 @@ const Messages: React.FC<MessagesProps> = React.memo(
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
     
-    // State for health profile questionnaire modal
-    const [showHealthProfileModal, setShowHealthProfileModal] = useState(false);
 
     // Scroll to bottom immediately (without animation) when opening existing chat
     useEffect(() => {
@@ -88,24 +86,6 @@ const Messages: React.FC<MessagesProps> = React.memo(
       }
     }, [initialMessages, hasInitialScrolled]);
 
-    // Check for health profile prompt annotations in messages
-    useEffect(() => {
-      // Only check if user is authenticated
-      if (!user) return;
-      
-      // Check the latest message for health profile prompt annotation
-      const latestMessage = messages[messages.length - 1];
-      if (latestMessage?.annotations) {
-        const healthProfilePrompt = latestMessage.annotations.find(
-          (ann: any) => ann.type === 'health_profile_prompt'
-        );
-        
-        if (healthProfilePrompt) {
-          // Open the health profile questionnaire modal
-          setShowHealthProfileModal(true);
-        }
-      }
-    }, [messages, user]);
 
     // Filter messages to only show the ones we want to display
     const memoizedMessages = useMemo(() => {
@@ -604,17 +584,8 @@ const Messages: React.FC<MessagesProps> = React.memo(
 
         <div ref={messagesEndRef} />
         
-        {/* Health Profile Questionnaire Modal */}
-        <HealthProfileQuestionnaireModal
-          open={showHealthProfileModal}
-          onOpenChange={setShowHealthProfileModal}
-          onComplete={() => {
-            setShowHealthProfileModal(false);
-            toast.success('Health profile completed successfully!');
-            // Clear the dismissal timestamp since they've completed their profile
-            localStorage.removeItem('healthProfilePromptLastDismissed');
-          }}
-        />
+        {/* Automatic timed health profile prompt dialog */}
+        {user && <HealthProfilePromptDialog />}
       </div>
     );
   },

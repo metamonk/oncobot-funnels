@@ -36,6 +36,7 @@ import {
   Film,
   FlaskConical,
   Globe,
+  Heart,
   Loader2,
   MapPin,
   Pause,
@@ -119,6 +120,11 @@ const CryptoTickers = lazy(() =>
   import('@/components/crypto-charts').then((module) => ({ default: module.CryptoTickers })),
 );
 const ClinicalTrials = lazy(() => import('@/components/clinical-trials'));
+const HealthProfileToolResult = lazy(() => 
+  import('@/components/tools/health-profile-tool-result').then(mod => ({ 
+    default: mod.HealthProfileToolResult 
+  }))
+);
 
 // Loading component for lazy-loaded components
 const ComponentLoader = () => (
@@ -214,6 +220,166 @@ const SearchLoadingState = ({
     </Card>
   );
 };
+
+// Generic card skeleton for most tool results
+const ToolResultSkeleton = ({ 
+  icon: Icon, 
+  title, 
+  color = 'neutral',
+  showFooter = false,
+  showBadge = false,
+  lines = 3 
+}: { 
+  icon?: LucideIcon; 
+  title?: string; 
+  color?: 'red' | 'blue' | 'violet' | 'amber' | 'green' | 'orange' | 'neutral';
+  showFooter?: boolean;
+  showBadge?: boolean;
+  lines?: number;
+}) => {
+  const colorClasses = {
+    red: 'bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400',
+    blue: 'bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400',
+    violet: 'bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400',
+    amber: 'bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400',
+    green: 'bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400',
+    orange: 'bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400',
+    neutral: 'bg-neutral-50 dark:bg-neutral-950/20 text-neutral-600 dark:text-neutral-400'
+  };
+
+  return (
+    <div className="w-full my-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 animate-pulse">
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex items-start gap-3 mb-3">
+          {Icon && (
+            <div className={cn(
+              "flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center",
+              colorClasses[color]
+            )}>
+              <Icon className="h-5 w-5" />
+            </div>
+          )}
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              {title ? (
+                <h3 className="font-medium text-sm text-neutral-900 dark:text-neutral-100">{title}</h3>
+              ) : (
+                <div className="h-5 w-32 bg-neutral-200 dark:bg-neutral-700 rounded" />
+              )}
+              {showBadge && (
+                <div className="h-5 w-16 bg-neutral-200 dark:bg-neutral-700 rounded-full" />
+              )}
+            </div>
+            <div className="h-4 w-48 bg-neutral-200 dark:bg-neutral-700 rounded mt-1" />
+          </div>
+        </div>
+
+        {/* Content lines */}
+        <div className="space-y-2">
+          {Array.from({ length: lines }).map((_, i) => (
+            <div key={i} className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded" 
+                 style={{ width: `${85 - (i * 10)}%` }} />
+          ))}
+        </div>
+
+        {/* Footer */}
+        {showFooter && (
+          <div className="flex items-center justify-between pt-3 mt-3 border-t border-neutral-100 dark:border-neutral-800">
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-3 bg-neutral-200 dark:bg-neutral-700 rounded" />
+              <div className="h-3 w-24 bg-neutral-200 dark:bg-neutral-700 rounded" />
+            </div>
+            <div className="h-8 w-24 bg-neutral-200 dark:bg-neutral-700 rounded" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Academic papers skeleton
+const AcademicPapersSkeleton = () => (
+  <div className="w-full my-4">
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-950/20 flex items-center justify-center">
+            <Book className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+          </div>
+          <div className="h-5 w-32 bg-neutral-200 dark:bg-neutral-700 rounded animate-pulse" />
+        </div>
+        <div className="h-8 w-20 bg-neutral-200 dark:bg-neutral-700 rounded animate-pulse" />
+      </div>
+      
+      {/* Paper cards */}
+      <div className="flex gap-3 overflow-hidden">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex-shrink-0 w-72 p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 animate-pulse">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-950/20" />
+              <div className="flex-1">
+                <div className="h-4 w-full bg-neutral-200 dark:bg-neutral-700 rounded mb-1" />
+                <div className="h-3 w-20 bg-neutral-200 dark:bg-neutral-700 rounded" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <div className="h-3 w-full bg-neutral-200 dark:bg-neutral-700 rounded" />
+              <div className="h-3 w-4/5 bg-neutral-200 dark:bg-neutral-700 rounded" />
+            </div>
+            <div className="pt-3 mt-3 border-t border-neutral-100 dark:border-neutral-800 space-y-1">
+              <div className="h-3 w-24 bg-neutral-200 dark:bg-neutral-700 rounded" />
+              <div className="h-3 w-20 bg-neutral-200 dark:bg-neutral-700 rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+// Movie/TV skeleton
+const MediaContentSkeleton = () => (
+  <div className="w-full my-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden animate-pulse">
+    <div className="flex flex-col md:flex-row">
+      <div className="w-full md:w-48 h-64 md:h-auto bg-neutral-200 dark:bg-neutral-700" />
+      <div className="flex-1 p-4 space-y-3">
+        <div className="h-6 w-3/4 bg-neutral-200 dark:bg-neutral-700 rounded" />
+        <div className="flex gap-2">
+          <div className="h-5 w-16 bg-neutral-200 dark:bg-neutral-700 rounded-full" />
+          <div className="h-5 w-20 bg-neutral-200 dark:bg-neutral-700 rounded-full" />
+        </div>
+        <div className="space-y-2">
+          <div className="h-3 w-full bg-neutral-200 dark:bg-neutral-700 rounded" />
+          <div className="h-3 w-5/6 bg-neutral-200 dark:bg-neutral-700 rounded" />
+          <div className="h-3 w-4/6 bg-neutral-200 dark:bg-neutral-700 rounded" />
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// YouTube skeleton  
+const YouTubeSkeleton = () => (
+  <div className="w-full my-4">
+    <div className="flex items-center gap-2 mb-3">
+      <YoutubeIcon className="h-5 w-5 text-red-600" />
+      <div className="h-5 w-32 bg-neutral-200 dark:bg-neutral-700 rounded animate-pulse" />
+    </div>
+    <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+      {[1, 2].map((i) => (
+        <div key={i} className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden animate-pulse">
+          <div className="aspect-video bg-neutral-200 dark:bg-neutral-700" />
+          <div className="p-3 space-y-2">
+            <div className="h-4 w-full bg-neutral-200 dark:bg-neutral-700 rounded" />
+            <div className="h-3 w-24 bg-neutral-200 dark:bg-neutral-700 rounded" />
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 // Dedicated nearby search skeleton loading state
 const NearbySearchSkeleton = ({ type }: { type: string }) => {
@@ -663,7 +829,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'find_place_on_map') {
           if (!result) {
-            return <SearchLoadingState icon={MapPin} text="Finding locations..." color="blue" />;
+            return <ToolResultSkeleton icon={MapPin} title="Finding locations..." color="blue" />;
           }
 
           // Handle error responses
@@ -818,7 +984,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'movie_or_tv_search') {
           if (!result) {
-            return <SearchLoadingState icon={Film} text="Discovering entertainment content..." color="violet" />;
+            return <MediaContentSkeleton />;
           }
 
           return <TMDBResult result={result} />;
@@ -826,21 +992,21 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'trending_movies') {
           if (!result) {
-            return <SearchLoadingState icon={Film} text="Loading trending movies..." color="blue" />;
+            return <MediaContentSkeleton />;
           }
           return <TrendingResults result={result} type="movie" />;
         }
 
         if (toolInvocation.toolName === 'trending_tv') {
           if (!result) {
-            return <SearchLoadingState icon={Tv} text="Loading trending TV shows..." color="blue" />;
+            return <MediaContentSkeleton />;
           }
           return <TrendingResults result={result} type="tv" />;
         }
 
         if (toolInvocation.toolName === 'youtube_search') {
           if (!result) {
-            return <SearchLoadingState icon={YoutubeIcon} text="Searching YouTube videos..." color="red" />;
+            return <YouTubeSkeleton />;
           }
 
           const youtubeResult = result as YouTubeSearchResponse;
@@ -920,7 +1086,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'academic_search') {
           if (!result) {
-            return <SearchLoadingState icon={Book} text="Searching academic papers..." color="violet" />;
+            return <AcademicPapersSkeleton />;
           }
 
           return <AcademicPapersCard results={result.results} />;
@@ -1556,14 +1722,14 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'memory_manager') {
           if (!result) {
-            return <SearchLoadingState icon={Brain} text="Managing memories..." color="violet" />;
+            return <ToolResultSkeleton icon={Brain} title="Managing memories..." color="violet" lines={2} />;
           }
           return <MemoryManager result={result} />;
         }
 
         if (toolInvocation.toolName === 'mcp_search') {
           if (!result) {
-            return <SearchLoadingState icon={Server} text="Searching MCP servers..." color="blue" />;
+            return <ToolResultSkeleton icon={Server} title="Searching MCP servers..." color="blue" />;
           }
 
           return (
@@ -1624,7 +1790,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'x_search') {
           if (!result) {
-            return <SearchLoadingState icon={X} text="Searching X (Twitter)..." color="gray" />;
+            return <ToolResultSkeleton icon={X} title="Searching X (Twitter)..." color="neutral" />;
           }
 
           return (
@@ -1636,7 +1802,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'coin_tickers') {
           if (!result) {
-            return <SearchLoadingState icon={DollarSign} text="Fetching crypto ticker data..." color="orange" />;
+            return <ToolResultSkeleton icon={DollarSign} title="Fetching crypto ticker data..." color="orange" />;
           }
 
           return (
@@ -1648,7 +1814,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'coin_chart_range') {
           if (!result) {
-            return <SearchLoadingState icon={TrendingUpIcon} text="Loading crypto price chart..." color="blue" />;
+            return <ToolResultSkeleton icon={TrendingUpIcon} title="Loading crypto price chart..." color="blue" showFooter />;
           }
 
           return (
@@ -1660,7 +1826,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'coin_ohlc') {
           if (!result) {
-            return <SearchLoadingState icon={TrendingUpIcon} text="Loading OHLC candlestick data..." color="green" />;
+            return <ToolResultSkeleton icon={TrendingUpIcon} title="Loading OHLC candlestick data..." color="green" showFooter />;
           }
 
           // Enhanced result with coin data integrated
@@ -1679,7 +1845,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'contract_chart') {
           if (!result) {
-            return <SearchLoadingState icon={TrendingUpIcon} text="Loading contract chart data..." color="violet" />;
+            return <ToolResultSkeleton icon={TrendingUpIcon} title="Loading contract chart data..." color="violet" showFooter />;
           }
 
           return (
@@ -1691,7 +1857,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'coin_data') {
           if (!result) {
-            return <SearchLoadingState icon={DollarSign} text="Fetching comprehensive coin data..." color="blue" />;
+            return <ToolResultSkeleton icon={DollarSign} title="Fetching comprehensive coin data..." color="blue" lines={4} />;
           }
 
           return (
@@ -1703,7 +1869,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'coin_data_by_contract') {
           if (!result) {
-            return <SearchLoadingState icon={DollarSign} text="Fetching token data by contract..." color="violet" />;
+            return <ToolResultSkeleton icon={DollarSign} title="Fetching token data by contract..." color="violet" lines={4} />;
           }
 
           return (
@@ -1715,7 +1881,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'onchain_token_price') {
           if (!result) {
-            return <SearchLoadingState icon={DollarSign} text="Fetching onchain token prices..." color="blue" />;
+            return <ToolResultSkeleton icon={DollarSign} title="Fetching onchain token prices..." color="blue" lines={3} />;
           }
 
           return (
@@ -1727,7 +1893,7 @@ const ToolInvocationListView = memo(
 
         if (toolInvocation.toolName === 'greeting') {
           if (!result) {
-            return <SearchLoadingState icon={User2} text="Preparing greeting..." color="gray" />;
+            return <ToolResultSkeleton icon={User2} title="Preparing greeting..." color="neutral" lines={2} />;
           }
 
           return (
@@ -1755,6 +1921,19 @@ const ToolInvocationListView = memo(
                 </div>
               </div>
             </div>
+          );
+        }
+
+        // Health profile tool rendering
+        if (toolInvocation.toolName === 'health_profile') {
+          if (!result) {
+            return <ToolResultSkeleton icon={Heart} title="Checking health profile..." color="red" showFooter showBadge />;
+          }
+
+          return (
+            <Suspense fallback={<ComponentLoader />}>
+              <HealthProfileToolResult result={result} />
+            </Suspense>
           );
         }
 
