@@ -10,6 +10,8 @@ import { QueryInterpreter } from './clinical-trials/query-interpreter';
 import { RelevanceScorer } from './clinical-trials/relevance-scorer';
 import type { HealthProfile, ClinicalTrial, StudyLocation } from './clinical-trials/types';
 import { formatMarkerName, isPositiveMarker } from '@/lib/utils';
+import { debug, DebugCategory } from './clinical-trials/debug';
+import { handleError, ClinicalTrialsError, ErrorCodes } from './clinical-trials/errors';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -270,22 +272,16 @@ interface ScoredClinicalTrial extends ClinicalTrial {
 
 // Create match objects for UI component
 function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: HealthProfile | null, targetLocation?: string) {
-  console.log('createMatchObjects called with:', {
+  debug.verbose(DebugCategory.TOOL, 'Creating match objects', {
     trialsCount: trials.length,
     hasHealthProfile: !!healthProfile,
-    targetLocation,
-    firstTrial: trials[0] ? {
-      hasProtocolSection: !!trials[0].protocolSection,
-      nctId: trials[0].protocolSection?.identificationModule?.nctId,
-      matchReason: trials[0].matchReason,
-      relevanceScore: trials[0].relevanceScore
-    } : null
+    targetLocation
   });
   
   return trials.map(trial => {
     // Safety check for trial structure
     if (!trial || !trial.protocolSection) {
-      console.error('Invalid trial structure:', trial);
+      debug.error(DebugCategory.TOOL, 'Invalid trial structure', trial);
       return null;
     }
     
@@ -490,7 +486,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
       const effectiveChatId = providedChatId || chatId;
       // Check if we have a chatId to work with
       if (!effectiveChatId) {
-        console.warn('No chatId provided to clinical trials tool - using fallback mode');
+        debug.log(DebugCategory.TOOL, 'No chatId provided - using fallback mode');
       }
 
       // Check if we have cached results
@@ -498,7 +494,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
       
       // Parse the query to understand intent
       const queryIntent = detectQueryIntent(query, hasCachedResults);
-      // console.log('Detected intent:', queryIntent);
+      debug.verbose(DebugCategory.TOOL, 'Detected intent', queryIntent);
 
       // Set default values for options that used to be parameters
       const useProfile = true;  // Always use profile if available
@@ -648,21 +644,21 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             const profileData = await getUserHealthProfile();
             if (profileData) {
               healthProfile = profileData.profile as HealthProfile;
-              console.log('Health profile loaded successfully:', {
+              debug.log(DebugCategory.TOOL, 'Health profile loaded successfully', {
                 hasProfile: !!healthProfile,
                 hasCancerType: !!healthProfile?.cancerType,
                 hasMarkers: !!healthProfile?.molecularMarkers,
                 markerCount: healthProfile?.molecularMarkers ? Object.keys(healthProfile.molecularMarkers).length : 0
               });
             } else {
-              console.warn('No health profile data returned from getUserHealthProfile');
+              debug.log(DebugCategory.TOOL, 'No health profile data returned from getUserHealthProfile');
             }
           } catch (error) {
-            console.error('Failed to load health profile:', error);
-            console.log('Proceeding without health profile - results will be generic');
+            debug.error(DebugCategory.TOOL, 'Failed to load health profile', error);
+            debug.log(DebugCategory.TOOL, 'Proceeding without health profile - results will be generic');
           }
         } else {
-          console.log('Health profile loading disabled by searchParams');
+          debug.verbose(DebugCategory.TOOL, 'Health profile loading disabled by searchParams');
         }
 
         // We'll populate this with actual queries used
@@ -676,12 +672,11 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         
         // FIRST: Interpret the user's query to understand intent
         const interpretation = QueryInterpreter.interpret(userQuery, healthProfile);
-        console.log('Query interpretation:', {
+        debug.log(DebugCategory.QUERY_INTERPRET, 'Query interpretation', {
           userQuery,
           strategy: interpretation.strategy,
           usesProfile: interpretation.usesProfile,
           confidence: interpretation.confidence,
-          reasoning: interpretation.reasoning,
           detectedEntities: interpretation.detectedEntities
         });
         
@@ -705,11 +700,9 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           
           // Process the single trial result
           const trial = lookupResult.studies[0];
-          console.log('NCT ID lookup - trial structure check:', {
+          debug.log(DebugCategory.NCT_LOOKUP, 'Trial structure check', {
             hasProtocolSection: !!trial.protocolSection,
-            hasIdentificationModule: !!trial.protocolSection?.identificationModule,
-            nctId: trial.protocolSection?.identificationModule?.nctId,
-            briefTitle: trial.protocolSection?.identificationModule?.briefTitle
+            nctId: trial.protocolSection?.identificationModule?.nctId
           });
           
           const scoredTrial = {
@@ -723,16 +716,9 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           
           // Create match object for UI
           const matches = createMatchObjects([scoredTrial], healthProfile, detectedLocation);
-          console.log('NCT ID lookup - matches created:', {
+          debug.verbose(DebugCategory.NCT_LOOKUP, 'Matches created', {
             matchesLength: matches.length,
-            firstMatch: matches[0] ? {
-              hasTrial: !!matches[0].trial,
-              trialNctId: matches[0].trial?.protocolSection?.identificationModule?.nctId,
-              matchScore: matches[0].matchScore,
-              hasEligibilityAnalysis: !!matches[0].eligibilityAnalysis,
-              matchingCriteria: matches[0].matchingCriteria
-            } : null,
-            rawMatches: matches
+            firstMatchScore: matches[0]?.matchScore
           });
           
           // Cache the result for potential follow-up queries
@@ -755,12 +741,10 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             directLookup: true
           };
           
-          console.log('NCT ID lookup - final result:', {
+          debug.log(DebugCategory.NCT_LOOKUP, 'Final result', {
             success: result.success,
             matchesLength: result.matches.length,
-            totalCount: result.totalCount,
-            hasSearchCriteria: !!result.searchCriteria,
-            message: result.message
+            totalCount: result.totalCount
           });
           
           return result;
@@ -805,7 +789,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             userQuery
           );
           searchTerm = searchStrategy.queries[0] || userQuery;
-          console.log('Using profile-based search term:', searchTerm);
+          debug.verbose(DebugCategory.QUERY_INTERPRET, 'Using profile-based search term', searchTerm);
         }
         
         // Generate comprehensive queries using our QueryGenerator
@@ -818,7 +802,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         searchQueries = comprehensiveQueries.queries;
         
         // Log critical debugging info
-        console.log('Query generation:', {
+        debug.verbose(DebugCategory.TOOL, 'Query generation', {
           originalQuery: userQuery,
           searchTerm,
           profileUsed: !!healthProfile,
@@ -846,7 +830,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         searchResults.forEach(r => queryResultsMap.set(`${r.field}:${r.query}`, r.totalCount));
         
         // Log search results summary
-        console.log('Search results:', {
+        debug.log(DebugCategory.SEARCH_EXEC, 'Search results', {
           totalUnique: aggregated.uniqueStudies.length,
           totalQueries: aggregated.totalQueries,
           hasKRASTrials: aggregated.uniqueStudies.some(s => 
@@ -863,7 +847,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
 
         // Deduplicate trials
         const uniqueTrials = deduplicateTrials(allTrials);
-        // console.log(`Found ${uniqueTrials.length} unique trials from ${allTrials.length} total`);
+        debug.verbose(DebugCategory.SEARCH_EXEC, `Found ${uniqueTrials.length} unique trials from ${allTrials.length} total`);
 
         if (uniqueTrials.length === 0) {
           return {
@@ -1026,7 +1010,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         };
 
       } catch (error) {
-        console.error('Clinical trials search error:', error);
+        debug.error(DebugCategory.TOOL, 'Clinical trials search error', error);
         
         return {
           success: false,

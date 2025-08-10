@@ -124,21 +124,6 @@ function NCTBadge({ nctId }: { nctId: string }) {
 export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) {
   const { trackExternalView, trackContactView, trackContactInitiated, trackEligibilityCheck, trackTrialSearch } = useAnalytics();
   
-  // Debug logging
-  console.log('ClinicalTrials component rendered:', {
-    action,
-    resultSuccess: result?.success,
-    matchesLength: result?.matches?.length,
-    totalCount: result?.totalCount,
-    hasError: !!result?.error,
-    errorMessage: result?.error,
-    firstMatch: result?.matches?.[0] ? {
-      hasTrial: !!result.matches[0].trial,
-      matchScore: result.matches[0].matchScore,
-      hasEligibilityAnalysis: !!result.matches[0].eligibilityAnalysis
-    } : null
-  });
-  
   // Track search results
   useEffect(() => {
     if (action === 'search' && result.matches && result.matches.length > 0 && result.totalCount) {
@@ -248,13 +233,6 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
     }
 
     // Handle empty results with message and suggestions
-    console.log('Checking matches array:', {
-      matches,
-      matchesLength: matches?.length,
-      isArray: Array.isArray(matches),
-      firstMatch: matches?.[0]
-    });
-    
     if (!matches || matches.length === 0) {
       return (
         <Card className="w-full my-4 border-amber-200 dark:border-amber-800">
