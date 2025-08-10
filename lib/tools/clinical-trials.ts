@@ -454,29 +454,30 @@ function detectQueryIntent(query: string, hasCache: boolean): {
 // Main tool export
 export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: string) => {
   return tool({
-    description: `ONLY use this tool to SEARCH for specific clinical trials. DO NOT use for informational questions about how trials work, eligibility, costs, etc - use clinical_trials_info for those.
+    description: `Use this tool for ANY clinical trial queries - searching, finding, or looking up specific trials by NCT ID.
     
-    SIMPLIFIED USAGE:
-    Just use 'search' action for EVERYTHING search-related:
-    - New searches: "find trials for lung cancer"
-    - Location filters: "show them near Chicago" or "list those in Boston"
-    - More results: "show me more" or "what other trials are there"
-    - Combined queries: "find NSCLC trials near Boston"
+    IMPORTANT: This tool handles:
+    - Looking up specific trials by NCT ID (e.g., "NCT05568550", "what are the locations for NCT12345678")
+    - Searching for trials by condition, location, or criteria
+    - Getting details about specific trials
+    - Finding trial locations and contact information
     
-    The tool intelligently:
-    - Detects if you're asking about previous results ("them", "those", "these")
-    - Extracts locations from natural language
-    - Understands when you want more results
-    - Uses your health profile automatically
-    - Maintains conversation context without complex IDs
+    DO NOT use for general educational questions about how trials work - use clinical_trials_info for those.
+    
+    The tool automatically:
+    - Detects NCT IDs and retrieves full trial details
+    - Searches based on conditions and locations
+    - Uses health profiles when available
+    - Maintains conversation context
     
     EXAMPLES:
-    - "Are there trials for my cancer?" → search with profile
-    - "Show them near Chicago" → filters previous results by Chicago
-    - "Find lung cancer trials in Boston" → new search with location
-    - "Show me more trials" → gets next batch of results
+    - "What are the locations for NCT05568550?" → retrieves specific trial
+    - "Show details for NCT12345678" → gets trial information
+    - "Find trials for lung cancer" → searches by condition
+    - "Show trials near Boston" → searches by location
+    - "Are there trials for my cancer?" → uses health profile
     
-    Just pass the user's natural language query!`,
+    Just pass the user's query directly!`,
     parameters: z.object({
       query: z.string().describe('The user\'s natural language query about clinical trials'),
       chatId: z.string().optional().describe('Chat session ID for context')

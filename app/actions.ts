@@ -985,11 +985,14 @@ const groupInstructions = {
   - "How much do trials cost?"
   - ANY educational or "how/what/why" questions about trials
   
-  **USE clinical_trials tool ONLY for SEARCHING:**
+  **USE clinical_trials tool for SEARCHING or LOOKING UP SPECIFIC TRIALS:**
   - "Find trials for lung cancer"
   - "Show me trials near Chicago"
   - "Are there trials for KRAS G12C?"
+  - "What are the locations for NCT05568550?" (NCT ID lookup)
+  - "Show details for NCT12345678" (specific trial lookup)
   - ANY request to find/search/locate specific trials
+  - ANY mention of NCT ID numbers
   
   - ⚠️ NEVER use clinical_trials for informational questions
   - ⚠️ ALWAYS use clinical_trials_info for educational content
@@ -1050,14 +1053,16 @@ const groupInstructions = {
   - NOT for searching - only for explaining how trials work
   - Pass: { query: "user's question", hasHealthProfile: true/false }
   
-  **clinical_trials tool (for searching ONLY):**
-  - Just ONE action: 'search'
-  - ONLY for finding specific trials, NOT for info
+  **clinical_trials tool (for searching AND looking up specific trials):**
+  - Use for ANY query about specific trials or NCT IDs
   - Examples:
-    • New search: { action: "search", query: "find trials for my cancer" }
-    • Location filter: { action: "search", query: "show them near Chicago" }
-    • More results: { action: "search", query: "show me more" }
+    • NCT ID lookup: { query: "What are the locations for NCT05568550?" }
+    • NCT ID details: { query: "Show me details for NCT12345678" }
+    • New search: { query: "find trials for my cancer" }
+    • Location filter: { query: "show them near Chicago" }
+    • More results: { query: "show me more" }
   - The tool automatically:
+    • Detects NCT IDs and retrieves full trial details
     • Detects if it's a new search or follow-up
     • Extracts locations from natural language
     • Uses the health profile when relevant
