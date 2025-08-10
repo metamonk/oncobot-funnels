@@ -304,7 +304,6 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
           {matches.map((match, index) => {
             // Defensive check for malformed data
             if (!match || !match.trial || !match.trial.protocolSection) {
-              console.error('Invalid trial data structure:', match);
               return null;
             }
             
@@ -313,7 +312,6 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
             
             // Check for required fields
             if (!trial.identificationModule?.nctId) {
-              console.error('Trial missing NCT ID:', trial);
               return null;
             }
             
