@@ -470,48 +470,32 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
     
     Just pass the user's natural language query!`,
     parameters: z.object({
-      action: z.enum(['search']).describe('Always use search - it handles everything intelligently'),
-      query: z.string().describe('The user\'s natural language query - pass it exactly as they said it'),
-      // Flattened schema to avoid OpenAI's strict validation issues with nested optional objects
-      isNewSearch: z.boolean().optional().describe('True if this is a new search, false if referring to previous results'),
-      wantsMore: z.boolean().optional().describe('True if user wants more/additional results'), 
-      location: z.string().optional().describe('Any location mentioned in the query (city, state, or country)'),
-      condition: z.string().optional().describe('Any medical condition or cancer type mentioned'),
-      // Search parameters
-      useProfile: z.boolean().optional().describe('Whether to use the user health profile (default: true)'),
-      maxResults: z.number().optional().describe('Maximum number of results to return (default: 5-10)'),
-      forceNewSearch: z.boolean().optional().describe('Force a new search even if query looks like a filter (default: false)')
+      query: z.string().describe('The user\'s natural language query about clinical trials'),
+      chatId: z.string().optional().describe('Chat session ID for context')
     }),
-    execute: async ({ query, isNewSearch, wantsMore, location, condition, useProfile, maxResults, forceNewSearch }) => {
+    execute: async ({ query, chatId: providedChatId }) => {
+      // Use provided chatId if available, otherwise use the one from closure
+      const effectiveChatId = providedChatId || chatId;
       // Check if we have a chatId to work with
-      if (!chatId) {
+      if (!effectiveChatId) {
         console.warn('No chatId provided to clinical trials tool - using fallback mode');
       }
 
       // Check if we have cached results
-      const hasCachedResults = chatId ? !!getCachedSearchByChat(chatId) : false;
+      const hasCachedResults = effectiveChatId ? !!getCachedSearchByChat(effectiveChatId) : false;
       
-      // Use AI-parsed intent if provided, otherwise fall back to local parsing
-      let queryIntent;
-      if (isNewSearch !== undefined || wantsMore !== undefined || location !== undefined || condition !== undefined) {
-        // Convert AI-parsed parameters to our internal format
-        queryIntent = {
-          intent: wantsMore === true ? 'show_more' : 
-                  location && isNewSearch !== true ? 'filter_location' :
-                  'new_search',
-          location: location,
-          condition: condition
-        };
-        // console.log('Using AI-parsed intent:', queryIntent);
-      } else {
-        // Fall back to local parsing
-        queryIntent = detectQueryIntent(query, hasCachedResults);
-        // console.log('Using locally-detected intent:', queryIntent);
-      }
+      // Parse the query to understand intent
+      const queryIntent = detectQueryIntent(query, hasCachedResults);
+      // console.log('Detected intent:', queryIntent);
 
+      // Set default values for options that used to be parameters
+      const useProfile = true;  // Always use profile if available
+      const maxResults = 10;    // Default to 10 results
+      const forceNewSearch = false;  // Don't force new search by default
+      
       // Handle based on detected intent
       if (queryIntent.intent === 'show_more') {
-        if (!chatId || !hasCachedResults) {
+        if (!effectiveChatId || !hasCachedResults) {
           return {
             success: false,
             error: 'No previous search results',
@@ -519,7 +503,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           };
         }
 
-        const cached = getCachedSearchByChat(chatId);
+        const cached = getCachedSearchByChat(effectiveChatId);
         if (!cached) {
           return {
             success: false,
@@ -553,9 +537,9 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         );
 
         // Update cache with pagination state
-        if (chatId) {
+        if (effectiveChatId) {
           cached.lastOffset = offset + limit;
-          searchCache.set(`chat_${chatId}`, cached);
+          searchCache.set(`chat_${effectiveChatId}`, cached);
         }
         
         return {
@@ -582,7 +566,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         const filterLocation = queryIntent.location;
         
         // Location validation already done above
-        if (!chatId) {
+        if (!effectiveChatId) {
           return {
             success: false,
             error: 'No conversation context available',
@@ -590,7 +574,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           };
         }
 
-        const cached = getCachedSearchByChat(chatId);
+        const cached = getCachedSearchByChat(effectiveChatId);
         if (!cached) {
           return {
             success: false,
@@ -632,8 +616,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
 
       // Handle new search intent (default)
       const userQuery = queryIntent.condition || query || 'clinical trials';
-      const useHealthProfile = useProfile ?? true;
-      const searchMaxResults = Math.min(maxResults || 10, 20); // Default to 10, allow up to 20
+      const useHealthProfile = useProfile;
+      const searchMaxResults = Math.min(maxResults, 20); // Default to 10, allow up to 20
       const searchLocation = queryIntent.location;
 
       try {
@@ -722,8 +706,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           const matches = createMatchObjects([scoredTrial], healthProfile, detectedLocation);
           
           // Cache the result for potential follow-up queries
-          if (chatId) {
-            setCachedSearchForChat(chatId, [trial], healthProfile, [interpretation.detectedEntities.nctId]);
+          if (effectiveChatId) {
+            setCachedSearchForChat(effectiveChatId, [trial], healthProfile, [interpretation.detectedEntities.nctId]);
           }
           
           return {

@@ -146,25 +146,32 @@ export const healthProfileTool = (dataStream?: DataStreamWriter) =>
   tool({
     description: 'Manage user health profiles with multiple actions: check if profile exists, get detailed information, get summary, create, update, or delete profiles.',
     parameters: z.object({
-      action: z.enum(['check', 'get_details', 'get_summary', 'create', 'update', 'delete', 'completion_status'])
-        .describe('Action to perform on the health profile'),
-      profileData: z.object({
-        cancerRegion: z.string().optional(),
-        primarySite: z.string().optional(),
-        cancerType: z.string().optional(),
-        diseaseStage: z.string().optional(),
-        treatmentHistory: z.any().optional(),
-        molecularMarkers: z.any().optional(),
-        performanceStatus: z.string().optional(),
-        complications: z.any().optional(),
-      }).optional()
-        .describe('Profile data for create or update actions'),
-      includeResponses: z.boolean()
-        .default(false)
-        .describe('Whether to include individual question responses in get_details'),
+      query: z.string().describe('The action to perform (check, get_details, get_summary, create, update, delete, completion_status) and any associated data as a natural language query')
     }),
-    execute: async ({ action, profileData, includeResponses }) => {
+    execute: async ({ query }) => {
       try {
+        // Parse the query to extract action and data
+        let action = 'check'; // Default action
+        let profileData = undefined;
+        let includeResponses = false;
+        
+        // Simple action detection from query
+        if (query.includes('check') || query.includes('exist')) {
+          action = 'check';
+        } else if (query.includes('detail')) {
+          action = 'get_details';
+        } else if (query.includes('summary')) {
+          action = 'get_summary';
+        } else if (query.includes('create')) {
+          action = 'create';
+        } else if (query.includes('update')) {
+          action = 'update';
+        } else if (query.includes('delete')) {
+          action = 'delete';
+        } else if (query.includes('completion') || query.includes('status')) {
+          action = 'completion_status';
+        }
+        
         switch (action) {
           case 'check': {
             // Quick check if user has a profile

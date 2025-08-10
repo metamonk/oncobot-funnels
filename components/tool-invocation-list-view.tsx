@@ -1758,6 +1758,11 @@ const ToolInvocationListView = memo(
           );
         }
 
+        // Don't render UI for informational clinical trials tool - let text response display
+        if (toolInvocation.toolName === 'clinical_trials_info') {
+          return null;
+        }
+        
         if (toolInvocation.toolName === 'clinical_trials') {
           if (!result) {
             const ClinicalTrialsLoading = dynamic(() => import('@/components/clinical-trials-loading').then(mod => ({ default: mod.ClinicalTrialsLoadingState })), {

@@ -389,7 +389,7 @@ export async function POST(req: Request) {
             ...(model === 'oncobot-o4-mini' || model === 'oncobot-o3'
               ? {
                   strictSchemas: true,
-                  reasoningSummary: 'detailed',
+                  // reasoningSummary: 'detailed', // Disabled - requires organization verification
                   serviceTier: 'flex',
                 }
               : {}),
