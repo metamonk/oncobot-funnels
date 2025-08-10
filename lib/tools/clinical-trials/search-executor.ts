@@ -299,11 +299,9 @@ export class SearchExecutor {
 
       const data = await response.json();
       
-      // The direct lookup API returns data differently than the search API
-      // It returns { studySection: {...} } instead of { protocolSection: {...} }
-      const study = { 
-        protocolSection: data.studySection || data.protocolSection || data 
-      };
+      // The v2 API returns the study with protocolSection directly
+      // Just use the data as-is since it already has the correct structure
+      const study = data;
       
       // Notify success
       if (dataStream) {
