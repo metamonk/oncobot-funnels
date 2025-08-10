@@ -949,7 +949,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             })),
             description: trial.protocolSection.descriptionModule?.briefSummary || '',
             matchReason: trial.matchReason || '',
-            hasLocationMatch: location ? trialHasLocation(trial, location) : false
+            hasLocationMatch: searchLocation ? trialHasLocation(trial, searchLocation) : false
           }))
         });
 
