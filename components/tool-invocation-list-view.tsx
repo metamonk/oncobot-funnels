@@ -1764,6 +1764,18 @@ const ToolInvocationListView = memo(
         }
         
         if (toolInvocation.toolName === 'clinical_trials') {
+          console.log('ClinicalTrials tool detected:', {
+            hasResult: !!result,
+            resultSuccess: result?.success,
+            matchesLength: result?.matches?.length,
+            matchesIsArray: Array.isArray(result?.matches),
+            firstMatch: result?.matches?.[0],
+            hasArgs: !!args,
+            action: args?.action,
+            argsQuery: args?.query,
+            fullResult: result
+          });
+          
           if (!result) {
             const ClinicalTrialsLoading = dynamic(() => import('@/components/clinical-trials-loading').then(mod => ({ default: mod.ClinicalTrialsLoadingState })), {
               ssr: false,
@@ -1772,9 +1784,17 @@ const ToolInvocationListView = memo(
             return <ClinicalTrialsLoading />;
           }
 
+          // Default action to 'search' if not provided (since we simplified the tool)
+          const action = args?.action || 'search';
+          console.log('Rendering ClinicalTrials component with:', {
+            action,
+            resultMatchesLength: result?.matches?.length,
+            resultSuccess: result?.success
+          });
+
           return (
             <Suspense fallback={<ComponentLoader />}>
-              <ClinicalTrials result={result} action={args.action} />
+              <ClinicalTrials result={result} action={action} />
             </Suspense>
           );
         }

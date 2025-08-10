@@ -270,6 +270,18 @@ interface ScoredClinicalTrial extends ClinicalTrial {
 
 // Create match objects for UI component
 function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: HealthProfile | null, targetLocation?: string) {
+  console.log('createMatchObjects called with:', {
+    trialsCount: trials.length,
+    hasHealthProfile: !!healthProfile,
+    targetLocation,
+    firstTrial: trials[0] ? {
+      hasProtocolSection: !!trials[0].protocolSection,
+      nctId: trials[0].protocolSection?.identificationModule?.nctId,
+      matchReason: trials[0].matchReason,
+      relevanceScore: trials[0].relevanceScore
+    } : null
+  });
+  
   return trials.map(trial => {
     // Safety check for trial structure
     if (!trial || !trial.protocolSection) {
@@ -693,6 +705,13 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           
           // Process the single trial result
           const trial = lookupResult.studies[0];
+          console.log('NCT ID lookup - trial structure check:', {
+            hasProtocolSection: !!trial.protocolSection,
+            hasIdentificationModule: !!trial.protocolSection?.identificationModule,
+            nctId: trial.protocolSection?.identificationModule?.nctId,
+            briefTitle: trial.protocolSection?.identificationModule?.briefTitle
+          });
+          
           const scoredTrial = {
             ...trial,
             matchReason: 'Direct NCT ID lookup',
@@ -704,13 +723,24 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           
           // Create match object for UI
           const matches = createMatchObjects([scoredTrial], healthProfile, detectedLocation);
+          console.log('NCT ID lookup - matches created:', {
+            matchesLength: matches.length,
+            firstMatch: matches[0] ? {
+              hasTrial: !!matches[0].trial,
+              trialNctId: matches[0].trial?.protocolSection?.identificationModule?.nctId,
+              matchScore: matches[0].matchScore,
+              hasEligibilityAnalysis: !!matches[0].eligibilityAnalysis,
+              matchingCriteria: matches[0].matchingCriteria
+            } : null,
+            rawMatches: matches
+          });
           
           // Cache the result for potential follow-up queries
           if (effectiveChatId) {
             setCachedSearchForChat(effectiveChatId, [trial], healthProfile, [interpretation.detectedEntities.nctId]);
           }
           
-          return {
+          const result = {
             success: true,
             matches: matches,
             totalCount: 1,
@@ -724,6 +754,16 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             message: `Found trial ${interpretation.detectedEntities.nctId}: ${trial.protocolSection?.identificationModule?.briefTitle || 'Untitled'}`,
             directLookup: true
           };
+          
+          console.log('NCT ID lookup - final result:', {
+            success: result.success,
+            matchesLength: result.matches.length,
+            totalCount: result.totalCount,
+            hasSearchCriteria: !!result.searchCriteria,
+            message: result.message
+          });
+          
+          return result;
         }
         
         // Check if confidence is too low - indicates need for profile or more info
