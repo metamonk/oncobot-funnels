@@ -166,46 +166,35 @@ function ToggleableCriteria({
   colorClass: string;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const displayCount = 3;
-  const hasMore = criteria.length > displayCount;
   
   if (criteria.length === 0) return null;
   
   return (
     <div className="mb-3">
-      <div className="flex items-center justify-between mb-1">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center justify-between w-full hover:opacity-80 transition-opacity"
+      >
         <p className={`text-xs font-medium ${colorClass}`}>
           {title} ({criteria.length})
         </p>
-        {hasMore && (
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
-          >
-            {isExpanded ? (
-              <>
-                Show less <ChevronUp className="h-3 w-3" />
-              </>
-            ) : (
-              <>
-                Show all <ChevronDown className="h-3 w-3" />
-              </>
-            )}
-          </button>
-        )}
-      </div>
-      <ul className="space-y-1">
-        {(isExpanded ? criteria : criteria.slice(0, displayCount)).map((criterion) => (
-          <li key={criterion.id} className="text-xs text-neutral-600 dark:text-neutral-400">
-            • {criterion.text}
-          </li>
-        ))}
-        {!isExpanded && hasMore && (
-          <li className="text-xs text-neutral-500 dark:text-neutral-500 italic">
-            • ...and {criteria.length - displayCount} more
-          </li>
-        )}
-      </ul>
+        <div className="flex items-center gap-1">
+          {isExpanded ? (
+            <ChevronUp className="h-3 w-3 text-neutral-500" />
+          ) : (
+            <ChevronDown className="h-3 w-3 text-neutral-500" />
+          )}
+        </div>
+      </button>
+      {isExpanded && (
+        <ul className="space-y-1 mt-2">
+          {criteria.map((criterion) => (
+            <li key={criterion.id} className="text-xs text-neutral-600 dark:text-neutral-400">
+              • {criterion.text}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
