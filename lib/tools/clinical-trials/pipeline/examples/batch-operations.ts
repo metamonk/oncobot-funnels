@@ -217,15 +217,69 @@ export async function integrateWithMainTool(
     });
     
     if (result.success) {
-      // Transform to expected format for UI
+      // Transform to expected format for UI with reduced trial data
       return {
         success: true,
-        matches: result.data.map(trial => ({
-          trial,
-          matchScore: 100, // Batch lookups are exact matches
-          eligibilityAnalysis: (trial as any)._eligibilityAnalysis,
-          locationMatches: (trial as any)._locationMatches
-        })),
+        matches: result.data.map(trial => {
+          // Extract only essential data to avoid token limits
+          const reducedTrial = {
+            protocolSection: {
+              identificationModule: {
+                nctId: trial.protocolSection?.identificationModule?.nctId,
+                briefTitle: trial.protocolSection?.identificationModule?.briefTitle,
+                officialTitle: trial.protocolSection?.identificationModule?.officialTitle
+              },
+              statusModule: {
+                overallStatus: trial.protocolSection?.statusModule?.overallStatus || ''
+              },
+              descriptionModule: {
+                briefSummary: trial.protocolSection?.descriptionModule?.briefSummary ? 
+                  trial.protocolSection.descriptionModule.briefSummary.substring(0, 500) + '...' : ''
+              },
+              conditionsModule: {
+                conditions: trial.protocolSection?.conditionsModule?.conditions?.slice(0, 3),
+                keywords: trial.protocolSection?.conditionsModule?.keywords?.slice(0, 3)
+              },
+              designModule: {
+                phases: trial.protocolSection?.designModule?.phases,
+                studyType: trial.protocolSection?.designModule?.studyType
+              },
+              armsInterventionsModule: {
+                interventions: trial.protocolSection?.armsInterventionsModule?.interventions?.slice(0, 2)?.map((intervention: any) => ({
+                  type: intervention.type,
+                  name: intervention.name,
+                  description: intervention.description ? intervention.description.substring(0, 200) + '...' : undefined
+                }))
+              },
+              eligibilityModule: {
+                // For batch operations, only include minimal eligibility info
+                eligibilityCriteria: trial.protocolSection?.eligibilityModule?.eligibilityCriteria ? 'Available' : 'Not specified',
+                sex: trial.protocolSection?.eligibilityModule?.sex,
+                minimumAge: trial.protocolSection?.eligibilityModule?.minimumAge,
+                maximumAge: trial.protocolSection?.eligibilityModule?.maximumAge
+              },
+              contactsLocationsModule: {
+                // Include only first 3 locations to reduce data size
+                locations: trial.protocolSection?.contactsLocationsModule?.locations?.slice(0, 3)?.map((loc: any) => ({
+                  facility: loc.facility,
+                  city: loc.city,
+                  state: loc.state,
+                  country: loc.country,
+                  status: loc.status
+                })),
+                centralContacts: trial.protocolSection?.contactsLocationsModule?.centralContacts?.slice(0, 1),
+                totalLocations: trial.protocolSection?.contactsLocationsModule?.locations?.length || 0
+              }
+            }
+          };
+          
+          return {
+            trial: reducedTrial,
+            matchScore: 100, // Batch lookups are exact matches
+            eligibilityAnalysis: (trial as any)._eligibilityAnalysis,
+            locationMatches: (trial as any)._locationMatches
+          };
+        }),
         totalCount: result.data.length,
         message: `Batch operation completed for ${nctIds.length} trials`,
         pipelineMetadata: result.metadata

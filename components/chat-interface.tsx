@@ -16,7 +16,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 // Internal app imports
 import { suggestQuestions, updateChatVisibility } from '@/app/actions';
-import { hasCompletedHealthProfile } from '@/lib/health-profile-actions';
+import { useHealthProfilePrompt } from '@/hooks/use-health-profile-prompt';
 
 // Component imports
 import { ChatDialogs } from '@/components/chat-dialogs';
@@ -129,7 +129,7 @@ const ChatInterface = memo(
     const signInTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Health profile prompt timer
-    const healthProfileTimerRef = useRef<NodeJS.Timeout | null>(null);
+    // healthProfileTimerRef removed - now handled by useHealthProfilePrompt hook
 
     // Generate a consistent ID for new chats
     const chatId = useMemo(() => initialChatId ?? uuidv4(), [initialChatId]);
@@ -174,55 +174,19 @@ const ChatInterface = memo(
       };
     }, [user, chatState.hasShownSignInPrompt, setPersitedHasShownSignInPrompt]);
 
-    // Timer for health profile prompt for authenticated users
-    useEffect(() => {
-      // Only run for authenticated users
-      if (!user) return;
-
-      const checkAndShowHealthProfilePrompt = async () => {
-        // Check if user has completed their health profile
-        const hasCompleted = await hasCompletedHealthProfile();
-        
-        // If they've completed their profile, never show the prompt
-        if (hasCompleted) {
-          return;
-        }
-
-        // If they haven't completed their profile, check if we should show the prompt
-        // We'll show it if:
-        // 1. They've never seen it before, OR
-        // 2. They dismissed it more than 24 hours ago
-        const lastDismissed = localStorage.getItem('healthProfilePromptLastDismissed');
-        const now = Date.now();
-        const oneDayAgo = now - (24 * 60 * 60 * 1000); // 24 hours in milliseconds
-        
-        const shouldShowPrompt = !chatState.hasShownHealthProfilePrompt || 
-          (lastDismissed && parseInt(lastDismissed) < oneDayAgo);
-
-        if (shouldShowPrompt) {
-          // Clear any existing timer
-          if (healthProfileTimerRef.current) {
-            clearTimeout(healthProfileTimerRef.current);
-          }
-
-          // Set timer for 3 minutes (180000 ms)
-          healthProfileTimerRef.current = setTimeout(() => {
-            dispatch({ type: 'SET_SHOW_HEALTH_PROFILE_PROMPT', payload: true });
-            dispatch({ type: 'SET_HAS_SHOWN_HEALTH_PROFILE_PROMPT', payload: true });
-            setPersitedHasShownHealthProfilePrompt(true);
-          }, 180000);
-        }
-      };
-
-      checkAndShowHealthProfilePrompt();
-
-      // Cleanup timer on unmount or when user logs out
-      return () => {
-        if (healthProfileTimerRef.current) {
-          clearTimeout(healthProfileTimerRef.current);
-        }
-      };
-    }, [user, chatState.hasShownHealthProfilePrompt, setPersitedHasShownHealthProfilePrompt]);
+    // Use the health profile prompt hook for 3-minute timer
+    const { recordDismissal: recordHealthDismissal } = useHealthProfilePrompt(
+      user,
+      { 
+        delayMs: 180000, // 3 minutes
+        checkDismissalCooldown: !chatState.hasShownHealthProfilePrompt // Only check cooldown if not shown in this session
+      },
+      () => {
+        dispatch({ type: 'SET_SHOW_HEALTH_PROFILE_PROMPT', payload: true });
+        dispatch({ type: 'SET_HAS_SHOWN_HEALTH_PROFILE_PROMPT', payload: true });
+        setPersitedHasShownHealthProfilePrompt(true);
+      }
+    );
 
     type VisibilityType = 'public' | 'private';
 

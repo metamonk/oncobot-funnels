@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, AlertCircle, Copy, Share2 } from 'lucide-react';
 import { MarkdownRenderer } from '@/components/markdown';
 import ToolInvocationListView from '@/components/tool-invocation-list-view';
+import { useHealthProfilePrompt } from '@/hooks/use-health-profile-prompt';
 import { deleteTrailingMessages } from '@/app/actions';
 import { toast } from 'sonner';
 import { EnhancedErrorDisplay } from '@/components/message';
@@ -91,27 +92,12 @@ const Messages: React.FC<MessagesProps> = React.memo(
       }
     }, [initialMessages, hasInitialScrolled]);
 
-    // Set up timer for automatic health profile prompt
-    useEffect(() => {
-      if (!user) return;
-
-      // Check if already dismissed recently
-      const lastDismissed = localStorage.getItem('healthProfilePromptLastDismissed');
-      if (lastDismissed) {
-        const dismissedTime = parseInt(lastDismissed, 10);
-        const hoursSinceDismissed = (Date.now() - dismissedTime) / (1000 * 60 * 60);
-        if (hoursSinceDismissed < 24) {
-          return; // Don't show if dismissed within 24 hours
-        }
-      }
-
-      // Set timer to show prompt after 30 seconds
-      const timer = setTimeout(() => {
-        setShowHealthPromptDialog(true);
-      }, 30000); // 30 seconds
-
-      return () => clearTimeout(timer);
-    }, [user]);
+    // Use the health profile prompt hook for 30-second timer
+    const { recordDismissal, clearDismissal } = useHealthProfilePrompt(
+      user,
+      { delayMs: 30000 }, // 30 seconds
+      () => setShowHealthPromptDialog(true)
+    );
 
 
     // Filter messages to only show the ones we want to display

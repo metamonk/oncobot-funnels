@@ -22,6 +22,8 @@ export interface HealthProfile {
   treatments?: string[];
   location?: string;
   previousTrials?: string[];
+  performanceStatus?: string | null;
+  complications?: unknown;
   questionnaireVersion?: number;
 }
 

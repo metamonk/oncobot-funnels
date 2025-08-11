@@ -8,11 +8,13 @@ import { SearchExecutor } from './clinical-trials/search-executor';
 import { LocationMatcher } from './clinical-trials/location-matcher';
 import { QueryInterpreter } from './clinical-trials/query-interpreter';
 import { RelevanceScorer } from './clinical-trials/relevance-scorer';
-import type { HealthProfile, ClinicalTrial, StudyLocation, TrialEligibilityAssessment } from './clinical-trials/types';
+import type { HealthProfile, ClinicalTrial, StudyLocation, TrialEligibilityAssessment, MolecularMarkers } from './clinical-trials/types';
 import { formatMarkerName, isPositiveMarker } from '@/lib/utils';
 import { debug, DebugCategory } from './clinical-trials/debug';
 import { handleError, ClinicalTrialsError, ErrorCodes } from './clinical-trials/errors';
 import { assessEligibility } from './clinical-trials/eligibility-assessment';
+import { pipelineIntegrator } from './clinical-trials/pipeline-integration';
+import { QueryStrategy, queryRouter } from './clinical-trials/query-router';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -614,21 +616,95 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         debug.log(DebugCategory.TOOL, 'No chatId provided - using fallback mode');
       }
 
-      // Check if we have cached results
-      const hasCachedResults = effectiveChatId ? !!getCachedSearchByChat(effectiveChatId) : false;
-      
-      // Parse the query to understand intent
-      const queryIntent = detectQueryIntent(query, hasCachedResults);
-      debug.verbose(DebugCategory.TOOL, 'Detected intent', queryIntent);
+      // Get health profile if available
+      let healthProfile: HealthProfile | null = null;
+      try {
+        const userHealthData = await getUserHealthProfile();
+        if (userHealthData?.profile) {
+          // Convert the database profile to our HealthProfile interface
+          healthProfile = {
+            id: userHealthData.profile.id,
+            createdAt: userHealthData.profile.createdAt,
+            updatedAt: userHealthData.profile.updatedAt,
+            cancerRegion: userHealthData.profile.cancerRegion,
+            primarySite: userHealthData.profile.primarySite,
+            cancerType: userHealthData.profile.cancerType,
+            diseaseStage: userHealthData.profile.diseaseStage,
+            treatmentHistory: userHealthData.profile.treatmentHistory,
+            molecularMarkers: userHealthData.profile.molecularMarkers as MolecularMarkers | undefined,
+            performanceStatus: userHealthData.profile.performanceStatus,
+            complications: userHealthData.profile.complications
+          };
+        }
+        debug.log(DebugCategory.PROFILE, 'Health profile loaded', {
+          hasProfile: !!healthProfile,
+          hasCancerType: !!healthProfile?.cancerType
+        });
+      } catch (error) {
+        debug.log(DebugCategory.PROFILE, 'Failed to load health profile', { error });
+      }
 
-      // Set default values for options that used to be parameters
-      const useProfile = true;  // Always use profile if available
-      const maxResults = 10;    // Default to 10 results
-      const forceNewSearch = false;  // Don't force new search by default
+      // Check if we have cached results
+      const cachedSearch = effectiveChatId ? getCachedSearchByChat(effectiveChatId) : null;
       
-      // Handle based on detected intent
-      if (queryIntent.intent === 'show_more') {
-        if (!effectiveChatId || !hasCachedResults) {
+      // Use the new pipeline integrator for all query processing
+      try {
+        const result = await pipelineIntegrator.execute(query, {
+          chatId: effectiveChatId,
+          healthProfile,
+          cachedTrials: cachedSearch?.trials,
+          dataStream
+        });
+
+        // Handle successful pipeline execution
+        if (result.success) {
+          // Update cache if we have new search results
+          if (result.trials && effectiveChatId && result.metadata?.isNewSearch) {
+            const newCache: CachedSearch = {
+              chatId: effectiveChatId,
+              trials: result.trials,
+              healthProfile,
+              searchQueries: [query],
+              timestamp: Date.now(),
+              lastOffset: result.currentOffset || 0
+            };
+            searchCache.set(`chat_${effectiveChatId}`, newCache);
+          }
+
+          // Stream eligibility criteria if appropriate
+          if (result.metadata?.focusedOnEligibility && result.matches) {
+            streamEligibilityCriteria(
+              result.matches.map(m => m.trial),
+              'eligibility',
+              healthProfile,
+              dataStream
+            );
+          }
+
+          return result;
+        } else {
+          // Pipeline failed, return error
+          return {
+            success: false,
+            error: result.error || 'Query processing failed',
+            message: result.message || 'Unable to process your query. Please try rephrasing.'
+          };
+        }
+      } catch (error) {
+        debug.log(DebugCategory.ERROR, 'Pipeline execution error', { error });
+        
+        // Fallback to legacy processing if pipeline fails catastrophically
+        // This ensures backward compatibility during transition
+        const queryIntent = detectQueryIntent(query, !!cachedSearch);
+        debug.verbose(DebugCategory.TOOL, 'Falling back to legacy processing', queryIntent);
+        
+        // Set default values for legacy code path
+        const maxResults = 10;
+        const useProfile = true;
+      
+        // Handle based on detected intent (legacy code path)
+        if (queryIntent.intent === 'show_more') {
+        if (!effectiveChatId || !cachedSearch) {
           return {
             success: false,
             error: 'No previous search results',
@@ -746,12 +822,13 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           message: `Found ${filteredTrials.length} trials with sites in or near ${filterLocation}. Showing top ${matches.length}.`
         };
       }
+      } // End of else block for non-NCT queries
 
-      // Handle new search intent (default)
-      const userQuery = queryIntent.condition || query || 'clinical trials';
-      const useHealthProfile = useProfile;
-      const searchMaxResults = Math.min(maxResults, 20); // Default to 10, allow up to 20
-      const searchLocation = queryIntent.location;
+      // Handle new search intent (default) - for both NCT and non-NCT queries
+      const userQuery = query || 'clinical trials';
+      const useHealthProfile = true; // Always use health profile if available
+      const searchMaxResults = Math.min(10, 20); // Default to 10, allow up to 20
+      const searchLocation = undefined; // Will be extracted by QueryInterpreter if needed
 
       try {
         dataStream?.writeMessageAnnotation({

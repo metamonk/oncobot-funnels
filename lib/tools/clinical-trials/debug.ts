@@ -53,5 +53,7 @@ export const DebugCategory = {
   CACHE: 'Cache',
   API: 'API',
   TOOL: 'Tool',
-  NCT_LOOKUP: 'NCTLookup'
+  NCT_LOOKUP: 'NCTLookup',
+  PROFILE: 'HealthProfile',
+  ERROR: 'Error'
 } as const;

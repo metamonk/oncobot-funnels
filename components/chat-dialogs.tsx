@@ -5,6 +5,10 @@ import { HealthProfilePromptDialog } from '@/components/health-profile/HealthPro
 import { HealthProfileQuestionnaireModal } from '@/components/health-profile/HealthProfileQuestionnaireModal';
 import { useRouter } from 'next/navigation';
 import { useAnalytics } from '@/hooks/use-analytics';
+import { 
+  recordHealthProfileDismissal, 
+  clearHealthProfileDismissal 
+} from '@/lib/health-profile-prompt-utils';
 
 interface ChatDialogsProps {
   commandDialogOpen: boolean;
@@ -79,7 +83,7 @@ export const ChatDialogs = React.memo(
           }}
           onDismiss={() => {
             // Store the timestamp when user dismisses with "Maybe Later"
-            localStorage.setItem('healthProfilePromptLastDismissed', Date.now().toString());
+            recordHealthProfileDismissal();
             setShowHealthProfilePrompt(false);
             setHasShownHealthProfilePrompt(true);
             // Track that the user skipped the health profile
@@ -94,7 +98,7 @@ export const ChatDialogs = React.memo(
           onComplete={() => {
             setShowQuestionnaireModal(false);
             // Clear the dismissal timestamp since they've completed their profile
-            localStorage.removeItem('healthProfilePromptLastDismissed');
+            clearHealthProfileDismissal();
             // Optionally show a success message or redirect
           }}
         />

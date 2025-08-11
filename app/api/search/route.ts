@@ -542,23 +542,30 @@ export async function POST(req: Request) {
                 throw new Error('No assistant message found!');
               }
 
-              const [, assistantMessage] = appendResponseMessages({
+              const appendedMessages = appendResponseMessages({
                 messages: [messages[messages.length - 1]],
                 responseMessages: event.response.messages,
               });
 
-              await saveMessages({
-                messages: [
-                  {
-                    id: assistantId,
-                    chatId: id,
-                    role: assistantMessage.role,
-                    parts: assistantMessage.parts,
-                    attachments: assistantMessage.experimental_attachments ?? [],
-                    createdAt: new Date(),
-                  },
-                ],
-              });
+              // Check if we have an assistant message
+              const assistantMessage = appendedMessages.find((msg: any) => msg?.role === 'assistant');
+              
+              if (assistantMessage) {
+                await saveMessages({
+                  messages: [
+                    {
+                      id: assistantId,
+                      chatId: id,
+                      role: assistantMessage.role,
+                      parts: assistantMessage.parts,
+                      attachments: assistantMessage.experimental_attachments ?? [],
+                      createdAt: new Date(),
+                    },
+                  ],
+                });
+              } else {
+                console.warn('No assistant message found in response messages');
+              }
             } catch (error) {
               console.error('Failed to save assistant message:', error);
             }
@@ -599,13 +606,35 @@ export async function POST(req: Request) {
   const streamContext = getStreamContext();
 
   if (streamContext) {
-    try {
-      return new Response(await streamContext.resumableStream(streamId, () => stream));
-    } catch (error: any) {
-      console.error('Failed to create resumable stream:', error);
-      // Fall back to regular stream if Redis connection fails
-      return new Response(stream);
+    // Retry logic for resumable stream with exponential backoff
+    let retries = 0;
+    const maxRetries = 2;
+    const baseDelay = 100; // 100ms base delay
+    
+    while (retries < maxRetries) {
+      try {
+        return new Response(await streamContext.resumableStream(streamId, () => stream));
+      } catch (error: any) {
+        retries++;
+        
+        // Check if it's a timeout error and we should retry
+        if (error.message?.includes('timeout') && retries < maxRetries) {
+          const delay = baseDelay * Math.pow(2, retries - 1);
+          console.log(`Resumable stream attempt ${retries} failed, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // Final failure or non-timeout error
+        console.error('Failed to create resumable stream:', error);
+        // Fall back to regular stream if Redis connection fails
+        return new Response(stream);
+      }
     }
+    
+    // If we exhausted retries, fall back to regular stream
+    console.log('Exhausted resumable stream retries, falling back to regular stream');
+    return new Response(stream);
   } else {
     return new Response(stream);
   }

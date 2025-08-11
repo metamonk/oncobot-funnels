@@ -135,10 +135,37 @@ export class NCTFetcher extends BaseOperator<ClinicalTrial, ClinicalTrial> {
   ): Promise<ClinicalTrial[]> {
     // Use filter.ids parameter for batch fetch
     // This is more efficient than individual requests
+    // Request only essential fields to reduce data size
     const params = new URLSearchParams({
       'filter.ids': nctIds.join(','),
       pageSize: '1000',
-      countTotal: 'true'
+      countTotal: 'true',
+      // Request only essential fields to avoid token limits
+      fields: [
+        'NCTId',
+        'BriefTitle', 
+        'OfficialTitle',
+        'OverallStatus',
+        'BriefSummary',
+        'Condition',
+        'Keyword',
+        'Phase',
+        'StudyType',
+        'InterventionType',
+        'InterventionName',
+        'EligibilityCriteria',
+        'Gender',
+        'MinimumAge',
+        'MaximumAge',
+        'LocationFacility',
+        'LocationCity',
+        'LocationState',
+        'LocationCountry',
+        'LocationStatus',
+        'CentralContactName',
+        'CentralContactEmail',
+        'CentralContactPhone'
+      ].join('|')
     });
     
     const response = await fetch(
