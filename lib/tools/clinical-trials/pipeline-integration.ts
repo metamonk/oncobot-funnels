@@ -20,6 +20,7 @@ import { QueryInterpreter } from './query-interpreter';
 import type { ClinicalTrial, HealthProfile, TrialMatch } from './types';
 import type { OperatorContext } from './pipeline/types';
 import { debug, DebugCategory } from './debug';
+import type { DataStreamWriter } from 'ai';
 
 /**
  * Pipeline execution result
@@ -456,7 +457,7 @@ export class PipelineIntegrator {
         ['NCTId,BriefTitle,Condition,LocationCity'],
         {
           maxResults: 25,
-          dataStream: context.dataStream as any
+          dataStream: context.dataStream as DataStreamWriter
         }
       );
       
@@ -505,7 +506,7 @@ export class PipelineIntegrator {
         city: loc.city || '',
         state: loc.state || '',
         country: loc.country || '',
-        status: 'status' in loc ? (loc as any).status : ''
+        status: 'status' in loc ? (loc as { status: string }).status : ''
       })),
       enrollmentCount: trial.protocolSection?.designModule?.enrollmentInfo?.count,
       studyType: trial.protocolSection?.designModule?.studyType,

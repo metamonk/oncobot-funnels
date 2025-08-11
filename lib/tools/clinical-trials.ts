@@ -10,7 +10,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { debug, DebugCategory } from './clinical-trials/debug';
 import { ClinicalTrial, HealthProfile, TrialMatch, CachedSearch, MolecularMarkers, StudyLocation } from './clinical-trials/types';
-import { pipelineIntegrator } from './clinical-trials/pipeline-integration';
+import { smartRouter } from './clinical-trials/smart-router';
 
 // Enhanced chat-based cache for search results
 const searchCache = new Map<string, CachedSearch>();
@@ -196,15 +196,16 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: DataStreamWrite
       getCachedSearchByChat(effectiveChatId) : null;
     
     try {
-      // Use smart search for model-agnostic query processing
-      const result = await pipelineIntegrator.smartSearch(query, {
+      // Use smart router for model-agnostic query processing
+      const result = await smartRouter.route({
+        query,
         chatId: effectiveChatId,
         healthProfile,
         cachedTrials: cachedSearch?.trials,
         dataStream
       });
 
-      // Handle successful pipeline execution
+      // Handle successful routing
       if (result.success) {
         // Always update cache when we have trials (new search or filtered results)
         if (result.trials && effectiveChatId) {

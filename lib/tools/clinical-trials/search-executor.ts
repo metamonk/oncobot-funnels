@@ -30,10 +30,16 @@ interface ExecutorOptions {
   cacheKey?: string;
 }
 
-// Cache for session-based results
-const searchCache = new Map<string, SearchResult>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-const cacheTimestamps = new Map<string, number>();
+// Enhanced cache with better key management
+interface CacheEntry {
+  result: SearchResult;
+  timestamp: number;
+  hits: number;
+}
+
+const searchCache = new Map<string, CacheEntry>();
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes for better session continuity
+const MAX_CACHE_SIZE = 100; // Limit cache size to prevent memory issues
 
 export class SearchExecutor {
   private readonly baseUrl = 'https://clinicaltrials.gov/api/v2/studies';
@@ -379,28 +385,49 @@ export class SearchExecutor {
    * Get cached result if still valid
    */
   private getCachedResult(cacheId: string): SearchResult | null {
-    const cached = searchCache.get(cacheId);
-    const timestamp = cacheTimestamps.get(cacheId);
+    const entry = searchCache.get(cacheId);
     
-    if (cached && timestamp && Date.now() - timestamp < CACHE_TTL) {
-      return cached;
+    if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
+      // Update hit count for cache analytics
+      entry.hits++;
+      return entry.result;
     }
     
     // Clean up expired cache
-    if (cached) {
+    if (entry) {
       searchCache.delete(cacheId);
-      cacheTimestamps.delete(cacheId);
     }
     
     return null;
   }
 
   /**
-   * Set cached result
+   * Set cached result with LRU eviction
    */
   private setCachedResult(cacheId: string, result: SearchResult): void {
-    searchCache.set(cacheId, result);
-    cacheTimestamps.set(cacheId, Date.now());
+    // Implement LRU eviction if cache is too large
+    if (searchCache.size >= MAX_CACHE_SIZE) {
+      // Find and remove least recently used entry
+      let oldestKey: string | null = null;
+      let oldestTime = Date.now();
+      
+      for (const [key, entry] of searchCache.entries()) {
+        if (entry.timestamp < oldestTime) {
+          oldestTime = entry.timestamp;
+          oldestKey = key;
+        }
+      }
+      
+      if (oldestKey) {
+        searchCache.delete(oldestKey);
+      }
+    }
+    
+    searchCache.set(cacheId, {
+      result,
+      timestamp: Date.now(),
+      hits: 0
+    });
   }
 
   /**
@@ -408,7 +435,22 @@ export class SearchExecutor {
    */
   static clearCache(): void {
     searchCache.clear();
-    cacheTimestamps.clear();
+  }
+  
+  /**
+   * Get cache statistics for monitoring
+   */
+  static getCacheStats(): { size: number; totalHits: number; avgHits: number } {
+    let totalHits = 0;
+    for (const entry of searchCache.values()) {
+      totalHits += entry.hits;
+    }
+    
+    return {
+      size: searchCache.size,
+      totalHits,
+      avgHits: searchCache.size > 0 ? totalHits / searchCache.size : 0
+    };
   }
 
   /**

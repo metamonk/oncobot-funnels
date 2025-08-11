@@ -9,7 +9,7 @@ const DEBUG = process.env.DEBUG_CLINICAL_TRIALS === 'true';
 const DEBUG_VERBOSE = process.env.DEBUG_CLINICAL_TRIALS === 'verbose';
 
 export const debug = {
-  log: (category: string, message: string, data?: any) => {
+  log: (category: string, message: string, data?: unknown) => {
     if (!DEBUG && !DEBUG_VERBOSE) return;
     
     const timestamp = new Date().toISOString();
@@ -22,12 +22,12 @@ export const debug = {
     }
   },
   
-  verbose: (category: string, message: string, data?: any) => {
+  verbose: (category: string, message: string, data?: unknown) => {
     if (!DEBUG_VERBOSE) return;
     debug.log(category, `[VERBOSE] ${message}`, data);
   },
   
-  error: (category: string, message: string, error: any) => {
+  error: (category: string, message: string, error: unknown) => {
     // Always log errors
     console.error(`[CT:${category}:ERROR] ${message}`, error);
   },
