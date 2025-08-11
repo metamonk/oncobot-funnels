@@ -27,10 +27,10 @@ import { debug, DebugCategory } from './debug';
 export interface PipelineResult {
   success: boolean;
   trials?: ClinicalTrial[];
-  matches?: any[];
+  matches?: TrialMatch[];
   error?: string;
   message?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   totalCount?: number;
   hasMore?: boolean;
   currentOffset?: number;
@@ -42,7 +42,7 @@ export interface PipelineResult {
 interface PipelineConfig {
   strategy: QueryStrategy;
   createPipeline: (decision: RoutingDecision, context: QueryContext) => TrialPipeline;
-  processResults: (results: any, decision: RoutingDecision) => PipelineResult;
+  processResults: (results: { data: ClinicalTrial[]; success: boolean; error?: string }, decision: RoutingDecision) => PipelineResult;
 }
 
 /**
@@ -177,7 +177,7 @@ export class PipelineIntegrator {
       processResults: (results) => ({
         success: true,
         trials: results.data,
-        matches: this.createMatches(results.data, true),
+        matches: this.createMatches(results.data),
         totalCount: results.data.length,
         metadata: { focusedOnEligibility: true }
       })
@@ -207,7 +207,7 @@ export class PipelineIntegrator {
       chatId?: string;
       healthProfile?: HealthProfile | null;
       cachedTrials?: ClinicalTrial[];
-      dataStream?: any;
+      dataStream?: unknown;
     }
   ): Promise<PipelineResult> {
     // Create query context
@@ -362,7 +362,7 @@ export class PipelineIntegrator {
   /**
    * Create match objects for UI display
    */
-  private createMatches(trials: ClinicalTrial[], includeEligibility = false): TrialMatch[] {
+  private createMatches(trials: ClinicalTrial[]): TrialMatch[] {
     return trials.map(trial => ({
       nctId: trial.protocolSection?.identificationModule?.nctId || '',
       title: trial.protocolSection?.identificationModule?.briefTitle || '',
@@ -389,7 +389,7 @@ export class PipelineIntegrator {
   /**
    * Reduce trial data to essential fields for token efficiency
    */
-  private reduceTrialData(trial: ClinicalTrial): any {
+  private reduceTrialData(trial: ClinicalTrial): ClinicalTrial {
     return {
       protocolSection: {
         identificationModule: {

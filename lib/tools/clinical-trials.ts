@@ -4,11 +4,12 @@
  */
 
 import { createStreamableValue } from 'ai/rsc';
+type DataStreamWriter = ReturnType<typeof createStreamableValue>;
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { debug, DebugCategory } from './clinical-trials/debug';
-import { ClinicalTrial, HealthProfile, TrialMatch, CachedSearch, MolecularMarkers } from './clinical-trials/types';
+import { ClinicalTrial, HealthProfile, TrialMatch, CachedSearch, MolecularMarkers, StudyLocation } from './clinical-trials/types';
 import { pipelineIntegrator } from './clinical-trials/pipeline-integration';
 
 // Simple in-memory cache for search results per chat session
@@ -35,7 +36,7 @@ function getCachedSearchByChat(chatId: string): CachedSearch | null {
 // Helper to create match objects
 function createMatchObjects(
   trials: Array<ClinicalTrial & { matchReason?: string; relevanceScore?: number }>, 
-  healthProfile: HealthProfile | null,
+  _healthProfile: HealthProfile | null, // Kept for potential future use
   filterLocation?: string
 ): TrialMatch[] {
   return trials.map(trial => ({
@@ -43,18 +44,24 @@ function createMatchObjects(
     title: trial.protocolSection?.identificationModule?.briefTitle || '',
     summary: trial.protocolSection?.descriptionModule?.briefSummary || '',
     conditions: trial.protocolSection?.conditionsModule?.conditions || [],
-    interventions: trial.protocolSection?.armsInterventionsModule?.interventions?.map(i => i.name).filter(Boolean) || [],
+    interventions: (trial.protocolSection?.armsInterventionsModule?.interventions?.map(i => i.name).filter((n): n is string => Boolean(n))) || [],
     locations: (trial.protocolSection?.contactsLocationsModule?.locations || []).map(loc => ({
       facility: loc.facility || '',
       city: loc.city || '',
       state: loc.state || '',
       country: loc.country || '',
-      status: (loc as any).status || ''
+      status: 'status' in loc ? (loc as StudyLocation & { status: string }).status : ''
     })),
-    enrollmentCount: (trial.protocolSection?.designModule?.enrollmentInfo as any)?.count,
+    enrollmentCount: trial.protocolSection?.designModule?.enrollmentInfo && 
+      typeof trial.protocolSection.designModule.enrollmentInfo === 'object' && 
+      'count' in trial.protocolSection.designModule.enrollmentInfo ? 
+      (trial.protocolSection.designModule.enrollmentInfo as { count: number }).count : undefined,
     studyType: trial.protocolSection?.designModule?.studyType,
     phases: trial.protocolSection?.designModule?.phases || [],
-    lastUpdateDate: (trial.protocolSection?.statusModule?.lastUpdatePostDateStruct as any)?.date || '',
+    lastUpdateDate: trial.protocolSection?.statusModule?.lastUpdatePostDateStruct && 
+      typeof trial.protocolSection.statusModule.lastUpdatePostDateStruct === 'object' &&
+      'date' in trial.protocolSection.statusModule.lastUpdatePostDateStruct ?
+      (trial.protocolSection.statusModule.lastUpdatePostDateStruct as { date: string }).date : '',
     matchReason: trial.matchReason || 'Matches search criteria',
     relevanceScore: trial.relevanceScore || 85,
     trial: trial,
@@ -67,7 +74,7 @@ function streamEligibilityCriteria(
   trials: ClinicalTrial[],
   messageType: string,
   healthProfile: HealthProfile | null,
-  dataStream?: any
+  dataStream?: DataStreamWriter
 ): void {
   if (!dataStream) return;
 
@@ -91,7 +98,7 @@ function streamEligibilityCriteria(
 }
 
 // Clean, minimal tool export
-export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
+export const clinicalTrialsTool = (chatId?: string, dataStream?: DataStreamWriter) => tool({
   description: `Search and analyze clinical trials. Simply pass the user's natural language query.
   
   The tool automatically:
