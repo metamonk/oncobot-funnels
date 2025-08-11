@@ -10,7 +10,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { debug, DebugCategory } from './clinical-trials/debug';
 import { ClinicalTrial, HealthProfile, TrialMatch, CachedSearch } from './clinical-trials/types';
-import * as pipelineIntegrator from './clinical-trials/pipeline-integration';
+import { pipelineIntegrator } from './clinical-trials/pipeline-integration';
 
 // Simple in-memory cache for search results per chat session
 const searchCache = new Map<string, CachedSearch>();
