@@ -6,6 +6,20 @@ export interface MolecularMarkers {
   [key: string]: 'POSITIVE' | 'NEGATIVE' | 'HIGH' | 'LOW' | string | undefined;
 }
 
+export interface TreatmentHistoryItem {
+  name: string;
+  type?: 'chemotherapy' | 'radiation' | 'surgery' | 'immunotherapy' | 'targeted' | 'other';
+  startDate?: Date | string;
+  endDate?: Date | string;
+  response?: 'complete' | 'partial' | 'stable' | 'progression' | 'unknown';
+}
+
+export interface Complication {
+  name: string;
+  severity?: 'mild' | 'moderate' | 'severe';
+  ongoing?: boolean;
+}
+
 export interface HealthProfile {
   id?: string;
   createdAt?: Date;
@@ -16,15 +30,20 @@ export interface HealthProfile {
   cancer_type?: string; // Alternative format
   diseaseStage?: string | null;
   stage?: string; // Alternative format
-  treatmentHistory?: unknown;
+  treatmentHistory?: string[] | TreatmentHistoryItem[];
   molecularMarkers?: MolecularMarkers;
   mutations?: string[]; // Alternative format
   treatments?: string[];
   location?: string;
   previousTrials?: string[];
   performanceStatus?: string | null;
-  complications?: unknown;
+  complications?: string[] | Complication[];
   questionnaireVersion?: number;
+  // Additional demographic fields for better matching
+  age?: number;
+  sex?: 'MALE' | 'FEMALE' | 'OTHER';
+  race?: string;
+  ethnicity?: string;
 }
 
 export interface StudyLocation {
@@ -45,52 +64,148 @@ export interface ClinicalTrialModule {
   officialTitle?: string;
 }
 
+export interface ClinicalTrialContact {
+  name?: string;
+  role?: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface ClinicalTrialIntervention {
+  type?: string;
+  name?: string;
+  description?: string;
+  armGroupLabels?: string[];
+  otherNames?: string[];
+}
+
 export interface ClinicalTrialProtocol {
   identificationModule: ClinicalTrialModule;
   statusModule?: {
     overallStatus?: string;
-    [key: string]: unknown;
+    startDateStruct?: { date: string; type?: string };
+    completionDateStruct?: { date: string; type?: string };
+    lastUpdatePostDateStruct?: { date: string };
+    studyFirstPostDateStruct?: { date: string };
+    lastUpdateSubmitDate?: string;
+    whyStopped?: string;
   };
   descriptionModule?: {
     briefSummary?: string;
-    [key: string]: unknown;
+    detailedDescription?: string;
   };
   conditionsModule?: {
     conditions?: string[];
     keywords?: string[];
-    [key: string]: unknown;
   };
   designModule?: {
     phases?: string[];
-    [key: string]: unknown;
+    studyType?: string;
+    patientRegistry?: boolean;
+    targetDuration?: string;
+    primaryPurpose?: string;
+    allocation?: string;
+    interventionModel?: string;
+    masking?: string;
+    enrollmentInfo?: {
+      count?: number;
+      type?: string;
+    };
   };
   armsInterventionsModule?: {
-    interventions?: Array<{
-      name?: string;
+    interventions?: ClinicalTrialIntervention[];
+    armGroups?: Array<{
+      label?: string;
+      type?: string;
       description?: string;
-      [key: string]: unknown;
+      interventionNames?: string[];
     }>;
-    [key: string]: unknown;
   };
   eligibilityModule?: {
     eligibilityCriteria?: string;
     sex?: string;
     minimumAge?: string;
     maximumAge?: string;
-    [key: string]: unknown;
+    healthyVolunteers?: boolean;
+    stdAges?: string[];
   };
   contactsLocationsModule?: {
     locations?: StudyLocation[];
-    centralContacts?: unknown[];
-    [key: string]: unknown;
+    centralContacts?: ClinicalTrialContact[];
+    overallOfficials?: Array<{
+      name?: string;
+      affiliation?: string;
+      role?: string;
+    }>;
+  };
+  sponsorCollaboratorsModule?: {
+    responsibleParty?: {
+      type?: string;
+      investigatorFullName?: string;
+      investigatorTitle?: string;
+      investigatorAffiliation?: string;
+    };
+    leadSponsor?: {
+      name?: string;
+      class?: string;
+    };
+    collaborators?: Array<{
+      name?: string;
+      class?: string;
+    }>;
+  };
+  outcomesModule?: {
+    primaryOutcomes?: Array<{
+      measure?: string;
+      description?: string;
+      timeFrame?: string;
+    }>;
+    secondaryOutcomes?: Array<{
+      measure?: string;
+      description?: string;
+      timeFrame?: string;
+    }>;
+  };
+}
+
+export interface ClinicalTrialDerivedSection {
+  miscInfoModule?: {
+    versionHolder?: string;
+    modelPredictions?: Array<{
+      predictionType?: string;
+      confidence?: number;
+    }>;
+  };
+  conditionBrowseModule?: {
+    meshTerms?: Array<{ id: string; term: string }>;
+    ancestors?: Array<{ id: string; term: string }>;
+    browseLeaves?: Array<{
+      id: string;
+      name: string;
+      relevance?: string;
+    }>;
+  };
+  interventionBrowseModule?: {
+    meshTerms?: Array<{ id: string; term: string }>;
+    ancestors?: Array<{ id: string; term: string }>;
+    browseLeaves?: Array<{
+      id: string;
+      name: string;
+      relevance?: string;
+    }>;
   };
 }
 
 export interface ClinicalTrial {
   protocolSection: ClinicalTrialProtocol;
-  derivedSection?: unknown;
+  derivedSection?: ClinicalTrialDerivedSection;
   hasResults?: boolean;
-  [key: string]: unknown;
+  rank?: number;
+  // Extended metadata from search results
+  _score?: number;
+  _eligibilityScore?: number;
+  _matchReason?: string;
+  _locationMatches?: string[];
 }
 
 export interface ScoredTrial extends ClinicalTrial {
@@ -198,6 +313,16 @@ export interface TrialMatch {
   relevanceScore?: number;
   trial: ClinicalTrial;
   filterLocation?: string;
+  // Eligibility scoring enhancements
+  recommendations?: string[];
+  eligibilityBreakdown?: {
+    conditionMatch: number;
+    stageMatch: number;
+    molecularMatch: number;
+    treatmentHistoryMatch: number;
+    demographicMatch: number;
+    performanceStatusMatch: number;
+  };
 }
 
 /**

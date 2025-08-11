@@ -11,6 +11,7 @@ import { LocationFilter } from './pipeline/operators/filters/location-filter';
 import { EligibilityAnalyzer } from './pipeline/operators/analyzers/eligibility-analyzer';
 import { SearchExecutor } from './search-executor';
 import { QueryInterpreter } from './query-interpreter';
+import { EligibilityScorer } from './eligibility-scorer';
 import type { ClinicalTrial, HealthProfile, TrialMatch } from './types';
 import type { OperatorContext } from './pipeline/types';
 import type { DataStreamWriter } from 'ai';
@@ -61,10 +62,12 @@ interface RouterContext {
  */
 export class SmartRouter {
   private searchExecutor: SearchExecutor;
+  private eligibilityScorer: EligibilityScorer;
   private readonly NCT_PATTERN = /\bNCT\d{8}\b/gi;
   
   constructor() {
     this.searchExecutor = new SearchExecutor();
+    this.eligibilityScorer = new EligibilityScorer();
   }
   
   /**
@@ -164,7 +167,7 @@ export class SmartRouter {
         return {
           success: true,
           trials: result.data,
-          matches: this.createMatches(result.data),
+          matches: this.createMatches(result.data, healthProfile),
           totalCount: result.data.length,
           message: nctIds.length === 1 
             ? `Found trial ${nctIds[0]}`
@@ -205,7 +208,7 @@ export class SmartRouter {
     return {
       success: true,
       trials: paginatedTrials,
-      matches: this.createMatches(paginatedTrials),
+      matches: this.createMatches(paginatedTrials, context.healthProfile),
       totalCount: cachedTrials.length,
       currentOffset: offset,
       hasMore: offset + limit < cachedTrials.length,
@@ -235,7 +238,7 @@ export class SmartRouter {
     return {
       success: true,
       trials: filtered,
-      matches: this.createMatches(filtered),
+      matches: this.createMatches(filtered, context.healthProfile),
       totalCount: filtered.length,
       message: `Found ${filtered.length} trials near ${location}`,
       metadata: { filterLocation: location }
@@ -272,7 +275,7 @@ export class SmartRouter {
         return {
           success: true,
           trials: eligibleTrials,
-          matches: this.createMatches(eligibleTrials),
+          matches: this.createMatches(eligibleTrials, healthProfile),
           totalCount: eligibleTrials.length,
           message: `Found ${eligibleTrials.length} trials you may be eligible for`,
           metadata: { focusedOnEligibility: true }
@@ -335,7 +338,7 @@ export class SmartRouter {
       return {
         success: true,
         trials: filtered,
-        matches: this.createMatches(filtered),
+        matches: this.createMatches(filtered, context.healthProfile),
         totalCount: filtered.length,
         message: `Found ${filtered.length} trials near ${location}`
       };
@@ -400,7 +403,7 @@ export class SmartRouter {
           return {
             success: true,
             trials: result.data,
-            matches: this.createMatches(result.data),
+            matches: this.createMatches(result.data, healthProfile),
             totalCount: result.data.length,
             message: `Found ${result.data.length} trials matching your profile`,
             metadata: { focusedOnEligibility: true }
@@ -452,7 +455,7 @@ export class SmartRouter {
       return {
         success: true,
         trials: searchResult.studies,
-        matches: this.createMatches(searchResult.studies),
+        matches: this.createMatches(searchResult.studies, healthProfile),
         totalCount: searchResult.totalCount,
         message: searchResult.message || `Found ${searchResult.studies.length} studies`
       };
@@ -476,36 +479,54 @@ export class SmartRouter {
   }
   
   /**
-   * Create match objects for UI display
+   * Create match objects for UI display with eligibility scoring
    */
-  private createMatches(trials: ClinicalTrial[]): TrialMatch[] {
-    return trials.map(trial => ({
-      nctId: trial.protocolSection?.identificationModule?.nctId || '',
-      title: trial.protocolSection?.identificationModule?.briefTitle || '',
-      summary: trial.protocolSection?.descriptionModule?.briefSummary || '',
-      conditions: trial.protocolSection?.conditionsModule?.conditions || [],
-      interventions: (trial.protocolSection?.armsInterventionsModule?.interventions?.map(i => i.name).filter((n): n is string => Boolean(n))) || [],
-      locations: (trial.protocolSection?.contactsLocationsModule?.locations || []).map(loc => ({
-        facility: loc.facility || '',
-        city: loc.city || '',
-        state: loc.state || '',
-        country: loc.country || '',
-        status: 'status' in loc ? (loc as { status: string }).status : ''
-      })),
-      enrollmentCount: trial.protocolSection?.designModule?.enrollmentInfo && 
-        typeof trial.protocolSection.designModule.enrollmentInfo === 'object' && 
-        'count' in trial.protocolSection.designModule.enrollmentInfo ? 
-        (trial.protocolSection.designModule.enrollmentInfo as { count: number }).count : undefined,
-      studyType: trial.protocolSection?.designModule?.studyType,
-      phases: trial.protocolSection?.designModule?.phases || [],
-      lastUpdateDate: trial.protocolSection?.statusModule?.lastUpdatePostDateStruct && 
-        typeof trial.protocolSection.statusModule.lastUpdatePostDateStruct === 'object' &&
-        'date' in trial.protocolSection.statusModule.lastUpdatePostDateStruct ?
-        (trial.protocolSection.statusModule.lastUpdatePostDateStruct as { date: string }).date : '',
-      matchReason: 'Matches search criteria',
-      relevanceScore: 85,
-      trial: trial
-    }));
+  private createMatches(
+    trials: ClinicalTrial[], 
+    healthProfile?: HealthProfile | null
+  ): TrialMatch[] {
+    return trials.map(trial => {
+      // Calculate eligibility score if health profile is available
+      let eligibilityInfo: { score?: number; confidence?: string; recommendations?: string[] } = {};
+      
+      if (healthProfile) {
+        const eligibilityScore = this.eligibilityScorer.calculateScore(trial, healthProfile);
+        eligibilityInfo = {
+          score: eligibilityScore.totalScore,
+          confidence: eligibilityScore.confidence,
+          recommendations: eligibilityScore.recommendations
+        };
+        
+        // Add score to trial metadata
+        trial._eligibilityScore = eligibilityScore.totalScore;
+      }
+      
+      return {
+        nctId: trial.protocolSection?.identificationModule?.nctId || '',
+        title: trial.protocolSection?.identificationModule?.briefTitle || '',
+        summary: trial.protocolSection?.descriptionModule?.briefSummary || '',
+        conditions: trial.protocolSection?.conditionsModule?.conditions || [],
+        interventions: (trial.protocolSection?.armsInterventionsModule?.interventions?.map(i => i.name).filter((n): n is string => Boolean(n))) || [],
+        locations: (trial.protocolSection?.contactsLocationsModule?.locations || []).map(loc => ({
+          facility: loc.facility || '',
+          city: loc.city || '',
+          state: loc.state || '',
+          country: loc.country || '',
+          status: 'status' in loc ? (loc as { status: string }).status : ''
+        })),
+        enrollmentCount: trial.protocolSection?.designModule?.enrollmentInfo?.count,
+        studyType: trial.protocolSection?.designModule?.studyType,
+        phases: trial.protocolSection?.designModule?.phases,
+        lastUpdateDate: trial.protocolSection?.statusModule?.lastUpdatePostDateStruct?.date || '',
+        matchReason: eligibilityInfo.score 
+          ? `Eligibility score: ${eligibilityInfo.score}% (${eligibilityInfo.confidence} confidence)`
+          : 'Matches search criteria',
+        relevanceScore: eligibilityInfo.score || 85,
+        trial: trial,
+        // Add eligibility recommendations if available
+        ...(eligibilityInfo.recommendations && { recommendations: eligibilityInfo.recommendations })
+      };
+    });
   }
 }
 

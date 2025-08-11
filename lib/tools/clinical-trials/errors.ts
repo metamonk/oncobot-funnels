@@ -7,7 +7,7 @@ export class ClinicalTrialsError extends Error {
     message: string,
     public code: string,
     public statusCode?: number,
-    public details?: any
+    public details?: unknown
   ) {
     super(message);
     this.name = 'ClinicalTrialsError';
