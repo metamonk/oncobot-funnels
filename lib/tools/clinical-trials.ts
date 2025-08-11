@@ -1,1275 +1,205 @@
+/**
+ * Clinical Trials Tool - Clean Version
+ * Simplified implementation without backward compatibility
+ */
+
+import { createStreamableValue } from 'ai/rsc';
+import { MolecularMarkers } from '@/lib/db/schema';
+import { getUserHealthProfile } from '@/lib/health-profile-actions';
 import { tool } from 'ai';
 import { z } from 'zod';
-import { DataStreamWriter } from 'ai';
-import { getUserHealthProfile } from '@/lib/health-profile-actions';
-import { oncobot } from '@/ai/providers';
-import { QueryGenerator } from './clinical-trials/query-generator';
-import { SearchExecutor } from './clinical-trials/search-executor';
-import { LocationMatcher } from './clinical-trials/location-matcher';
-import { QueryInterpreter } from './clinical-trials/query-interpreter';
-import { RelevanceScorer } from './clinical-trials/relevance-scorer';
-import type { HealthProfile, ClinicalTrial, StudyLocation, TrialEligibilityAssessment, MolecularMarkers } from './clinical-trials/types';
-import { formatMarkerName, isPositiveMarker } from '@/lib/utils';
 import { debug, DebugCategory } from './clinical-trials/debug';
-import { handleError, ClinicalTrialsError, ErrorCodes } from './clinical-trials/errors';
-import { assessEligibility } from './clinical-trials/eligibility-assessment';
-import { pipelineIntegrator } from './clinical-trials/pipeline-integration';
-import { QueryStrategy, queryRouter } from './clinical-trials/query-router';
+import { ClinicalTrial, HealthProfile, TrialMatch, CachedSearch } from './clinical-trials/types';
+import * as pipelineIntegrator from './clinical-trials/pipeline-integration';
 
-// ClinicalTrials.gov API configuration
-const BASE_URL = 'https://clinicaltrials.gov/api/v2';
-
-// Search result cache for conversation persistence
-interface CachedSearch {
-  chatId: string;  // Using chatId instead of searchId
-  trials: ClinicalTrial[];
-  healthProfile: HealthProfile | null;
-  searchQueries: string[];
-  timestamp: number;
-  lastOffset?: number;  // Track pagination state
-}
-
-// Simple in-memory cache keyed by chatId (resets on server restart)
+// Simple in-memory cache for search results per chat session
 const searchCache = new Map<string, CachedSearch>();
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
-// Progressive loading configuration
-const PROGRESSIVE_LOADING = {
-  INITIAL_BATCH: 10,     // First batch size (increased from 5)
-  STANDARD_BATCH: 15,    // Subsequent batch sizes (increased from 10)
-  MAX_BATCH: 25,         // Maximum batch size (increased from 20)
-  PREFETCH_THRESHOLD: 2, // Start prefetching when this many items remain
-};
-
-// Only process trials with these statuses
-const VIABLE_STUDY_STATUSES = [
-  'RECRUITING',
-  'ENROLLING_BY_INVITATION', 
-  'ACTIVE_NOT_RECRUITING',
-  'NOT_YET_RECRUITING'
-] as const;
-
-// Helper function to truncate text
-function truncateText(text: string | undefined, maxLength: number): string {
-  if (!text) return '';
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...';
+// Helper to get cached search by chat ID
+function getCachedSearchByChat(chatId: string): CachedSearch | null {
+  const key = `chat_${chatId}`;
+  const cached = searchCache.get(key);
+  
+  if (cached) {
+    // Check if cache is still valid
+    if (Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached;
+    }
+    // Remove expired cache
+    searchCache.delete(key);
+  }
+  
+  return null;
 }
 
-// Helper function to stream eligibility criteria for top trials
-function streamEligibilityCriteria(
-  trials: any[], 
-  eligibilityIntent: 'eligibility' | 'discovery',
+// Helper to create match objects
+function createMatchObjects(
+  trials: Array<ClinicalTrial & { matchReason?: string; relevanceScore?: number }>, 
   healthProfile: HealthProfile | null,
-  dataStream?: DataStreamWriter
+  filterLocation?: string
+): TrialMatch[] {
+  return trials.map(trial => ({
+    nctId: trial.protocolSection.identificationModule.nctId,
+    title: trial.protocolSection.identificationModule.briefTitle,
+    summary: trial.protocolSection.descriptionModule?.briefSummary || '',
+    conditions: trial.protocolSection.conditionsModule?.conditions || [],
+    interventions: trial.protocolSection.armsInterventionsModule?.interventions?.map(i => i.name) || [],
+    locations: trial.protocolSection.contactsLocationsModule?.locations?.map(loc => ({
+      facility: loc.facility || '',
+      city: loc.city || '',
+      state: loc.state || '',
+      country: loc.country || '',
+      status: loc.status || ''
+    })) || [],
+    enrollmentCount: trial.protocolSection.designModule?.enrollmentInfo?.count,
+    studyType: trial.protocolSection.designModule?.studyType,
+    phases: trial.protocolSection.designModule?.phases || [],
+    lastUpdateDate: trial.protocolSection.statusModule?.lastUpdatePostDateStruct?.date || '',
+    matchReason: trial.matchReason || 'Matches search criteria',
+    relevanceScore: trial.relevanceScore || 85,
+    trial: trial,
+    ...(filterLocation && { filterLocation })
+  }));
+}
+
+// Simplified function to stream eligibility criteria
+function streamEligibilityCriteria(
+  trials: ClinicalTrial[],
+  messageType: string,
+  healthProfile: HealthProfile | null,
+  dataStream?: ReturnType<typeof createStreamableValue>
 ): void {
-  if (eligibilityIntent !== 'eligibility' || !dataStream) return;
-  
-  // Stream full criteria for top 3 trials when intent is eligibility-focused
-  const topTrialsForEligibility = trials.slice(0, 3);
-  
-  topTrialsForEligibility.forEach(trial => {
-    const fullCriteria = trial.protocolSection?.eligibilityModule?.eligibilityCriteria;
-    if (fullCriteria) {
-      const extractedRequirements = extractKeyRequirements(fullCriteria);
-      
-      dataStream.writeMessageAnnotation({
-        type: 'full_eligibility_criteria',
-        data: {
-          trialId: trial.protocolSection.identificationModule.nctId,
-          title: trial.protocolSection.identificationModule.briefTitle,
-          fullCriteria: fullCriteria,
-          structuredCriteria: extractedRequirements,
-          analysisHints: {
-            checkAgainst: ['mutations', 'priorTreatments', 'performanceStatus', 'organFunction'],
-            profileMatches: healthProfile ? {
-              hasCancerType: !!healthProfile.cancerType,
-              hasMutations: !!healthProfile.molecularMarkers || !!healthProfile.mutations,
-              hasStage: !!healthProfile.stage,
-              hasPriorTreatments: !!healthProfile.treatments
-            } : null
-          }
-        }
-      });
-    }
-  });
-  
-  // Add an annotation indicating eligibility analysis is available
+  if (!dataStream) return;
+
   dataStream.writeMessageAnnotation({
-    type: 'eligibility_analysis_available',
+    type: 'eligibility_criteria',
     data: {
-      trialsWithFullCriteria: topTrialsForEligibility.length,
-      intent: 'eligibility',
+      eligibilityCriteria: trials.map(trial => ({
+        nctId: trial.protocolSection.identificationModule.nctId,
+        criteria: trial.protocolSection.eligibilityModule?.eligibilityCriteria || 'No criteria available',
+        healthySummary: trial.protocolSection.eligibilityModule?.healthyVolunteers ? 
+          'Accepts healthy volunteers' : 'Does not accept healthy volunteers',
+        sex: trial.protocolSection.eligibilityModule?.sex || 'All',
+        minimumAge: trial.protocolSection.eligibilityModule?.minimumAge || 'N/A',
+        maximumAge: trial.protocolSection.eligibilityModule?.maximumAge || 'N/A'
+      })),
+      hasHealthProfile: !!healthProfile,
+      intent: messageType,
       message: 'Full eligibility criteria available for detailed analysis'
     }
   });
 }
 
-// Detect eligibility-focused intent from query
-function detectEligibilityIntent(query: string): 'eligibility' | 'discovery' {
-  const lower = query.toLowerCase();
+// Clean, minimal tool export
+export const clinicalTrialsTool = (chatId?: string, dataStream?: ReturnType<typeof createStreamableValue>) => tool({
+  description: `Search and analyze clinical trials. Simply pass the user's natural language query.
   
-  // Expanded patterns to catch more eligibility-related queries
-  const eligibilityPatterns = [
-    // Original patterns
-    'am i eligible',
-    'do i qualify',
-    'can i participate',
-    'can i join',
-    'meet the criteria',
-    'meet criteria',
-    'qualify for',
-    'eligible for',
-    'requirements for',
+  The tool automatically:
+  - Detects NCT IDs (e.g., NCT12345678)
+  - Uses health profiles when available
+  - Handles location-based searches
+  - Manages pagination and caching
+  
+  Examples:
+  - "What are the locations for NCT05568550?"
+  - "Find trials for lung cancer"
+  - "Show trials near Boston"
+  - "Are there trials for my cancer?"`,
+  
+  parameters: z.object({
+    query: z.string().describe('The user\'s natural language query about clinical trials')
+  }),
+  
+  execute: async ({ query }) => {
+    const effectiveChatId = chatId;
     
-    // New patterns for broader coverage
-    'what is the criteria',
-    'what are the criteria',
-    'criteria for',
-    'eligibility',
-    'eligible',
-    'inclusion',
-    'exclusion',
-    'who can',
-    'who is eligible',
-    'participant criteria',
-    'patient criteria',
-    'entry criteria',
-    'enrollment criteria',
-    'qualification',
-    'requirements',
-    'prerequisite'
-  ];
-  
-  // Check for standalone keywords that strongly indicate eligibility intent
-  const strongKeywords = ['criteria', 'eligibility', 'eligible', 'qualify', 'inclusion', 'exclusion'];
-  
-  if (eligibilityPatterns.some(pattern => lower.includes(pattern))) {
-    return 'eligibility';
-  }
-  
-  // Also check for strong keywords when asking about specific NCT IDs
-  if (lower.includes('nct') && strongKeywords.some(keyword => lower.includes(keyword))) {
-    return 'eligibility';
-  }
-  
-  return 'discovery';
-}
-
-// Extract key eligibility requirements from full criteria text
-function extractKeyRequirements(criteria: string | undefined): {
-  mutations: string[];
-  mainRequirements: string[];
-  keyExclusions: string[];
-} {
-  if (!criteria) {
-    return {
-      mutations: [],
-      mainRequirements: [],
-      keyExclusions: []
-    };
-  }
-  
-  const mutations: string[] = [];
-  const mainRequirements: string[] = [];
-  const keyExclusions: string[] = [];
-  
-  // Extract mutation mentions
-  const mutationPattern = /\b([A-Z0-9]+)\s*(mutation|alteration|positive|amplification|fusion|deletion)\b/gi;
-  const mutationMatches = criteria.match(mutationPattern) || [];
-  mutations.push(...mutationMatches.slice(0, 3)); // Top 3 mutations
-  
-  // Extract main inclusion criteria (simplified)
-  const inclusionSection = criteria.match(/inclusion criteria:?([\s\S]*?)(?:exclusion|$)/i)?.[1] || criteria;
-  const inclusionLines = inclusionSection.split(/[\n•\-]/).filter(line => line.trim().length > 10);
-  mainRequirements.push(...inclusionLines.slice(0, 5).map(line => line.trim().substring(0, 100)));
-  
-  // Extract key exclusions
-  const exclusionSection = criteria.match(/exclusion criteria:?([\s\S]*?)(?:inclusion|$)/i)?.[1] || '';
-  const exclusionLines = exclusionSection.split(/[\n•\-]/).filter(line => line.trim().length > 10);
-  keyExclusions.push(...exclusionLines.slice(0, 3).map(line => line.trim().substring(0, 100)));
-  
-  return {
-    mutations,
-    mainRequirements,
-    keyExclusions
-  };
-}
-
-// Cache management functions - now using chatId
-function getCachedSearchByChat(chatId: string): CachedSearch | null {
-  const cacheKey = `chat_${chatId}`;
-  const cached = searchCache.get(cacheKey);
-  if (!cached) return null;
-  
-  // Check if cache is expired
-  if (Date.now() - cached.timestamp > CACHE_TTL) {
-    searchCache.delete(cacheKey);
-    return null;
-  }
-  
-  return cached;
-}
-
-function setCachedSearchForChat(chatId: string, trials: ClinicalTrial[], healthProfile: HealthProfile | null, searchQueries: string[]): void {
-  const cacheKey = `chat_${chatId}`;
-  searchCache.set(cacheKey, {
-    chatId,
-    trials,
-    healthProfile,
-    searchQueries,
-    timestamp: Date.now()
-  });
-  
-  // Clean up old entries
-  for (const [key, cached] of searchCache.entries()) {
-    if (Date.now() - cached.timestamp > CACHE_TTL) {
-      searchCache.delete(key);
-    }
-  }
-}
-
-
-// Build safety net queries based on health profile
-function buildSafetyQueries(healthProfile: HealthProfile | null, userQuery: string): string[] {
-  const safetyQueries = new Set<string>();
-  
-  // Always include the user's original query as a fallback
-  if (userQuery && userQuery !== 'clinical trials') {
-    safetyQueries.add(userQuery);
-  }
-  
-  // Add cancer type queries
-  if (healthProfile?.cancerType) {
-    // Broad cancer type query
-    safetyQueries.add(healthProfile.cancerType);
-    
-    // Common variations
-    if (healthProfile.cancerType.toLowerCase().includes('lung')) {
-      safetyQueries.add('NSCLC'); // Common abbreviation
-      safetyQueries.add('lung cancer');
-    }
-  }
-  
-  // Add molecular marker queries (but keep them simple)
-  if (healthProfile?.molecularMarkers) {
-    // Add queries for any positive markers
-    Object.entries(healthProfile.molecularMarkers).forEach(([marker, value]) => {
-      if (isPositiveMarker(value)) {
-        // Convert marker format (e.g., KRAS_G12C -> KRAS G12C)
-        const markerName = formatMarkerName(marker);
-        safetyQueries.add(markerName);
-      }
-    });
-    
-    // Other common markers
-    if (healthProfile.molecularMarkers.EGFR === 'POSITIVE') {
-      safetyQueries.add('EGFR');
-    }
-    if (healthProfile.molecularMarkers.ALK === 'POSITIVE') {
-      safetyQueries.add('ALK');
-    }
-    if (isPositiveMarker(healthProfile.molecularMarkers.PDL1)) {
-      safetyQueries.add('PD-L1');
-    }
-  }
-  
-  // Add stage-based queries if applicable
-  if (healthProfile?.stage) {
-    if (healthProfile.stage.includes('IV') || healthProfile.stage.toLowerCase().includes('metastatic')) {
-      safetyQueries.add('metastatic');
-      if (healthProfile.cancerType) {
-        safetyQueries.add(`metastatic ${healthProfile.cancerType}`);
-      }
-    }
-    if (healthProfile.stage.toLowerCase().includes('advanced')) {
-      safetyQueries.add('advanced');
-    }
-  }
-  
-  return Array.from(safetyQueries);
-}
-
-// DEPRECATED: AI query generation removed - we now use QueryGenerator.generateComprehensiveQueries
-// which provides better coverage and doesn't require AI calls
-
-// Deduplicate trials by NCT ID
-function deduplicateTrials(allTrials: ClinicalTrial[]): ClinicalTrial[] {
-  const seen = new Set<string>();
-  return allTrials.filter(trial => {
-    const nctId = trial.protocolSection.identificationModule.nctId;
-    if (seen.has(nctId)) return false;
-    seen.add(nctId);
-    return true;
-  });
-}
-
-// DEPRECATED: AI ranking removed for performance and accuracy
-// We now return trials directly from our comprehensive search system
-// which already provides relevant results based on the health profile
-
-// Helper function to check if a trial has a location in a specific city/area
-// Delegates to LocationMatcher for comprehensive metro area matching
-function trialHasLocation(trial: ClinicalTrial, targetLocation: string): boolean {
-  return LocationMatcher.matchesLocation(trial, targetLocation);
-}
-
-// Create comprehensive location summary without truncation
-function createLocationSummary(trial: ClinicalTrial, targetLocation?: string) {
-  const locations = trial.protocolSection.contactsLocationsModule?.locations || [];
-  
-  if (locations.length === 0) {
-    return {
-      summary: 'Locations not specified',
-      totalSites: 0,
-      hasTargetLocation: false,
-      targetSites: [],
-      primarySites: [],
-      allStates: []
-    };
-  }
-  
-  // Format a location for display
-  const formatLocation = (loc: StudyLocation) => {
-    const parts = [];
-    if (loc.city) parts.push(loc.city);
-    if (loc.state) parts.push(loc.state);
-    else if (loc.country && loc.country !== 'United States') parts.push(loc.country);
-    return parts.join(', ') || 'Location incomplete';
-  };
-  
-  // Get unique states/countries
-  const uniqueStates = new Set<string>();
-  locations.forEach((loc: StudyLocation) => {
-    if (loc.state) uniqueStates.add(loc.state);
-    else if (loc.country) uniqueStates.add(loc.country);
-  });
-  
-  const result: {
-    totalSites: number;
-    allStates: string[];
-    hasTargetLocation: boolean;
-    targetSites: string[];
-    primarySites: string[];
-    summary?: string;
-  } = {
-    totalSites: locations.length,
-    allStates: Array.from(uniqueStates),
-    hasTargetLocation: false,
-    targetSites: [],
-    primarySites: locations.slice(0, 3).map(formatLocation)
-  };
-  
-  // If we have a target location, find matching sites using LocationMatcher
-  if (targetLocation) {
-    // Create a temporary trial object with just the locations to check each site
-    const matchingSites = locations.filter((loc: StudyLocation) => {
-      const tempTrial = {
-        protocolSection: {
-          contactsLocationsModule: {
-            locations: [loc]
-          }
-        }
-      };
-      // Use LocationMatcher for consistent metro area matching
-      return LocationMatcher.matchesLocation(tempTrial, targetLocation);
-    });
-    
-    result.hasTargetLocation = matchingSites.length > 0;
-    result.targetSites = matchingSites.map(formatLocation);
-    
-    // Build a comprehensive summary
-    if (result.hasTargetLocation) {
-      result.summary = `${matchingSites.length} site${matchingSites.length > 1 ? 's' : ''} in ${targetLocation}`;
-      if (locations.length > matchingSites.length) {
-        result.summary += ` (${locations.length} total sites)`;
-      }
-    } else {
-      // Show closest alternatives
-      const firstFewSites = locations.slice(0, 3).map(formatLocation);
-      result.summary = `No ${targetLocation} sites. Available in: ${firstFewSites.join('; ')}`;
-      if (locations.length > 3) {
-        result.summary += ` and ${locations.length - 3} other locations`;
-      }
-    }
-  } else {
-    // No target location - show overview
-    if (locations.length === 1) {
-      result.summary = formatLocation(locations[0]);
-    } else if (locations.length <= 3) {
-      result.summary = locations.map(formatLocation).join('; ');
-    } else {
-      const firstThree = locations.slice(0, 3).map(formatLocation);
-      result.summary = `${firstThree.join('; ')} and ${locations.length - 3} more locations`;
-    }
-  }
-  
-  return result;
-}
-
-// Type for trials with added scoring information
-interface ScoredClinicalTrial extends ClinicalTrial {
-  matchReason?: string;
-  relevanceScore?: number;
-  searchStrategy?: 'profile' | 'entity' | 'literal' | 'nct';
-  matchedTerms?: string[];
-}
-
-// Create match objects for UI component
-function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: HealthProfile | null, targetLocation?: string, eligibilityIntent?: 'eligibility' | 'discovery', searchStrategy?: string) {
-  debug.verbose(DebugCategory.TOOL, 'Creating match objects', {
-    trialsCount: trials.length,
-    hasHealthProfile: !!healthProfile,
-    targetLocation,
-    eligibilityIntent,
-    searchStrategy
-  });
-  
-  return trials.map((trial, index) => {
-    // Safety check for trial structure
-    if (!trial || !trial.protocolSection) {
-      debug.error(DebugCategory.TOOL, 'Invalid trial structure', trial);
-      return null;
-    }
-    
-    const locations = trial.protocolSection.contactsLocationsModule?.locations || [];
-    
-    // Use the new comprehensive location summary
-    const locationInfo = createLocationSummary(trial, targetLocation);
-    const locationSummary = locationInfo.summary;
-    
-    // Create three-layer assessment
-    const searchContext = {
-      userQuery: '', // This should be passed from the search
-      searchStrategy: trial.searchStrategy || searchStrategy as any || 'literal',
-      matchedTerms: trial.matchedTerms || [],
-      relevanceScore: trial.relevanceScore || 0.5,
-    };
-    
-    const eligibilityAssessment = assessEligibility(trial, healthProfile, searchContext);
-    
-    // Create a reduced trial object with only essential fields for UI
-    const reducedTrial = {
-      protocolSection: {
-        identificationModule: {
-          nctId: trial.protocolSection.identificationModule.nctId,
-          briefTitle: trial.protocolSection.identificationModule.briefTitle,
-          officialTitle: trial.protocolSection.identificationModule.officialTitle
-        },
-        statusModule: {
-          overallStatus: trial.protocolSection.statusModule?.overallStatus || ''
-        },
-        descriptionModule: {
-          briefSummary: truncateText(trial.protocolSection.descriptionModule?.briefSummary, 500)
-        },
-        conditionsModule: {
-          conditions: trial.protocolSection.conditionsModule?.conditions?.slice(0, 3),
-          keywords: trial.protocolSection.conditionsModule?.keywords?.slice(0, 3)
-        },
-        designModule: {
-          phases: trial.protocolSection.designModule?.phases,
-          studyType: trial.protocolSection.designModule?.studyType
-        },
-        armsInterventionsModule: {
-          interventions: trial.protocolSection.armsInterventionsModule?.interventions?.slice(0, 2)
-        },
-        eligibilityModule: {
-          // Include structured eligibility data based on intent
-          ...(eligibilityIntent === 'eligibility' && index < 3 ? {
-            // For eligibility-focused queries on top 3 trials, include structured summary
-            eligibilityCriteria: trial.protocolSection.eligibilityModule?.eligibilityCriteria ? 
-              truncateText(trial.protocolSection.eligibilityModule.eligibilityCriteria, 200) + '...' : 
-              'Not specified',
-            eligibilitySummary: extractKeyRequirements(trial.protocolSection.eligibilityModule?.eligibilityCriteria)
-          } : {
-            // For other queries, just indicate availability
-            eligibilityCriteria: trial.protocolSection.eligibilityModule?.eligibilityCriteria ? 'Available' : 'Not specified'
-          }),
-          sex: trial.protocolSection.eligibilityModule?.sex,
-          minimumAge: trial.protocolSection.eligibilityModule?.minimumAge,
-          maximumAge: trial.protocolSection.eligibilityModule?.maximumAge
-        },
-        contactsLocationsModule: {
-          // Include slightly more locations to avoid missing key sites
-          locations: locations.slice(0, 5), // Increased from 3 to 5
-          centralContacts: trial.protocolSection.contactsLocationsModule?.centralContacts?.slice(0, 2),
-          // Add location metadata
-          totalLocations: locations.length,
-          hasTargetLocation: locationInfo.hasTargetLocation
-        }
-      }
-    };
-    
-    return {
-      trial: reducedTrial, // Reduced trial object for UI
-      matchScore: trial.relevanceScore || 75, // Use AI score or default
-      eligibilityAssessment, // New three-layer assessment
-      locationSummary,
-      // Add additional location details for UI
-      locationDetails: {
-        totalSites: locationInfo.totalSites,
-        hasTargetLocation: locationInfo.hasTargetLocation,
-        targetSites: locationInfo.targetSites,
-        allStates: locationInfo.allStates
-      }
-    };
-  }).filter(match => match !== null); // Filter out any null results from invalid trials
-}
-
-// Helper function to detect query intent
-function detectQueryIntent(query: string, hasCache: boolean): { 
-  intent: 'new_search' | 'filter_location' | 'show_more' | 'filter_other';
-  location?: string;
-  condition?: string;
-} {
-  const lowerQuery = query.toLowerCase();
-  
-  // Check for pagination keywords
-  if (hasCache && (
-    lowerQuery.includes('more') || 
-    lowerQuery.includes('next') || 
-    lowerQuery.includes('additional') ||
-    lowerQuery.includes('other')
-  )) {
-    return { intent: 'show_more' };
-  }
-  
-  // Check for location filtering with context words
-  const locationPatterns = [
-    /(?:near|in|around|close to|proximity to|based on proximity to)\s+([A-Z][a-zA-Z\s]+)/i,
-    /(?:filter.*|list.*|show.*)\s+(?:by|for|in|near)\s+([A-Z][a-zA-Z\s]+)/i,
-    /([A-Z][a-zA-Z\s]+)\s+(?:area|region|location)/i
-  ];
-  
-  for (const pattern of locationPatterns) {
-    const match = query.match(pattern);
-    if (match && hasCache) {
-      return { 
-        intent: 'filter_location',
-        location: match[1].trim()
-      };
-    }
-  }
-  
-  // Check if this is a follow-up filter (has words like "them", "those", "these")
-  if (hasCache && (
-    lowerQuery.includes('them') || 
-    lowerQuery.includes('those') || 
-    lowerQuery.includes('these') ||
-    lowerQuery.includes('the trials') ||
-    lowerQuery.includes('the results')
-  )) {
-    // Look for location in the same query
-    const simpleLocationMatch = query.match(/(?:Chicago|Boston|New York|Los Angeles|Houston|Philadelphia|Phoenix|San Antonio|San Diego|Dallas|Austin|Jacksonville|Fort Worth|Columbus|San Francisco|Charlotte|Indianapolis|Seattle|Denver|Washington|Nashville|Oklahoma City|El Paso|Detroit|Portland|Las Vegas|Memphis|Louisville|Baltimore|Milwaukee|Albuquerque|Tucson|Fresno|Mesa|Sacramento|Atlanta|Kansas City|Colorado Springs|Miami|Raleigh|Omaha|Long Beach|Virginia Beach|Oakland|Minneapolis|Tulsa|Arlington|Tampa|New Orleans|Wichita|Cleveland|Bakersfield|Aurora|Anaheim|Honolulu|Santa Ana|Riverside|Corpus Christi|Lexington|Henderson|Stockton|Saint Paul|Cincinnati|St\. Louis|Pittsburgh|Greensboro|Lincoln|Anchorage|Plano|Orlando|Irvine|Newark|Durham|Chula Vista|Toledo|Fort Wayne|St\. Petersburg|Laredo|Jersey City|Chandler|Madison|Lubbock|Scottsdale|Reno|Buffalo|Gilbert|Glendale|North Las Vegas|Winston-Salem|Chesapeake|Norfolk|Fremont|Garland|Irving|Hialeah|Richmond|Boise|Spokane|Baton Rouge|Tacoma|San Bernardino|Modesto|Fontana|Des Moines|Moreno Valley|Santa Clarita|Fayetteville|Birmingham|Oxnard|Rochester|Port St\. Lucie|Grand Rapids|Huntsville|Salt Lake City|Frisco|Yonkers|Amarillo|Glendale|Huntington Beach|McKinney|Montgomery|Augusta|Aurora|Akron|Little Rock|Tempe|Columbus|Overland Park|Grand Prairie|Tallahassee|Cape Coral|Mobile|Knoxville|Shreveport|Worcester|Ontario|Vancouver|Sioux Falls|Chattanooga|Brownsville|Fort Lauderdale|Providence|Newport News|Rancho Cucamonga|Santa Rosa|Peoria|Oceanside|Elk Grove|Salem|Pembroke Pines|Eugene|Garden Grove|Cary|Fort Collins|Corona|Springfield|Jackson|Alexandria|Hayward|Clarksville|Lakewood|Lancaster|Salinas|Palmdale|Hollywood|Springfield|Macon|Kansas City|Sunnyvale|Pomona|Killeen|Escondido|Pasadena|Naperville|Bellevue|Joliet|Murfreesboro|Midland|Rockford|Paterson|Savannah|Bridgeport|Torrance|McAllen|Syracuse|Surprise|Denton|Roseville|Thornton|Miramar|Pasadena|Mesquite|Olathe|Dayton|Carrollton|Waco|Orange|Fullerton|Charleston|West Valley City|Visalia|Hampton|Gainesville|Warren|Coral Springs|Cedar Rapids|Round Rock|Sterling Heights|Kent|Columbia|Santa Clara|New Haven|Stamford|Concord|Elizabeth|Athens|Thousand Oaks|Simi Valley|Topeka|Norman|Fargo|Wilmington|Abilene|Odessa|Columbia|Pearland|Victorville|Hartford|Vallejo|Allentown|Berkeley|Richardson|Arvada|Ann Arbor|Rochester|Cambridge|Sugar Land|Lansing|Evansville|College Station|Fairfield|Clearwater|Beaumont|Independence|Provo|West Jordan|Murrieta|Palm Bay|El Monte|Carlsbad|North Charleston|Temecula|Clovis|Springfield|Meridian|Westminster|Costa Mesa|High Point|Manchester|Pueblo|Lakeland|Pompano Beach|West Palm Beach|Antioch|Everett|Downey|Lowell|Centennial|Elgin|Richmond|Peoria|Broken Arrow|Miami Gardens|Billings|Jurupa Valley|Sandy Springs|Gresham|Lewisville|Hillsboro|Ventura|Inglewood|Waterbury|League City|Santa Maria|Tyler|Davie|Lakewood|Daly City|Boulder|Allen|West Covina|Sparks|Wichita Falls|Green Bay|San Mateo|Norwalk|Rialto|Las Cruces|Chico|El Cajon|Burbank|South Bend|Renton|Vista|Davenport|Edinburg|Tuscaloosa|Carmel|Spokane Valley|San Angelo|Vacaville|Clinton|Bend|Woodbridge)/i);
-    if (simpleLocationMatch) {
-      return {
-        intent: 'filter_location',
-        location: simpleLocationMatch[0]
-      };
-    }
-    
-    return { intent: 'filter_other' };
-  }
-  
-  // Default to new search
-  return { 
-    intent: 'new_search',
-    condition: query
-  };
-}
-
-// Main tool export
-export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: string) => {
-  return tool({
-    description: `Use this tool for ANY clinical trial queries - searching, finding, or looking up specific trials by NCT ID.
-    
-    IMPORTANT: This tool handles:
-    - Looking up specific trials by NCT ID (e.g., "NCT05568550", "what are the locations for NCT12345678")
-    - Searching for trials by condition, location, or criteria
-    - Getting details about specific trials
-    - Finding trial locations and contact information
-    
-    DO NOT use for general educational questions about how trials work - use clinical_trials_info for those.
-    
-    The tool automatically:
-    - Detects NCT IDs and retrieves full trial details
-    - Searches based on conditions and locations
-    - Uses health profiles when available
-    - Maintains conversation context
-    
-    EXAMPLES:
-    - "What are the locations for NCT05568550?" → retrieves specific trial
-    - "Show details for NCT12345678" → gets trial information
-    - "Find trials for lung cancer" → searches by condition
-    - "Show trials near Boston" → searches by location
-    - "Are there trials for my cancer?" → uses health profile
-    
-    Just pass the user's query directly!`,
-    parameters: z.object({
-      query: z.string().describe('The user\'s natural language query about clinical trials')
-    }),
-    execute: async ({ query }) => {
-      // Use chatId from closure
-      const effectiveChatId = chatId;
-      // Check if we have a chatId to work with
-      if (!effectiveChatId) {
-        debug.log(DebugCategory.TOOL, 'No chatId provided - using fallback mode');
-      }
-
-      // Get health profile if available
-      let healthProfile: HealthProfile | null = null;
-      try {
-        const userHealthData = await getUserHealthProfile();
-        if (userHealthData?.profile) {
-          // Convert the database profile to our HealthProfile interface
-          healthProfile = {
-            id: userHealthData.profile.id,
-            createdAt: userHealthData.profile.createdAt,
-            updatedAt: userHealthData.profile.updatedAt,
-            cancerRegion: userHealthData.profile.cancerRegion,
-            primarySite: userHealthData.profile.primarySite,
-            cancerType: userHealthData.profile.cancerType,
-            diseaseStage: userHealthData.profile.diseaseStage,
-            treatmentHistory: userHealthData.profile.treatmentHistory,
-            molecularMarkers: userHealthData.profile.molecularMarkers as MolecularMarkers | undefined,
-            performanceStatus: userHealthData.profile.performanceStatus,
-            complications: userHealthData.profile.complications
-          };
-        }
-        debug.log(DebugCategory.PROFILE, 'Health profile loaded', {
-          hasProfile: !!healthProfile,
-          hasCancerType: !!healthProfile?.cancerType
-        });
-      } catch (error) {
-        debug.log(DebugCategory.PROFILE, 'Failed to load health profile', { error });
-      }
-
-      // Check if we have cached results
-      const cachedSearch = effectiveChatId ? getCachedSearchByChat(effectiveChatId) : null;
-      
-      // Use the new pipeline integrator for all query processing
-      try {
-        const result = await pipelineIntegrator.execute(query, {
-          chatId: effectiveChatId,
-          healthProfile,
-          cachedTrials: cachedSearch?.trials,
-          dataStream
-        });
-
-        // Handle successful pipeline execution
-        if (result.success) {
-          // Update cache if we have new search results
-          if (result.trials && effectiveChatId && result.metadata?.isNewSearch) {
-            const newCache: CachedSearch = {
-              chatId: effectiveChatId,
-              trials: result.trials,
-              healthProfile,
-              searchQueries: [query],
-              timestamp: Date.now(),
-              lastOffset: result.currentOffset || 0
-            };
-            searchCache.set(`chat_${effectiveChatId}`, newCache);
-          }
-
-          // Stream eligibility criteria if appropriate
-          if (result.metadata?.focusedOnEligibility && result.matches) {
-            streamEligibilityCriteria(
-              result.matches.map(m => m.trial),
-              'eligibility',
-              healthProfile,
-              dataStream
-            );
-          }
-
-          return result;
-        } else {
-          // Pipeline failed, return error
-          return {
-            success: false,
-            error: result.error || 'Query processing failed',
-            message: result.message || 'Unable to process your query. Please try rephrasing.'
-          };
-        }
-      } catch (error) {
-        debug.log(DebugCategory.ERROR, 'Pipeline execution error', { error });
-        
-        // Fallback to legacy processing if pipeline fails catastrophically
-        // This ensures backward compatibility during transition
-        const queryIntent = detectQueryIntent(query, !!cachedSearch);
-        debug.verbose(DebugCategory.TOOL, 'Falling back to legacy processing', queryIntent);
-        
-        // Set default values for legacy code path
-        const maxResults = 10;
-        const useProfile = true;
-      
-        // Handle based on detected intent (legacy code path)
-        if (queryIntent.intent === 'show_more') {
-        if (!effectiveChatId || !cachedSearch) {
-          return {
-            success: false,
-            error: 'No previous search results',
-            message: 'I need to search for trials first. What type of trials are you looking for?'
-          };
-        }
-
-        const cached = getCachedSearchByChat(effectiveChatId);
-        if (!cached) {
-          return {
-            success: false,
-            error: 'Search results not found or expired',
-            message: 'Your previous search has expired. Let me search again for you.'
-          };
-        }
-
-        // Smart batch size determination based on offset
-        const offset = cached.lastOffset || 0;
-        const defaultLimit = offset === 0 
-          ? PROGRESSIVE_LOADING.INITIAL_BATCH 
-          : Math.min(PROGRESSIVE_LOADING.STANDARD_BATCH, PROGRESSIVE_LOADING.MAX_BATCH);
-        const limit = maxResults || defaultLimit;
-        const paginatedTrials = cached.trials.slice(offset, offset + limit);
-        
-        // Skip AI ranking - use trials directly from cache
-        const rankedTrials = paginatedTrials.map(trial => ({
-          ...trial,
-          matchReason: 'Matches your search criteria',
-          relevanceScore: 85
-        }));
-        const matches = createMatchObjects(rankedTrials, cached.healthProfile, undefined);
-
-        // Calculate progressive loading metadata
-        const remainingTrials = cached.trials.length - (offset + limit);
-        const shouldPrefetch = remainingTrials > 0 && remainingTrials <= PROGRESSIVE_LOADING.PREFETCH_THRESHOLD;
-        const nextBatchSize = Math.min(
-          remainingTrials,
-          PROGRESSIVE_LOADING.STANDARD_BATCH
-        );
-
-        // Update cache with pagination state
-        if (effectiveChatId) {
-          cached.lastOffset = offset + limit;
-          searchCache.set(`chat_${effectiveChatId}`, cached);
-        }
-        
-        return {
-          success: true,
-          matches: matches,
-          totalCount: cached.trials.length,
-          currentOffset: offset,
-          hasMore: offset + limit < cached.trials.length,
-          message: `Showing trials ${offset + 1} to ${Math.min(offset + limit, cached.trials.length)} of ${cached.trials.length} total.`,
-          // Progressive loading hints
-          loadingMetadata: {
-            batchSize: limit,
-            nextOffset: offset + limit,
-            nextBatchSize: nextBatchSize,
-            remainingCount: remainingTrials,
-            shouldPrefetch: shouldPrefetch,
-            loadingProgress: ((offset + limit) / cached.trials.length) * 100
-          }
+    // Load health profile if available
+    let healthProfile: HealthProfile | null = null;
+    try {
+      const userHealthData = await getUserHealthProfile();
+      if (userHealthData?.profile) {
+        healthProfile = {
+          id: userHealthData.profile.id,
+          createdAt: userHealthData.profile.createdAt,
+          updatedAt: userHealthData.profile.updatedAt,
+          cancerRegion: userHealthData.profile.cancerRegion,
+          primarySite: userHealthData.profile.primarySite,
+          cancerType: userHealthData.profile.cancerType,
+          diseaseStage: userHealthData.profile.diseaseStage,
+          treatmentHistory: userHealthData.profile.treatmentHistory,
+          molecularMarkers: userHealthData.profile.molecularMarkers as MolecularMarkers | undefined,
+          performanceStatus: userHealthData.profile.performanceStatus,
+          complications: userHealthData.profile.complications
         };
       }
-      
-      // Handle location filtering intent
-      if (queryIntent.intent === 'filter_location') {
-        const filterLocation = queryIntent.location;
-        
-        // Location validation already done above
-        if (!effectiveChatId) {
-          return {
-            success: false,
-            error: 'No conversation context available',
-            message: 'Unable to retrieve your previous search. Please perform a new search first.'
+      debug.log(DebugCategory.PROFILE, 'Health profile loaded', {
+        hasProfile: !!healthProfile,
+        hasCancerType: !!healthProfile?.cancerType
+      });
+    } catch (error) {
+      debug.log(DebugCategory.PROFILE, 'Failed to load health profile', { error });
+    }
+
+    // Get cached results if available
+    const cachedSearch = effectiveChatId ? getCachedSearchByChat(effectiveChatId) : null;
+    
+    try {
+      // Use the pipeline integrator for all query processing
+      const result = await pipelineIntegrator.execute(query, {
+        chatId: effectiveChatId,
+        healthProfile,
+        cachedTrials: cachedSearch?.trials,
+        dataStream
+      });
+
+      // Handle successful pipeline execution
+      if (result.success) {
+        // Update cache if we have new search results
+        if (result.trials && effectiveChatId && result.metadata?.isNewSearch) {
+          const newCache: CachedSearch = {
+            chatId: effectiveChatId,
+            trials: result.trials,
+            healthProfile,
+            searchQueries: [query],
+            timestamp: Date.now(),
+            lastOffset: result.currentOffset || 0
           };
+          searchCache.set(`chat_${effectiveChatId}`, newCache);
         }
 
-        const cached = getCachedSearchByChat(effectiveChatId);
-        if (!cached) {
-          return {
-            success: false,
-            error: 'Search results not found or expired',
-            message: 'Please perform a new search first. No previous results found for this conversation.'
-          };
-        }
-
-        // Filter trials by location
-        const filteredTrials = cached.trials.filter((trial: ClinicalTrial) => trialHasLocation(trial, filterLocation!));
-        
-        if (filteredTrials.length === 0) {
-          return {
-            success: true,
-            matches: [],
-            totalCount: 0,
-            filterLocation: filterLocation,
-            message: `No trials found with sites in or near ${filterLocation}.`
-          };
-        }
-
-        // Return filtered results without AI ranking
-        const filteredMaxResults = Math.min(maxResults || 10, 20);
-        const selectedTrials = filteredTrials.slice(0, filteredMaxResults).map(trial => ({
-          ...trial,
-          matchReason: `Matches your criteria and has sites in ${filterLocation}`,
-          relevanceScore: 85
-        }));
-        const matches = createMatchObjects(selectedTrials, cached.healthProfile, filterLocation);
-
-        return {
-          success: true,
-          matches: matches,
-          totalCount: filteredTrials.length,
-          filterLocation: filterLocation,
-          message: `Found ${filteredTrials.length} trials with sites in or near ${filterLocation}. Showing top ${matches.length}.`
-        };
-      }
-      } // End of else block for non-NCT queries
-
-      // Handle new search intent (default) - for both NCT and non-NCT queries
-      const userQuery = query || 'clinical trials';
-      const useHealthProfile = true; // Always use health profile if available
-      const searchMaxResults = Math.min(10, 20); // Default to 10, allow up to 20
-      const searchLocation = undefined; // Will be extracted by QueryInterpreter if needed
-
-      try {
-        dataStream?.writeMessageAnnotation({
-          type: 'search_status',
-          data: {
-            status: 'searching',
-            message: 'Analyzing your health profile and searching for matching trials...'
-          }
-        });
-
-        // Load health profile if requested
-        let healthProfile = null;
-        if (useHealthProfile) {
-          try {
-            const profileData = await getUserHealthProfile();
-            if (profileData) {
-              healthProfile = profileData.profile as HealthProfile;
-              debug.log(DebugCategory.TOOL, 'Health profile loaded successfully', {
-                hasProfile: !!healthProfile,
-                hasCancerType: !!healthProfile?.cancerType,
-                hasMarkers: !!healthProfile?.molecularMarkers,
-                markerCount: healthProfile?.molecularMarkers ? Object.keys(healthProfile.molecularMarkers).length : 0
-              });
-            } else {
-              debug.log(DebugCategory.TOOL, 'No health profile data returned from getUserHealthProfile');
-            }
-          } catch (error) {
-            debug.error(DebugCategory.TOOL, 'Failed to load health profile', error);
-            debug.log(DebugCategory.TOOL, 'Proceeding without health profile - results will be generic');
-          }
-        } else {
-          debug.verbose(DebugCategory.TOOL, 'Health profile loading disabled by searchParams');
-        }
-
-        // We'll populate this with actual queries used
-        let searchQueries: string[] = [];
-
-        // Execute all queries in parallel with better tracking
-        let allTrials: ClinicalTrial[] = [];
-        
-        // Use our new comprehensive search system
-        const executor = new SearchExecutor();
-        
-        // FIRST: Interpret the user's query to understand intent
-        const interpretation = QueryInterpreter.interpret(userQuery, healthProfile);
-        debug.log(DebugCategory.QUERY_INTERPRET, 'Query interpretation', {
-          userQuery,
-          strategy: interpretation.strategy,
-          usesProfile: interpretation.usesProfile,
-          confidence: interpretation.confidence,
-          detectedEntities: interpretation.detectedEntities
-        });
-        
-        // Check for batch NCT IDs first (before single NCT ID)
-        const nctPattern = /NCT\d{8}/gi;
-        const allNctIds = [...new Set((userQuery.match(nctPattern) || []).map(id => id.toUpperCase()))];
-        
-        // Handle batch NCT operations if multiple NCT IDs detected
-        if (allNctIds.length > 1) {
-          debug.log(DebugCategory.NCT_LOOKUP, 'Batch NCT operation detected', {
-            nctIds: allNctIds,
-            count: allNctIds.length,
-            hasLocation: !!interpretation.detectedEntities.locations?.length
-          });
-          
-          // Use the modular pipeline for batch operations
-          const { integrateWithMainTool } = await import('./clinical-trials/pipeline/examples/batch-operations');
-          const pipelineResult = await integrateWithMainTool(userQuery, healthProfile, dataStream);
-          
-          if (pipelineResult) {
-            // Pipeline handled the request successfully
-            debug.log(DebugCategory.NCT_LOOKUP, 'Batch pipeline completed', {
-              success: pipelineResult.success,
-              matchCount: pipelineResult.matches?.length || 0,
-              totalCount: pipelineResult.totalCount
-            });
-            
-            // Cache the results for follow-up queries
-            if (effectiveChatId && pipelineResult.matches) {
-              const trials = pipelineResult.matches.map((m: any) => m.trial);
-              setCachedSearchForChat(effectiveChatId, trials, healthProfile, allNctIds);
-            }
-            
-            return pipelineResult;
-          }
-          // Fall through if pipeline didn't handle it
-        }
-        
-        // Handle single NCT ID lookup - direct API call for specific trial
-        if (interpretation.strategy === 'nct-lookup' && interpretation.detectedEntities.nctId) {
-          const executor = new SearchExecutor();
-          const lookupResult = await executor.executeLookup(
-            interpretation.detectedEntities.nctId,
+        // Stream eligibility criteria if appropriate
+        if (result.metadata?.focusedOnEligibility && result.matches) {
+          streamEligibilityCriteria(
+            result.matches.map(m => m.trial),
+            'eligibility',
+            healthProfile,
             dataStream
           );
-          
-          if (lookupResult.error || lookupResult.studies.length === 0) {
-            return {
-              success: false,
-              matches: [],
-              totalCount: 0,
-              error: lookupResult.error || `Trial ${interpretation.detectedEntities.nctId} not found`,
-              message: `Could not find trial ${interpretation.detectedEntities.nctId}. Please verify the NCT ID and try again.`
-            };
-          }
-          
-          // Process the single trial result
-          const trial = lookupResult.studies[0];
-          debug.log(DebugCategory.NCT_LOOKUP, 'Trial structure check', {
-            hasProtocolSection: !!trial.protocolSection,
-            nctId: trial.protocolSection?.identificationModule?.nctId
-          });
-          
-          const scoredTrial = {
-            ...trial,
-            matchReason: 'Direct NCT ID lookup',
-            relevanceScore: 100
-          };
-          
-          // Check if a location was also specified (e.g., "NCT05568550 near Boston")
-          const detectedLocation = interpretation.detectedEntities.locations?.[0];
-          
-          // Detect eligibility intent for NCT lookup
-          const eligibilityIntent = detectEligibilityIntent(userQuery);
-          
-          // Create match object for UI
-          const matches = createMatchObjects([scoredTrial], healthProfile, detectedLocation, eligibilityIntent);
-          debug.verbose(DebugCategory.NCT_LOOKUP, 'Matches created', {
-            matchesLength: matches.length,
-            firstMatchScore: matches[0]?.matchScore
-          });
-          
-          // Cache the result for potential follow-up queries
-          if (effectiveChatId) {
-            setCachedSearchForChat(effectiveChatId, [trial], healthProfile, [interpretation.detectedEntities.nctId]);
-          }
-          
-          const result = {
-            success: true,
-            matches: matches,
-            totalCount: 1,
-            searchCriteria: {
-              condition: interpretation.detectedEntities.nctId,
-              location: detectedLocation,
-              useProfile: false,
-              cancerType: healthProfile?.cancerType
-            },
-            query: interpretation.detectedEntities.nctId,
-            message: `Found trial ${interpretation.detectedEntities.nctId}: ${trial.protocolSection?.identificationModule?.briefTitle || 'Untitled'}`,
-            directLookup: true
-          };
-          
-          debug.log(DebugCategory.NCT_LOOKUP, 'Final result', {
-            success: result.success,
-            matchesLength: result.matches.length,
-            totalCount: result.totalCount
-          });
-          
-          // Stream eligibility criteria if intent is eligibility-focused
-          streamEligibilityCriteria([trial], eligibilityIntent, healthProfile, dataStream);
-          
-          return result;
-        }
-        
-        // Check if confidence is too low - indicates need for profile or more info
-        if (interpretation.confidence < 0.5 && interpretation.usesProfile && !healthProfile) {
-          // User referenced their profile but doesn't have one
-          dataStream?.writeMessageAnnotation({
-            type: 'profile_required',
-            data: {
-              reason: 'User referenced personal health information but has no profile',
-              confidence: interpretation.confidence,
-              query: userQuery
-            }
-          });
-          
-          return {
-            success: true,
-            matches: [],
-            totalCount: 0,
-            searchCriteria: {
-              condition: userQuery,
-              location: location,
-              useProfile: useHealthProfile,
-              cancerType: null
-            },
-            requiresProfile: true,
-            message: 'To search for trials matching "your" specific condition, I need your health information. Would you like to create a health profile for personalized trial matching? This will help me find trials specifically relevant to your cancer type, stage, and genetic markers.',
-            actionRequired: 'create_profile'
-          };
-        }
-        
-        // Generate appropriate search term based on interpretation
-        let searchTerm = userQuery;
-        if (interpretation.strategy === 'profile-based' && healthProfile) {
-          // For profile-based queries, use a focused search term
-          // This prevents generic queries like "my cancer" from polluting results
-          const searchStrategy = QueryInterpreter.generateSearchStrategy(
-            interpretation,
-            healthProfile,
-            userQuery
-          );
-          searchTerm = searchStrategy.queries[0] || userQuery;
-          debug.verbose(DebugCategory.QUERY_INTERPRET, 'Using profile-based search term', searchTerm);
-        }
-        
-        // Generate comprehensive queries using our QueryGenerator
-        const comprehensiveQueries = QueryGenerator.generateComprehensiveQueries(
-          searchTerm,
-          healthProfile || undefined
-        );
-        
-        // Store the actual queries being used
-        searchQueries = comprehensiveQueries.queries;
-        
-        // Log critical debugging info
-        debug.verbose(DebugCategory.TOOL, 'Query generation', {
-          originalQuery: userQuery,
-          searchTerm,
-          profileUsed: !!healthProfile,
-          queryCount: comprehensiveQueries.queries.length,
-          firstQuery: comprehensiveQueries.queries[0],
-          hasMutationQuery: comprehensiveQueries.queries.some(q => /\b[A-Z]{2,10}\s+[A-Z]?\d{1,4}[A-Z]?\b/i.test(q))
-        });
-        
-        // Execute parallel searches across multiple API fields
-        // IMPORTANT: We do NOT filter by location in API - we do it locally for better coverage
-        const searchResults = await executor.executeParallelSearches(
-          comprehensiveQueries.queries,
-          comprehensiveQueries.fields,
-          {
-            maxResults: 100, // Get more results for better filtering and scoring
-            includeStatuses: [...VIABLE_STUDY_STATUSES],
-            dataStream,
-            cacheKey: chatId || 'default'
-          }
-        );
-        
-        // Aggregate results
-        const aggregated = SearchExecutor.aggregateResults(searchResults);
-        const queryResultsMap = new Map<string, number>();
-        searchResults.forEach(r => queryResultsMap.set(`${r.field}:${r.query}`, r.totalCount));
-        
-        // Log search results summary
-        debug.log(DebugCategory.SEARCH_EXEC, 'Search results', {
-          totalUnique: aggregated.uniqueStudies.length,
-          totalQueries: aggregated.totalQueries,
-          hasKRASTrials: aggregated.uniqueStudies.some(s => 
-            s.protocolSection.identificationModule.briefTitle?.includes('KRAS') ||
-            s.protocolSection.descriptionModule?.briefSummary?.includes('KRAS')
-          ),
-          firstTrial: aggregated.uniqueStudies[0]?.protocolSection.identificationModule.nctId
-        });
-        
-        // Use unique studies as our trial list
-        allTrials = aggregated.uniqueStudies;
-        
-        // Query performance logging removed for production
-
-        // Deduplicate trials
-        const uniqueTrials = deduplicateTrials(allTrials);
-        debug.verbose(DebugCategory.SEARCH_EXEC, `Found ${uniqueTrials.length} unique trials from ${allTrials.length} total`);
-
-        if (uniqueTrials.length === 0) {
-          return {
-            success: true,
-            matches: [], // UI expects 'matches' array
-            totalCount: 0,
-            searchCriteria: {
-              condition: userQuery,
-              location: location,
-              useProfile: useHealthProfile,
-              cancerType: healthProfile?.cancerType
-            },
-            message: 'No trials found matching your criteria. This could be due to limited trials for your specific profile. Consider discussing with your healthcare provider about broadening search criteria.'
-          };
         }
 
-        // Detect eligibility-focused intent
-        const eligibilityIntent = detectEligibilityIntent(userQuery);
-        
-        // Apply relevance scoring to prioritize mutation-specific trials
-        const scoringContext = {
-          userQuery,
-          healthProfile,
-          searchStrategy: interpretation?.strategy || 'unknown',
-          intent: eligibilityIntent  // Add intent to scoring context
-        };
-        
-        // Score and rank trials based on relevance to health profile
-        const scoredTrials = RelevanceScorer.scoreTrials(uniqueTrials, scoringContext);
-        
-        // Get top trials (limit to searchMaxResults)
-        const rankedTrials = scoredTrials.slice(0, searchMaxResults).map(trial => {
-          // Build match reason based on profile
-          let matchReason = 'Potentially relevant based on your profile';
-          
-          if (trial.relevanceScore && trial.relevanceScore > 100) {
-            // For high scores, mention specific mutations if present
-            const positiveMarkers = healthProfile?.molecularMarkers ? 
-              Object.entries(healthProfile.molecularMarkers)
-                .filter(([_, value]) => isPositiveMarker(value))
-                .map(([marker, _]) => formatMarkerName(marker)) : [];
-            
-            if (positiveMarkers.length > 0) {
-              matchReason = `Highly relevant: Matches your ${positiveMarkers.join(', ')} mutation(s)`;
-            } else {
-              matchReason = 'Highly relevant: Matches your specific cancer profile';
-            }
-          } else if (trial.relevanceScore && trial.relevanceScore > 50) {
-            matchReason = 'Relevant: Matches your cancer type and profile';
-          }
-          
-          return {
-            ...trial,
-            matchReason,
-            // Keep the relevanceScore from the scorer
-          };
-        });
-
-        // Create match objects for UI component
-        const matches = createMatchObjects(rankedTrials, healthProfile, searchLocation, eligibilityIntent);
-
-        // Count trials with specific location if location was requested
-        let locationMatchCount = 0;
-        if (searchLocation) {
-          locationMatchCount = uniqueTrials.filter(trial => trialHasLocation(trial, searchLocation)).length;
-        }
-
-        // Store ALL trial IDs and basic info in annotations for reference
-        dataStream?.writeMessageAnnotation({
-          type: 'all_trial_ids',
-          data: {
-            totalFound: uniqueTrials.length,
-            locationMatchCount: locationMatchCount,
-            searchLocation: searchLocation || null,
-            trials: uniqueTrials.map(trial => ({
-              nctId: trial.protocolSection.identificationModule.nctId,
-              title: trial.protocolSection.identificationModule.briefTitle,
-              status: trial.protocolSection.statusModule?.overallStatus || 'UNKNOWN',
-              hasLocationMatch: searchLocation ? trialHasLocation(trial, searchLocation) : false
-            }))
-          }
-        });
-
-        // Store detailed data for the top ranked trials
-        dataStream?.writeMessageAnnotation({
-          type: 'trial_details',
-          data: rankedTrials.map(trial => ({
-            nctId: trial.protocolSection.identificationModule.nctId,
-            fullTitle: trial.protocolSection.identificationModule.briefTitle,
-            officialTitle: trial.protocolSection.identificationModule.officialTitle || '',
-            status: trial.protocolSection.statusModule?.overallStatus || 'UNKNOWN',
-            phase: trial.protocolSection.designModule?.phases || [],
-            conditions: trial.protocolSection.conditionsModule?.conditions || [],
-            interventions: (trial.protocolSection.armsInterventionsModule?.interventions || []).map((i: { name?: string; description?: string }) => ({
-              name: i.name || '',
-              description: i.description || ''
-            })),
-            eligibility: trial.protocolSection.eligibilityModule?.eligibilityCriteria || '',
-            locations: (trial.protocolSection.contactsLocationsModule?.locations || []).map((l: { city?: string; state?: string; country?: string }) => ({
-              city: l.city || '',
-              state: l.state || '',
-              country: l.country || ''
-            })),
-            description: trial.protocolSection.descriptionModule?.briefSummary || '',
-            matchReason: trial.matchReason || '',
-            hasLocationMatch: searchLocation ? trialHasLocation(trial, searchLocation) : false
-          }))
-        });
-        
-        // Stream eligibility criteria if intent is eligibility-focused
-        streamEligibilityCriteria(rankedTrials, eligibilityIntent, healthProfile, dataStream);
-
-        dataStream?.writeMessageAnnotation({
-          type: 'search_status',
-          data: {
-            status: 'completed',
-            totalResults: uniqueTrials.length,
-            returnedResults: matches.length,
-            searchQueries,
-            message: `Found ${uniqueTrials.length} trials using ${searchQueries.length} targeted searches`
-          }
-        });
-
-        // Cache the search results for follow-up actions if we have a chatId
-        if (chatId) {
-          setCachedSearchForChat(chatId, uniqueTrials, healthProfile, searchQueries);
-        }
-
-        // Build message with location info if applicable
-        let message = `Found ${uniqueTrials.length} clinical trials. `;
-        if (searchLocation && locationMatchCount > 0) {
-          message += `${locationMatchCount} trials have sites in or near ${searchLocation}. `;
-        }
-        message += `Showing the ${matches.length} most relevant matches based on your health profile.`;
-        
-        // Add guidance for follow-up actions if more trials are available
-        if (uniqueTrials.length > searchMaxResults) {
-          message += ` You can use 'list_more' to see additional results or 'filter_by_location' to filter by a specific location.`;
-        }
-
-        // Calculate progressive loading information
-        const progressiveLoadingInfo = {
-          enabled: true,
-          initialBatch: matches.length,
-          standardBatchSize: PROGRESSIVE_LOADING.STANDARD_BATCH,
-          totalAvailable: uniqueTrials.length,
-          estimatedBatches: Math.ceil((uniqueTrials.length - matches.length) / PROGRESSIVE_LOADING.STANDARD_BATCH)
-        };
-
-        // Return structure expected by UI component
-        return {
-          success: true,
-          matches: matches, // UI expects 'matches' array, not 'results'
-          totalCount: uniqueTrials.length,
-          locationMatchCount: locationMatchCount,
-          searchCriteria: {
-            condition: userQuery,
-            location: searchLocation,
-            useProfile: useHealthProfile,
-            cancerType: healthProfile?.cancerType
-          },
-          query: searchQueries.join('; '),
-          message: message,
-          additionalTrialsAvailable: uniqueTrials.length > searchMaxResults,
-          availableActions: uniqueTrials.length > searchMaxResults ? ['list_more', 'filter_by_location'] : ['filter_by_location'],
-          progressiveLoading: progressiveLoadingInfo
-        };
-
-      } catch (error) {
-        debug.error(DebugCategory.TOOL, 'Clinical trials search error', error);
-        
+        return result;
+      } else {
+        // Pipeline returned an error
         return {
           success: false,
-          matches: [], // UI expects 'matches' array
-          totalCount: 0,
-          error: error instanceof Error ? error.message : 'Search failed',
-          message: 'Unable to search clinical trials at this time. Please try again.'
+          error: result.error || 'Query processing failed',
+          message: result.message || 'Unable to process your query. Please try rephrasing.',
+          matches: [],
+          totalCount: 0
         };
       }
+    } catch (error) {
+      debug.log(DebugCategory.ERROR, 'Pipeline execution error', { error });
+      
+      // Return clean error response
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Query processing failed',
+        message: 'Unable to process your query at this time. Please try again.',
+        matches: [],
+        totalCount: 0
+      };
     }
-  });
-};
+  }
+});
