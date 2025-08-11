@@ -171,14 +171,16 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
     }
   }, [action, result, trackTrialSearch]);
   
-  // Track eligibility check
+  // Track eligibility check - updated for new assessment structure
   useEffect(() => {
-    if (action === 'eligibility_check' && result.trialId && result.eligibilityAnalysis) {
-      trackEligibilityCheck(
-        result.trialId,
-        result.eligibilityAnalysis.likelyEligible,
-        result.eligibilityAnalysis.inclusionMatches.length * 10
-      );
+    if (action === 'eligibility_check' && result.trialId && result.eligibilityAssessment) {
+      const assessment = result.eligibilityAssessment;
+      const isEligible = assessment.userAssessment?.recommendation === 'likely' || 
+                         assessment.userAssessment?.recommendation === 'possible';
+      const score = assessment.userAssessment?.eligibilityScore 
+        ? Math.round(assessment.userAssessment.eligibilityScore * 100)
+        : 0;
+      trackEligibilityCheck(result.trialId, isEligible, score);
     }
   }, [action, result, trackEligibilityCheck]);
   if (!result.success) {
@@ -734,7 +736,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
   // Handle details action
   if (action === 'details' && 'trial' in result) {
     const trial = result.trial.protocolSection;
-    const eligibilityAnalysis = result.eligibilityAnalysis;
+    const eligibilityAssessment = result.eligibilityAssessment;
     
     return (
       <Card className="w-full my-4">
@@ -895,46 +897,51 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
             </div>
           )}
           
-          {/* Eligibility Analysis if available */}
-          {eligibilityAnalysis && (
+          {/* Eligibility Assessment if available - Using new three-layer structure */}
+          {eligibilityAssessment && eligibilityAssessment.userAssessment && (
             <div className="border-t pt-4">
-              <h3 className="text-sm font-semibold mb-2">Your Eligibility Analysis</h3>
+              <h3 className="text-sm font-semibold mb-2">Your Eligibility Assessment</h3>
               <div className="space-y-2">
-                {eligibilityAnalysis.inclusionMatches.length > 0 && (
+                {eligibilityAssessment.userAssessment.matches.inclusion.length > 0 && (
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5" />
                     <div className="text-sm">
                       <p className="font-medium text-green-700 dark:text-green-300">Matching Criteria:</p>
                       <ul className="mt-1 space-y-0.5">
-                        {eligibilityAnalysis.inclusionMatches.map((item: string, i: number) => (
-                          <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
-                        ))}
+                        {eligibilityAssessment.userAssessment.matches.inclusion
+                          .filter((item: any) => item.matchType === 'exact' || item.matchType === 'partial')
+                          .map((item: any, i: number) => (
+                            <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item.reasoning}</li>
+                          ))}
                       </ul>
                     </div>
                   </div>
                 )}
                 
-                {eligibilityAnalysis.exclusionConcerns.length > 0 && (
+                {eligibilityAssessment.userAssessment.matches.exclusion
+                  .filter((item: any) => item.matchType === 'exact').length > 0 && (
                   <div className="flex items-start gap-2">
                     <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5" />
                     <div className="text-sm">
                       <p className="font-medium text-red-700 dark:text-red-300">Potential Concerns:</p>
                       <ul className="mt-1 space-y-0.5">
-                        {eligibilityAnalysis.exclusionConcerns.map((item: string, i: number) => (
-                          <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
-                        ))}
+                        {eligibilityAssessment.userAssessment.matches.exclusion
+                          .filter((item: any) => item.matchType === 'exact')
+                          .map((item: any, i: number) => (
+                            <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item.reasoning}</li>
+                          ))}
                       </ul>
                     </div>
                   </div>
                 )}
                 
-                {eligibilityAnalysis.uncertainFactors.length > 0 && (
+                {eligibilityAssessment.userAssessment.missingData.length > 0 && (
                   <div className="flex items-start gap-2">
                     <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
                     <div className="text-sm">
-                      <p className="font-medium text-amber-700 dark:text-amber-300">Uncertain Factors:</p>
+                      <p className="font-medium text-amber-700 dark:text-amber-300">Missing Information:</p>
                       <ul className="mt-1 space-y-0.5">
-                        {eligibilityAnalysis.uncertainFactors.map((item: string, i: number) => (
+                        {eligibilityAssessment.userAssessment.missingData.map((item: string, i: number) => (
                           <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
                         ))}
                       </ul>
@@ -1033,116 +1040,8 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
     );
   }
   
-  // Handle eligibility_check action
-  if (action === 'eligibility_check' && 'eligibilityAnalysis' in result && result.eligibilityAnalysis) {
-    return (
-      <Card className="w-full my-4">
-        <CardHeader>
-          <CardTitle className="text-base">Eligibility Check: {result.trialTitle}</CardTitle>
-          {result.trialId && <NCTBadge nctId={result.trialId} />}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className={`p-4 rounded-lg ${
-            result.eligibilityAnalysis.likelyEligible 
-              ? 'bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800' 
-              : 'bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800'
-          }`}>
-            <p className="text-sm font-medium">
-              {result.recommendation}
-            </p>
-          </div>
-          
-          {/* Detailed Analysis */}
-          <div className="space-y-3">
-            {result.eligibilityAnalysis.inclusionMatches.length > 0 && (
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-green-700 dark:text-green-300">Matching Criteria:</p>
-                  <ul className="mt-1 space-y-0.5">
-                    {result.eligibilityAnalysis.inclusionMatches.map((item: string, i: number) => (
-                      <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-            
-            {result.eligibilityAnalysis.exclusionConcerns.length > 0 && (
-              <div className="flex items-start gap-2">
-                <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-red-700 dark:text-red-300">Potential Concerns:</p>
-                  <ul className="mt-1 space-y-0.5">
-                    {result.eligibilityAnalysis.exclusionConcerns.map((item: string, i: number) => (
-                      <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-            
-            {result.eligibilityAnalysis.uncertainFactors.length > 0 && (
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-amber-700 dark:text-amber-300">Uncertain Factors:</p>
-                  <ul className="mt-1 space-y-0.5">
-                    {result.eligibilityAnalysis.uncertainFactors.map((item: string, i: number) => (
-                      <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Detailed Criteria */}
-          {result.detailedCriteria && (
-            <div className="space-y-4 border-t pt-4">
-              {result.detailedCriteria.inclusion.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Inclusion Criteria</h4>
-                  <ul className="space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
-                    {result.detailedCriteria.inclusion.map((criterion: string, i: number) => (
-                      <li key={i}>• {criterion}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {result.detailedCriteria.exclusion.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Exclusion Criteria</h4>
-                  <ul className="space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
-                    {result.detailedCriteria.exclusion.map((criterion: string, i: number) => (
-                      <li key={i}>• {criterion}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-          
-          <Separator />
-          
-          <div className="flex justify-end">
-            <Button
-              onClick={() => {
-                if (result.trialId) {
-                  trackExternalView(result.trialId);
-                  window.open(`https://clinicaltrials.gov/study/${result.trialId}`, '_blank');
-                }
-              }}
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              View Full Trial Details
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Handle eligibility_check action - removed as it uses old structure
+  // The new three-layer assessment is shown in the trial cards themselves
   
   // Fallback
   return (
