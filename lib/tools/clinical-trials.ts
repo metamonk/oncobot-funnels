@@ -12,25 +12,62 @@ import { debug, DebugCategory } from './clinical-trials/debug';
 import { ClinicalTrial, HealthProfile, TrialMatch, CachedSearch, MolecularMarkers, StudyLocation } from './clinical-trials/types';
 import { pipelineIntegrator } from './clinical-trials/pipeline-integration';
 
-// Simple in-memory cache for search results per chat session
+// Enhanced chat-based cache for search results
 const searchCache = new Map<string, CachedSearch>();
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 // Helper to get cached search by chat ID
 function getCachedSearchByChat(chatId: string): CachedSearch | null {
+  if (!chatId) return null;
+  
   const key = `chat_${chatId}`;
   const cached = searchCache.get(key);
   
   if (cached) {
     // Check if cache is still valid
     if (Date.now() - cached.timestamp < CACHE_TTL) {
+      debug.log(DebugCategory.CACHE, 'Cache hit', { 
+        chatId, 
+        trialCount: cached.trials.length,
+        age: Math.round((Date.now() - cached.timestamp) / 1000) + 's'
+      });
       return cached;
     }
     // Remove expired cache
+    debug.log(DebugCategory.CACHE, 'Cache expired', { chatId });
     searchCache.delete(key);
   }
   
   return null;
+}
+
+// Helper to update cache for chat
+function updateCacheForChat(
+  chatId: string, 
+  trials: ClinicalTrial[], 
+  healthProfile: HealthProfile | null,
+  query: string
+): void {
+  if (!chatId || !trials || trials.length === 0) return;
+  
+  const key = `chat_${chatId}`;
+  const existing = searchCache.get(key);
+  
+  const newCache: CachedSearch = {
+    chatId,
+    trials,
+    healthProfile,
+    searchQueries: existing ? [...existing.searchQueries, query] : [query],
+    timestamp: Date.now(),
+    lastOffset: 0
+  };
+  
+  searchCache.set(key, newCache);
+  debug.log(DebugCategory.CACHE, 'Cache updated', {
+    chatId,
+    trialCount: trials.length,
+    queryCount: newCache.searchQueries.length
+  });
 }
 
 // Helper to create match objects
@@ -147,12 +184,20 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: DataStreamWrite
       debug.log(DebugCategory.PROFILE, 'Failed to load health profile', { error });
     }
 
-    // Get cached results if available
-    const cachedSearch = effectiveChatId ? getCachedSearchByChat(effectiveChatId) : null;
+    // Check if this is a continuation query (pagination, filtering, etc.)
+    const isContinuation = query.toLowerCase().includes('more') || 
+                          query.toLowerCase().includes('next') ||
+                          query.toLowerCase().includes('filter') ||
+                          query.toLowerCase().includes('near') ||
+                          query.toLowerCase().includes('proximity');
+    
+    // Get cached results if available and this is a continuation
+    const cachedSearch = (effectiveChatId && isContinuation) ? 
+      getCachedSearchByChat(effectiveChatId) : null;
     
     try {
-      // Use the pipeline integrator for all query processing
-      const result = await pipelineIntegrator.execute(query, {
+      // Use smart search for model-agnostic query processing
+      const result = await pipelineIntegrator.smartSearch(query, {
         chatId: effectiveChatId,
         healthProfile,
         cachedTrials: cachedSearch?.trials,
@@ -161,17 +206,9 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: DataStreamWrite
 
       // Handle successful pipeline execution
       if (result.success) {
-        // Update cache if we have new search results
-        if (result.trials && effectiveChatId && result.metadata?.isNewSearch) {
-          const newCache: CachedSearch = {
-            chatId: effectiveChatId,
-            trials: result.trials,
-            healthProfile,
-            searchQueries: [query],
-            timestamp: Date.now(),
-            lastOffset: result.currentOffset || 0
-          };
-          searchCache.set(`chat_${effectiveChatId}`, newCache);
+        // Always update cache when we have trials (new search or filtered results)
+        if (result.trials && effectiveChatId) {
+          updateCacheForChat(effectiveChatId, result.trials, healthProfile, query);
         }
 
         // Stream eligibility criteria if appropriate

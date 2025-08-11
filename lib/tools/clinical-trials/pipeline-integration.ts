@@ -51,13 +51,11 @@ interface PipelineConfig {
 export class PipelineIntegrator {
   private router: QueryRouter;
   private searchExecutor: SearchExecutor;
-  private queryInterpreter: QueryInterpreter;
   private pipelineConfigs: Map<QueryStrategy, PipelineConfig>;
   
   constructor() {
     this.router = new QueryRouter();
     this.searchExecutor = new SearchExecutor();
-    this.queryInterpreter = new QueryInterpreter();
     this.pipelineConfigs = new Map();
     
     this.initializePipelineConfigs();
@@ -125,7 +123,7 @@ export class PipelineIntegrator {
     // Cache Pagination Pipeline (no pipeline needed - direct cache access)
     this.pipelineConfigs.set(QueryStrategy.CACHE_PAGINATION, {
       strategy: QueryStrategy.CACHE_PAGINATION,
-      createPipeline: () => null, // Handled directly without pipeline
+      createPipeline: () => new TrialPipeline(), // Default empty pipeline
       processResults: (cachedData) => cachedData // Pass through cached results
     });
     
@@ -136,7 +134,7 @@ export class PipelineIntegrator {
         const pipeline = new TrialPipeline();
         
         // Add appropriate filters based on extracted entities
-        if (decision.extractedEntities?.locations?.length > 0) {
+        if (decision.extractedEntities?.locations && decision.extractedEntities.locations.length > 0) {
           pipeline.add(new LocationFilter());
         }
         
@@ -200,6 +198,61 @@ export class PipelineIntegrator {
   }
   
   /**
+   * Smart search that handles all query types in one place
+   * This makes the tool model-agnostic and works with any AI model
+   */
+  async smartSearch(
+    query: string,
+    context: {
+      chatId?: string;
+      healthProfile?: HealthProfile | null;
+      cachedTrials?: ClinicalTrial[];
+      dataStream?: unknown;
+    }
+  ): Promise<PipelineResult> {
+    const queryLower = query.toLowerCase();
+    
+    // Handle continuation queries (more, filter by location, etc.)
+    if (context.cachedTrials && context.cachedTrials.length > 0) {
+      // Check for pagination
+      if (queryLower.includes('more') || queryLower.includes('next')) {
+        return {
+          success: true,
+          trials: context.cachedTrials.slice(10, 20), // Simple pagination
+          matches: this.createMatches(context.cachedTrials.slice(10, 20)),
+          totalCount: context.cachedTrials.length,
+          message: `Showing more trials (11-20 of ${context.cachedTrials.length})`
+        };
+      }
+      
+      // Check for location filter
+      const locationMatch = query.match(/(?:near|in|proximity to|closest to)\s+([\w\s,]+?)(?:\.|,|\?|$)/i);
+      if (locationMatch) {
+        const location = locationMatch[1].trim().toLowerCase();
+        const filtered = context.cachedTrials.filter(trial => {
+          const locations = trial.protocolSection?.contactsLocationsModule?.locations || [];
+          return locations.some(loc => 
+            loc.city?.toLowerCase().includes(location) || 
+            loc.state?.toLowerCase().includes(location) ||
+            loc.country?.toLowerCase().includes(location)
+          );
+        });
+        
+        return {
+          success: true,
+          trials: filtered,
+          matches: this.createMatches(filtered),
+          totalCount: filtered.length,
+          message: `Found ${filtered.length} trials near ${locationMatch[1]}`
+        };
+      }
+    }
+    
+    // For new searches, use the existing pipeline
+    return this.execute(query, context);
+  }
+  
+  /**
    * Execute a query through the appropriate pipeline
    */
   async execute(
@@ -211,7 +264,16 @@ export class PipelineIntegrator {
       dataStream?: unknown;
     }
   ): Promise<PipelineResult> {
-    // Create query context
+    // Smart detection of query intent
+    const queryLower = query.toLowerCase();
+    const isLocationFilter = queryLower.includes('near') || queryLower.includes('proximity') || 
+                            queryLower.includes('closest') || queryLower.includes('in ');
+    const isPagination = queryLower.includes('more') || queryLower.includes('next') || 
+                        queryLower.includes('additional');
+    const isFilteringCached = (isLocationFilter || isPagination) && 
+                             context.cachedTrials && context.cachedTrials.length > 0;
+    
+    // Create query context with enhanced metadata
     const queryContext: QueryContext = {
       query,
       hasCachedResults: !!context.cachedTrials && context.cachedTrials.length > 0,
@@ -220,13 +282,52 @@ export class PipelineIntegrator {
       chatId: context.chatId
     };
     
-    // Route the query
-    const routingDecision = this.router.route(queryContext);
+    // Smart routing based on query intent and cache state
+    let routingDecision;
+    
+    // If we have cached results and this is a filter/pagination request, handle it specially
+    if (isFilteringCached) {
+      // Extract location if present
+      const locationMatch = query.match(/(?:near|in|proximity to|closest to)\s+([\w\s,]+?)(?:\.|\?|$)/i);
+      const location = locationMatch ? locationMatch[1].trim() : null;
+      
+      if (location) {
+        // Filter cached results by location
+        routingDecision = {
+          strategy: QueryStrategy.CACHE_FILTER,
+          confidence: 0.95,
+          reasoning: 'Filtering cached results by location',
+          extractedEntities: { locations: [location] },
+          metadata: { intent: 'filter' }
+        };
+      } else if (isPagination) {
+        // Show more cached results
+        routingDecision = {
+          strategy: QueryStrategy.CACHE_PAGINATION,
+          confidence: 0.95,
+          reasoning: 'Showing more cached results',
+          extractedEntities: {},
+          metadata: { 
+            intent: 'pagination',
+            currentOffset: 10,
+            requestedCount: 10
+          }
+        };
+      } else {
+        // Default routing
+        routingDecision = this.router.route(queryContext);
+      }
+    } else {
+      // Normal routing for new searches
+      routingDecision = this.router.route(queryContext);
+    }
     
     debug.log(DebugCategory.TOOL, 'Query routed', {
       strategy: routingDecision.strategy,
       confidence: routingDecision.confidence,
-      reasoning: routingDecision.reasoning
+      reasoning: routingDecision.reasoning,
+      isFilteringCached,
+      hasCachedResults: queryContext.hasCachedResults
     });
     
     // Get pipeline configuration
@@ -272,7 +373,16 @@ export class PipelineIntegrator {
       );
       
       if (result.success) {
-        return pipelineConfig.processResults(result, routingDecision);
+        const processed = pipelineConfig.processResults(result, routingDecision);
+        // Mark if this is using cached data
+        if (isFilteringCached) {
+          processed.metadata = {
+            ...processed.metadata,
+            usedCache: true,
+            cacheAction: isLocationFilter ? 'filter' : 'pagination'
+          };
+        }
+        return processed;
       } else {
         return {
           success: false,
@@ -286,7 +396,7 @@ export class PipelineIntegrator {
       debug.log(DebugCategory.ERROR, 'Pipeline execution failed', { error });
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Pipeline execution failed',
         message: 'An error occurred while processing your query',
         matches: [],
         totalCount: 0
@@ -338,11 +448,19 @@ export class PipelineIntegrator {
         decision.strategy === QueryStrategy.GENERAL_SEARCH) {
       
       // Use QueryInterpreter to build search parameters
-      const interpretation = this.queryInterpreter.interpret(context.query);
-      const searchResult = await this.searchExecutor.executeSearch(
-        interpretation.searchParams,
-        null // dataStream would be passed here
+      const interpretation = QueryInterpreter.interpret(context.query);
+      
+      // Execute the search using the SearchExecutor
+      const searchResults = await this.searchExecutor.executeParallelSearches(
+        [interpretation.normalizedQuery],
+        ['NCTId,BriefTitle,Condition,LocationCity'],
+        {
+          maxResults: 25,
+          dataStream: context.dataStream as any
+        }
       );
+      
+      const searchResult = searchResults[0];
       
       if (searchResult.success) {
         return {
