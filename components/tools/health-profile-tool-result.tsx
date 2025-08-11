@@ -1,10 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Heart, CheckCircle, AlertCircle, Calendar, ChevronRight, Edit2, Sparkles } from 'lucide-react';
+import { CheckCircle, AlertCircle, Calendar, Edit2, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HealthProfileQuestionnaireModal } from '@/components/health-profile/HealthProfileQuestionnaireModal';
 import { HealthProfilePromptCard } from '@/components/health-profile/HealthProfilePromptCard';
@@ -45,74 +43,75 @@ export function HealthProfileToolResult({ result, className }: HealthProfileTool
   // If profile exists, show summary
   return (
     <>
-      <Card className={className}>
-        <CardHeader className="pb-3">
+      <div className={cn("w-full rounded-lg border border-border/50 overflow-hidden", className)}>
+        <div className="bg-card px-4 py-3 border-b border-border/40">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "w-8 h-8 rounded-lg flex items-center justify-center",
-                isComplete 
-                  ? "bg-green-50 dark:bg-green-950/20" 
-                  : "bg-amber-50 dark:bg-amber-950/20"
-              )}>
-                {isComplete ? (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-amber-500" />
-                )}
-              </div>
-              <CardTitle className="text-base">Health Profile</CardTitle>
+            <div className="flex items-center gap-2.5">
+              {isComplete ? (
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <User className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span className="text-sm font-medium">Health Profile</span>
             </div>
-            <Badge variant={isComplete ? "default" : "secondary"}>
+            <span className="text-xs text-muted-foreground">
               {isComplete ? "Complete" : "Incomplete"}
-            </Badge>
+            </span>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        </div>
+        <div className="px-4 py-3.5 space-y-3">
           {/* Summary */}
           {summary && (
-            <div className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               {summary}
-            </div>
+            </p>
           )}
 
           {/* Key Points */}
           {keyPoints && Object.keys(keyPoints).length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-1.5 text-sm">
               {keyPoints.cancerRegion && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                  <span className="text-muted-foreground">Cancer Type:</span>
-                  <span className="font-medium">
-                    {keyPoints.cancerRegion.displayName || keyPoints.cancerRegion}
+                <div className="flex items-start gap-2">
+                  <span className="text-muted-foreground/70">•</span>
+                  <span>
+                    <span className="text-muted-foreground">Cancer Type:</span>{' '}
+                    <span className="text-foreground">
+                      {keyPoints.cancerRegion.displayName || keyPoints.cancerRegion}
+                    </span>
                   </span>
                 </div>
               )}
               {keyPoints.stage && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                  <span className="text-muted-foreground">Stage:</span>
-                  <span className="font-medium">
-                    {keyPoints.stage.displayName || keyPoints.stage}
+                <div className="flex items-start gap-2">
+                  <span className="text-muted-foreground/70">•</span>
+                  <span>
+                    <span className="text-muted-foreground">Stage:</span>{' '}
+                    <span className="text-foreground">
+                      {keyPoints.stage.displayName || keyPoints.stage}
+                    </span>
                   </span>
                 </div>
               )}
               {keyPoints.treatmentHistory && keyPoints.treatmentHistory.length > 0 && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                  <span className="text-muted-foreground">Previous Treatments:</span>
-                  <span className="font-medium">
-                    {keyPoints.treatmentHistory.join(', ')}
+                <div className="flex items-start gap-2">
+                  <span className="text-muted-foreground/70">•</span>
+                  <span>
+                    <span className="text-muted-foreground">Previous Treatments:</span>{' '}
+                    <span className="text-foreground">
+                      {keyPoints.treatmentHistory.join(', ')}
+                    </span>
                   </span>
                 </div>
               )}
               {keyPoints.molecularMarkers && keyPoints.molecularMarkers.length > 0 && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                  <span className="text-muted-foreground">Markers:</span>
-                  <span className="font-medium">
-                    {keyPoints.molecularMarkers.slice(0, 3).join(', ')}
-                    {keyPoints.molecularMarkers.length > 3 && ` +${keyPoints.molecularMarkers.length - 3} more`}
+                <div className="flex items-start gap-2">
+                  <span className="text-muted-foreground/70">•</span>
+                  <span>
+                    <span className="text-muted-foreground">Markers:</span>{' '}
+                    <span className="text-foreground">
+                      {keyPoints.molecularMarkers.slice(0, 3).join(', ')}
+                      {keyPoints.molecularMarkers.length > 3 && ` +${keyPoints.molecularMarkers.length - 3} more`}
+                    </span>
                   </span>
                 </div>
               )}
@@ -121,31 +120,25 @@ export function HealthProfileToolResult({ result, className }: HealthProfileTool
 
           {/* Last Updated */}
           {result.lastUpdated && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Calendar className="h-3 w-3" />
-              Last updated: {new Date(result.lastUpdated).toLocaleDateString()}
+              <span>Last updated: {new Date(result.lastUpdated).toLocaleDateString()}</span>
             </div>
           )}
 
           {/* Actions */}
-          <div className="flex items-center gap-2 pt-2">
+          <div className="pt-1">
             <Button
               onClick={() => setShowModal(true)}
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="gap-2"
+              className="h-8 px-3 text-xs hover:bg-muted/50"
             >
-              <Edit2 className="h-3.5 w-3.5" />
               {isComplete ? 'Update Profile' : 'Complete Profile'}
             </Button>
-            {!isComplete && (
-              <span className="text-xs text-muted-foreground">
-                Complete your profile for better matches
-              </span>
-            )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <HealthProfileQuestionnaireModal
         open={showModal}

@@ -268,7 +268,7 @@ const Messages: React.FC<MessagesProps> = React.memo(
 
                 {/* Add buttons below the text with visible labels */}
                 {status === 'ready' && (
-                  <div className="flex items-center gap-3 mt-2.5 mb-5 !-ml-1">
+                  <div className="flex items-center gap-3 mt-3 mb-4 !-ml-1">
                     {/* Only show reload for owners OR unauthenticated users on private chats */}
                     {((user && isOwner) || (!user && selectedVisibilityType === 'private')) && (
                       <Button
@@ -402,11 +402,13 @@ const Messages: React.FC<MessagesProps> = React.memo(
           }
           case 'tool-invocation':
             return (
-              <ToolInvocationListView
-                key={`${messageIndex}-${partIndex}-tool`}
-                toolInvocations={[part.toolInvocation]}
-                annotations={message.annotations}
-              />
+              <div key={`${messageIndex}-${partIndex}-tool-wrapper`} className="mt-2">
+                <ToolInvocationListView
+                  key={`${messageIndex}-${partIndex}-tool`}
+                  toolInvocations={[part.toolInvocation]}
+                  annotations={message.annotations}
+                />
+              </div>
             );
           default:
             return null;
