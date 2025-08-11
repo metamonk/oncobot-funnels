@@ -9,21 +9,81 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { 
   MapPin, 
-  Calendar, 
-  Users, 
   CheckCircle2, 
   XCircle, 
   AlertCircle, 
   ExternalLink,
   Phone,
   Mail,
-  Building2,
   FlaskConical,
   Copy,
   Check,
-  Info
+  Info,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useAnalytics } from '@/hooks/use-analytics';
+
+// Type definitions
+interface CriteriaItem {
+  id: string;
+  text: string;
+  category: string;
+  required: boolean;
+}
+
+interface MatchedCriteriaItem {
+  text: string;
+  matchType: 'exact' | 'partial' | 'inferred' | 'missing';
+  confidence: number;
+  reasoning: string;
+}
+
+interface Demographics {
+  ageRange?: [number, number];
+  sex?: 'ALL' | 'MALE' | 'FEMALE';
+  healthyVolunteers?: boolean;
+}
+
+interface SearchCriteria {
+  condition?: string;
+  cancerType?: string;
+  location?: string;
+}
+
+interface Contact {
+  name?: string;
+  role?: string;
+  phone?: string;
+  email?: string;
+}
+
+interface Location {
+  facility?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  status?: string;
+}
+
+interface Intervention {
+  name: string;
+  type: string;
+  description?: string;
+}
+
+interface AlternativeAction {
+  label: string;
+  url?: string;
+  action?: string;
+}
+
+interface Resource {
+  name: string;
+  description: string;
+  url: string;
+  type: string;
+}
 
 interface ClinicalTrialResult {
   success: boolean;
@@ -40,19 +100,9 @@ interface ClinicalTrialResult {
       };
       trialCriteria: {
         parsed: boolean;
-        inclusion: Array<{
-          id: string;
-          text: string;
-          category: string;
-          required: boolean;
-        }>;
-        exclusion: Array<{
-          id: string;
-          text: string;
-          category: string;
-          required: boolean;
-        }>;
-        demographics: any;
+        inclusion: CriteriaItem[];
+        exclusion: CriteriaItem[];
+        demographics: Demographics;
         parseConfidence: number;
         rawText?: string;
       };
@@ -63,40 +113,21 @@ interface ClinicalTrialResult {
         recommendation: string;
         missingData: string[];
         matches: {
-          inclusion: Array<{
-            text: string;
-            matchType: string;
-            confidence: number;
-            reasoning: string;
-          }>;
-          exclusion: Array<{
-            text: string;
-            matchType: string;
-            confidence: number;
-            reasoning: string;
-          }>;
+          inclusion: MatchedCriteriaItem[];
+          exclusion: MatchedCriteriaItem[];
         };
       };
     };
     locationSummary?: string;
   }>;
-  searchCriteria?: any;
+  searchCriteria?: SearchCriteria;
   query?: string;
   error?: string;
   message?: string;
   suggestion?: string;
   suggestedActions?: string[];
-  alternativeActions?: Array<{
-    label: string;
-    url?: string;
-    action?: string;
-  }>;
-  resources?: Array<{
-    name: string;
-    description: string;
-    url: string;
-    type: string;
-  }>;
+  alternativeActions?: AlternativeAction[];
+  resources?: Resource[];
   tokenBudget?: {
     totalTokens: number;
     budget: number;
@@ -122,6 +153,61 @@ interface ClinicalTrialResult {
 interface ClinicalTrialsProps {
   result: ClinicalTrialResult;
   action: 'search' | 'details' | 'eligibility_check';
+}
+
+// Component for toggleable criteria section
+function ToggleableCriteria({ 
+  title, 
+  criteria, 
+  colorClass 
+}: { 
+  title: string;
+  criteria: CriteriaItem[];
+  colorClass: string;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const displayCount = 3;
+  const hasMore = criteria.length > displayCount;
+  
+  if (criteria.length === 0) return null;
+  
+  return (
+    <div className="mb-3">
+      <div className="flex items-center justify-between mb-1">
+        <p className={`text-xs font-medium ${colorClass}`}>
+          {title} ({criteria.length})
+        </p>
+        {hasMore && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+          >
+            {isExpanded ? (
+              <>
+                Show less <ChevronUp className="h-3 w-3" />
+              </>
+            ) : (
+              <>
+                Show all <ChevronDown className="h-3 w-3" />
+              </>
+            )}
+          </button>
+        )}
+      </div>
+      <ul className="space-y-1">
+        {(isExpanded ? criteria : criteria.slice(0, displayCount)).map((criterion) => (
+          <li key={criterion.id} className="text-xs text-neutral-600 dark:text-neutral-400">
+            • {criterion.text}
+          </li>
+        ))}
+        {!isExpanded && hasMore && (
+          <li className="text-xs text-neutral-500 dark:text-neutral-500 italic">
+            • ...and {criteria.length - displayCount} more
+          </li>
+        )}
+      </ul>
+    </div>
+  );
 }
 
 // Component for NCT ID badge with copy functionality
@@ -224,7 +310,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
             
             <div className="space-y-2">
               <p className="text-sm font-medium">Alternative options:</p>
-              {result.alternativeActions.map((action: any, index: number) => (
+              {result.alternativeActions.map((action, index) => (
                 <div key={index}>
                   {action.url ? (
                     <a
@@ -251,7 +337,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
               <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-800">
                 <p className="text-sm font-medium mb-2">Additional Resources:</p>
                 <div className="space-y-1">
-                  {result.resources.map((resource: any, index: number) => (
+                  {result.resources.map((resource, index) => (
                     <a
                       key={index}
                       href={resource.url}
@@ -426,7 +512,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                   <div className="mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-800">
                     <p className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-2">Contact Information</p>
                     <div className="space-y-1">
-                      {trial.contactsLocationsModule.centralContacts.slice(0, 2).map((contact: any, i: number) => (
+                      {trial.contactsLocationsModule.centralContacts.slice(0, 2).map((contact: Contact, i: number) => (
                         <div key={i} className="flex flex-wrap gap-3 text-xs">
                           {contact.phone && (
                             <a
@@ -536,45 +622,17 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                             <div className="p-3 bg-neutral-50 dark:bg-neutral-900/50 rounded-lg">
                               <h4 className="text-sm font-medium mb-2">Trial Requirements</h4>
                               
-                              {assessment.trialCriteria.inclusion.length > 0 && (
-                                <div className="mb-3">
-                                  <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">
-                                    Inclusion Criteria ({assessment.trialCriteria.inclusion.length})
-                                  </p>
-                                  <ul className="space-y-1">
-                                    {assessment.trialCriteria.inclusion.slice(0, 3).map((criterion) => (
-                                      <li key={criterion.id} className="text-xs text-neutral-600 dark:text-neutral-400">
-                                        • {criterion.text}
-                                      </li>
-                                    ))}
-                                    {assessment.trialCriteria.inclusion.length > 3 && (
-                                      <li className="text-xs text-neutral-500 dark:text-neutral-500 italic">
-                                        • ...and {assessment.trialCriteria.inclusion.length - 3} more
-                                      </li>
-                                    )}
-                                  </ul>
-                                </div>
-                              )}
+                              <ToggleableCriteria
+                                title="Inclusion Criteria"
+                                criteria={assessment.trialCriteria.inclusion}
+                                colorClass="text-green-700 dark:text-green-300"
+                              />
                               
-                              {assessment.trialCriteria.exclusion.length > 0 && (
-                                <div>
-                                  <p className="text-xs font-medium text-red-700 dark:text-red-300 mb-1">
-                                    Exclusion Criteria ({assessment.trialCriteria.exclusion.length})
-                                  </p>
-                                  <ul className="space-y-1">
-                                    {assessment.trialCriteria.exclusion.slice(0, 3).map((criterion) => (
-                                      <li key={criterion.id} className="text-xs text-neutral-600 dark:text-neutral-400">
-                                        • {criterion.text}
-                                      </li>
-                                    ))}
-                                    {assessment.trialCriteria.exclusion.length > 3 && (
-                                      <li className="text-xs text-neutral-500 dark:text-neutral-500 italic">
-                                        • ...and {assessment.trialCriteria.exclusion.length - 3} more
-                                      </li>
-                                    )}
-                                  </ul>
-                                </div>
-                              )}
+                              <ToggleableCriteria
+                                title="Exclusion Criteria"
+                                criteria={assessment.trialCriteria.exclusion}
+                                colorClass="text-red-700 dark:text-red-300"
+                              />
                             </div>
                           )}
 
@@ -654,7 +712,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                             </h4>
                             <ScrollArea className="h-[120px]">
                               <div className="space-y-2 pr-4">
-                                {trial.contactsLocationsModule.locations.map((location: any, i: number) => (
+                                {trial.contactsLocationsModule.locations.map((location: Location, i: number) => (
                                   <div key={i} className="flex items-start gap-2 text-sm">
                                     <MapPin className="h-3 w-3 text-neutral-500 mt-0.5" />
                                     <div>
@@ -675,7 +733,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                           <div>
                             <h4 className="text-sm font-medium mb-2">Contact Information</h4>
                             <div className="space-y-2">
-                              {trial.contactsLocationsModule.centralContacts.map((contact: any, i: number) => (
+                              {trial.contactsLocationsModule.centralContacts.map((contact: Contact, i: number) => (
                                 <div key={i} className="flex items-center gap-4 text-sm">
                                   {contact.phone && (
                                     <a
@@ -837,7 +895,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
             <div>
               <h3 className="text-sm font-semibold mb-2">Interventions</h3>
               <div className="space-y-3">
-                {trial.armsInterventionsModule.interventions.map((intervention: any, i: number) => (
+                {trial.armsInterventionsModule.interventions.map((intervention: Intervention, i: number) => (
                   <div key={i} className="border-l-2 border-neutral-200 dark:border-neutral-800 pl-3">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{intervention.name}</span>
@@ -909,8 +967,8 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                       <p className="font-medium text-green-700 dark:text-green-300">Matching Criteria:</p>
                       <ul className="mt-1 space-y-0.5">
                         {eligibilityAssessment.userAssessment.matches.inclusion
-                          .filter((item: any) => item.matchType === 'exact' || item.matchType === 'partial')
-                          .map((item: any, i: number) => (
+                          .filter((item: MatchedCriteriaItem) => item.matchType === 'exact' || item.matchType === 'partial')
+                          .map((item: MatchedCriteriaItem, i: number) => (
                             <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item.reasoning}</li>
                           ))}
                       </ul>
@@ -919,15 +977,15 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                 )}
                 
                 {eligibilityAssessment.userAssessment.matches.exclusion
-                  .filter((item: any) => item.matchType === 'exact').length > 0 && (
+                  .filter((item: MatchedCriteriaItem) => item.matchType === 'exact').length > 0 && (
                   <div className="flex items-start gap-2">
                     <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5" />
                     <div className="text-sm">
                       <p className="font-medium text-red-700 dark:text-red-300">Potential Concerns:</p>
                       <ul className="mt-1 space-y-0.5">
                         {eligibilityAssessment.userAssessment.matches.exclusion
-                          .filter((item: any) => item.matchType === 'exact')
-                          .map((item: any, i: number) => (
+                          .filter((item: MatchedCriteriaItem) => item.matchType === 'exact')
+                          .map((item: MatchedCriteriaItem, i: number) => (
                             <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item.reasoning}</li>
                           ))}
                       </ul>
@@ -958,7 +1016,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
               <h3 className="text-sm font-semibold mb-2">Study Locations</h3>
               <ScrollArea className="h-[200px]">
                 <div className="space-y-3 pr-4">
-                  {trial.contactsLocationsModule.locations.map((location: any, i: number) => (
+                  {trial.contactsLocationsModule.locations.map((location: Location, i: number) => (
                     <div key={i} className="flex items-start gap-2 text-sm">
                       <MapPin className="h-4 w-4 text-neutral-500 mt-0.5" />
                       <div>
@@ -984,7 +1042,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
             <div>
               <h3 className="text-sm font-semibold mb-2">Contact Information</h3>
               <div className="space-y-2">
-                {trial.contactsLocationsModule.centralContacts.map((contact: any, i: number) => (
+                {trial.contactsLocationsModule.centralContacts.map((contact: Contact, i: number) => (
                   <div key={i} className="space-y-1">
                     {contact.name && (
                       <p className="text-sm font-medium">{contact.name} {contact.role && `(${contact.role})`}</p>
