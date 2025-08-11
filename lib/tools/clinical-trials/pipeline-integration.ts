@@ -462,19 +462,19 @@ export class PipelineIntegrator {
       
       const searchResult = searchResults[0];
       
-      if (searchResult.success) {
+      if (searchResult && searchResult.success) {
         return {
           success: true,
           trials: searchResult.studies,
           matches: this.createMatches(searchResult.studies),
           totalCount: searchResult.totalCount,
-          message: searchResult.message
+          message: searchResult.message || `Found ${searchResult.studies.length} studies`
         };
       } else {
         return {
           success: false,
-          error: searchResult.error,
-          message: 'Search failed',
+          error: searchResult?.error || 'Search failed',
+          message: searchResult?.message || 'Search failed',
           matches: [],
           totalCount: 0
         };
@@ -505,7 +505,7 @@ export class PipelineIntegrator {
         city: loc.city || '',
         state: loc.state || '',
         country: loc.country || '',
-        status: loc.status || ''
+        status: 'status' in loc ? (loc as any).status : ''
       })),
       enrollmentCount: trial.protocolSection?.designModule?.enrollmentInfo?.count,
       studyType: trial.protocolSection?.designModule?.studyType,

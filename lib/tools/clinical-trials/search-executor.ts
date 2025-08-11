@@ -48,7 +48,7 @@ export class SearchExecutor {
     queries: string[],
     fields: string[],
     options: ExecutorOptions = {}
-  ): Promise<SearchResult[]> {
+  ): Promise<{ success: boolean; studies: ClinicalTrial[]; totalCount: number; error?: string; message?: string }[]> {
     const {
       maxResults = 25,
       includeStatuses = ['RECRUITING', 'ACTIVE_NOT_RECRUITING', 'ENROLLING_BY_INVITATION'],
@@ -100,7 +100,15 @@ export class SearchExecutor {
       );
 
       const batchResults = await Promise.all(batchPromises);
-      allResults.push(...batchResults);
+      // Transform SearchResult to the expected format
+      const transformedResults = batchResults.map(r => ({
+        success: !r.error,
+        studies: r.studies,
+        totalCount: r.totalCount,
+        error: r.error,
+        message: r.error ? `Search failed: ${r.error}` : `Found ${r.studies.length} studies`
+      }));
+      allResults.push(...transformedResults);
 
       // Notify batch completion
       if (dataStream) {
