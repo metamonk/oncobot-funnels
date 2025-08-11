@@ -435,9 +435,11 @@ function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: Health
     // Create eligibility analysis based on available data
     const eligibilityAnalysis = {
       likelyEligible: true, // Default to true for matched trials
+      eligibilityScore: 0.75, // Default score for matched trials (75%)
       inclusionMatches: [] as string[],
       exclusionConcerns: [] as string[],
       uncertainFactors: [] as string[],
+      missingInformation: [] as string[],
       // Add structured summary for eligibility-focused queries
       ...(eligibilityIntent === 'eligibility' && index < 3 ? {
         eligibilitySummary: extractKeyRequirements(trial.protocolSection.eligibilityModule?.eligibilityCriteria)
@@ -467,6 +469,17 @@ function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: Health
         trial.protocolSection.conditionsModule?.conditions?.some((c: string) => 
           c.toLowerCase().includes(healthProfile.cancerType!.toLowerCase()))) {
       eligibilityAnalysis.inclusionMatches.push(`${healthProfile.cancerType} diagnosis match`);
+    }
+    
+    // Add missing information if no health profile
+    if (!healthProfile) {
+      eligibilityAnalysis.missingInformation.push('Health profile needed for personalized eligibility assessment');
+      eligibilityAnalysis.eligibilityScore = 0.5; // Lower score when missing profile
+    } else {
+      // Adjust score based on matches
+      if (eligibilityAnalysis.inclusionMatches.length > 0) {
+        eligibilityAnalysis.eligibilityScore = Math.min(0.95, 0.75 + (eligibilityAnalysis.inclusionMatches.length * 0.1));
+      }
     }
     
     // Add uncertainty for trials not yet recruiting

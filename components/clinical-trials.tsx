@@ -20,7 +20,8 @@ import {
   Building2,
   FlaskConical,
   Copy,
-  Check
+  Check,
+  Info
 } from 'lucide-react';
 import { useAnalytics } from '@/hooks/use-analytics';
 
@@ -69,9 +70,11 @@ interface ClinicalTrialResult {
   trial?: any;
   eligibilityAnalysis?: {
     likelyEligible: boolean;
+    eligibilityScore?: number;
     inclusionMatches: string[];
     exclusionConcerns: string[];
     uncertainFactors: string[];
+    missingInformation?: string[];
   };
   // For eligibility_check action
   trialId?: string;
@@ -345,9 +348,16 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                   </div>
                   <div className="shrink-0">
                     {isEligible ? (
-                      <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span className="text-xs font-medium">Potentially Eligible</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="text-xs font-medium">Potentially Eligible</span>
+                        </div>
+                        {match.eligibilityAnalysis?.eligibilityScore && (
+                          <span className="text-xs text-neutral-600 dark:text-neutral-400">
+                            ({Math.round(match.eligibilityAnalysis.eligibilityScore * 100)}%)
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
@@ -457,7 +467,14 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
 
                         {/* Eligibility Analysis */}
                         <div>
-                          <h4 className="text-sm font-medium mb-2">Eligibility Analysis</h4>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium">Eligibility Analysis</h4>
+                            {match.eligibilityAnalysis.eligibilityScore && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
+                                Score: {Math.round(match.eligibilityAnalysis.eligibilityScore * 100)}%
+                              </span>
+                            )}
+                          </div>
                           <div className="space-y-2">
                             {match.eligibilityAnalysis.inclusionMatches.length > 0 && (
                               <div className="flex items-start gap-2">
@@ -494,6 +511,20 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                                   <p className="font-medium text-amber-700 dark:text-amber-300">Uncertain Factors:</p>
                                   <ul className="mt-1 space-y-0.5">
                                     {match.eligibilityAnalysis.uncertainFactors.map((item, i) => (
+                                      <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {match.eligibilityAnalysis.missingInformation && match.eligibilityAnalysis.missingInformation.length > 0 && (
+                              <div className="flex items-start gap-2">
+                                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5" />
+                                <div className="text-sm">
+                                  <p className="font-medium text-blue-700 dark:text-blue-300">Missing Information:</p>
+                                  <ul className="mt-1 space-y-0.5">
+                                    {match.eligibilityAnalysis.missingInformation.map((item, i) => (
                                       <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
                                     ))}
                                   </ul>
