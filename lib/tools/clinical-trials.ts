@@ -4,12 +4,11 @@
  */
 
 import { createStreamableValue } from 'ai/rsc';
-import { MolecularMarkers } from '@/lib/db/schema';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { debug, DebugCategory } from './clinical-trials/debug';
-import { ClinicalTrial, HealthProfile, TrialMatch, CachedSearch } from './clinical-trials/types';
+import { ClinicalTrial, HealthProfile, TrialMatch, CachedSearch, MolecularMarkers } from './clinical-trials/types';
 import { pipelineIntegrator } from './clinical-trials/pipeline-integration';
 
 // Simple in-memory cache for search results per chat session
@@ -40,22 +39,22 @@ function createMatchObjects(
   filterLocation?: string
 ): TrialMatch[] {
   return trials.map(trial => ({
-    nctId: trial.protocolSection.identificationModule.nctId,
-    title: trial.protocolSection.identificationModule.briefTitle,
-    summary: trial.protocolSection.descriptionModule?.briefSummary || '',
-    conditions: trial.protocolSection.conditionsModule?.conditions || [],
-    interventions: trial.protocolSection.armsInterventionsModule?.interventions?.map(i => i.name) || [],
-    locations: trial.protocolSection.contactsLocationsModule?.locations?.map(loc => ({
+    nctId: trial.protocolSection?.identificationModule?.nctId || '',
+    title: trial.protocolSection?.identificationModule?.briefTitle || '',
+    summary: trial.protocolSection?.descriptionModule?.briefSummary || '',
+    conditions: trial.protocolSection?.conditionsModule?.conditions || [],
+    interventions: trial.protocolSection?.armsInterventionsModule?.interventions?.map(i => i.name).filter(Boolean) || [],
+    locations: (trial.protocolSection?.contactsLocationsModule?.locations || []).map(loc => ({
       facility: loc.facility || '',
       city: loc.city || '',
       state: loc.state || '',
       country: loc.country || '',
-      status: loc.status || ''
-    })) || [],
-    enrollmentCount: trial.protocolSection.designModule?.enrollmentInfo?.count,
-    studyType: trial.protocolSection.designModule?.studyType,
-    phases: trial.protocolSection.designModule?.phases || [],
-    lastUpdateDate: trial.protocolSection.statusModule?.lastUpdatePostDateStruct?.date || '',
+      status: (loc as any).status || ''
+    })),
+    enrollmentCount: (trial.protocolSection?.designModule?.enrollmentInfo as any)?.count,
+    studyType: trial.protocolSection?.designModule?.studyType,
+    phases: trial.protocolSection?.designModule?.phases || [],
+    lastUpdateDate: (trial.protocolSection?.statusModule?.lastUpdatePostDateStruct as any)?.date || '',
     matchReason: trial.matchReason || 'Matches search criteria',
     relevanceScore: trial.relevanceScore || 85,
     trial: trial,
@@ -68,7 +67,7 @@ function streamEligibilityCriteria(
   trials: ClinicalTrial[],
   messageType: string,
   healthProfile: HealthProfile | null,
-  dataStream?: ReturnType<typeof createStreamableValue>
+  dataStream?: any
 ): void {
   if (!dataStream) return;
 
@@ -92,7 +91,7 @@ function streamEligibilityCriteria(
 }
 
 // Clean, minimal tool export
-export const clinicalTrialsTool = (chatId?: string, dataStream?: ReturnType<typeof createStreamableValue>) => tool({
+export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
   description: `Search and analyze clinical trials. Simply pass the user's natural language query.
   
   The tool automatically:

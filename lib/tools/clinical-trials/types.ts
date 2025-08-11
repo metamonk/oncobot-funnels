@@ -174,3 +174,41 @@ export interface MatchedCriteria extends CriteriaItem {
   reasoning: string;              // Explanation of match/mismatch
 }
 
+/**
+ * Trial match interface for UI display
+ */
+export interface TrialMatch {
+  nctId: string;
+  title: string;
+  summary: string;
+  conditions: string[];
+  interventions: string[];
+  locations: Array<{
+    facility: string;
+    city: string;
+    state: string;
+    country: string;
+    status: string;
+  }>;
+  enrollmentCount?: number;
+  studyType?: string;
+  phases?: string[];
+  lastUpdateDate?: string;
+  matchReason?: string;
+  relevanceScore?: number;
+  trial: ClinicalTrial;
+  filterLocation?: string;
+}
+
+/**
+ * Cached search results for a chat session
+ */
+export interface CachedSearch {
+  chatId: string;
+  trials: ClinicalTrial[];
+  healthProfile: HealthProfile | null;
+  searchQueries: string[];
+  timestamp: number;
+  lastOffset: number;
+}
+

@@ -17,7 +17,7 @@ import {
 } from './query-router';
 import { SearchExecutor } from './search-executor';
 import { QueryInterpreter } from './query-interpreter';
-import type { ClinicalTrial, HealthProfile } from './types';
+import type { ClinicalTrial, HealthProfile, TrialMatch } from './types';
 import type { OperatorContext } from './pipeline/types';
 import { debug, DebugCategory } from './debug';
 
@@ -362,12 +362,27 @@ export class PipelineIntegrator {
   /**
    * Create match objects for UI display
    */
-  private createMatches(trials: ClinicalTrial[], includeEligibility = false): any[] {
+  private createMatches(trials: ClinicalTrial[], includeEligibility = false): TrialMatch[] {
     return trials.map(trial => ({
-      trial: this.reduceTrialData(trial),
-      matchScore: 85, // Default score
-      eligibilityAnalysis: includeEligibility ? (trial as any)._eligibilityAnalysis : undefined,
-      locationMatches: (trial as any)._locationMatches
+      nctId: trial.protocolSection?.identificationModule?.nctId || '',
+      title: trial.protocolSection?.identificationModule?.briefTitle || '',
+      summary: trial.protocolSection?.descriptionModule?.briefSummary || '',
+      conditions: trial.protocolSection?.conditionsModule?.conditions || [],
+      interventions: trial.protocolSection?.armsInterventionsModule?.interventions?.map(i => i.name) || [],
+      locations: (trial.protocolSection?.contactsLocationsModule?.locations || []).map(loc => ({
+        facility: loc.facility || '',
+        city: loc.city || '',
+        state: loc.state || '',
+        country: loc.country || '',
+        status: loc.status || ''
+      })),
+      enrollmentCount: trial.protocolSection?.designModule?.enrollmentInfo?.count,
+      studyType: trial.protocolSection?.designModule?.studyType,
+      phases: trial.protocolSection?.designModule?.phases || [],
+      lastUpdateDate: trial.protocolSection?.statusModule?.lastUpdatePostDateStruct?.date || '',
+      matchReason: 'Matches search criteria',
+      relevanceScore: 85,
+      trial: trial // Include full trial data for detailed views
     }));
   }
   
