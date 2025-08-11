@@ -300,15 +300,44 @@ export class QueryInterpreter {
       case 'entity-based':
         // Use detected entities to build queries
         if (interpretation.detectedEntities.mutations) {
-          queries.push(...interpretation.detectedEntities.mutations);
+          // For each mutation/gene detected, add targeted searches
+          interpretation.detectedEntities.mutations.forEach(mutation => {
+            queries.push(mutation); // Add the gene/mutation itself
+            queries.push(`${mutation} mutation`); // Add "mutation" suffix
+            
+            // If it's just a gene name (e.g., "KRAS" not "KRAS G12C")
+            if (!mutation.includes(' ')) {
+              // Add common variants for well-known genes
+              if (mutation === 'KRAS') {
+                queries.push('KRAS G12C');
+                queries.push('KRAS G12D');
+                queries.push('KRAS G12V');
+              } else if (mutation === 'EGFR') {
+                queries.push('EGFR L858R');
+                queries.push('EGFR exon 19');
+                queries.push('EGFR T790M');
+              } else if (mutation === 'BRAF') {
+                queries.push('BRAF V600E');
+                queries.push('BRAF V600K');
+              }
+            }
+          });
         }
         if (interpretation.detectedEntities.cancerTypes) {
           queries.push(...interpretation.detectedEntities.cancerTypes);
+          // If we have both mutations and cancer types, combine them
+          if (interpretation.detectedEntities.mutations) {
+            interpretation.detectedEntities.mutations.forEach(mutation => {
+              interpretation.detectedEntities.cancerTypes!.forEach(cancer => {
+                queries.push(`${mutation} ${cancer}`);
+              });
+            });
+          }
         }
         if (interpretation.detectedEntities.drugs) {
           queries.push(...interpretation.detectedEntities.drugs);
         }
-        reasoning += '. Using specific entities from query.';
+        reasoning += '. Using specific entities from query with expanded variations.';
         break;
         
       case 'literal':

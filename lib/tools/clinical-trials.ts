@@ -837,7 +837,42 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           detectedEntities: interpretation.detectedEntities
         });
         
-        // Handle NCT ID lookup - direct API call for specific trial
+        // Check for batch NCT IDs first (before single NCT ID)
+        const nctPattern = /NCT\d{8}/gi;
+        const allNctIds = [...new Set((userQuery.match(nctPattern) || []).map(id => id.toUpperCase()))];
+        
+        // Handle batch NCT operations if multiple NCT IDs detected
+        if (allNctIds.length > 1) {
+          debug.log(DebugCategory.NCT_LOOKUP, 'Batch NCT operation detected', {
+            nctIds: allNctIds,
+            count: allNctIds.length,
+            hasLocation: !!interpretation.detectedEntities.locations?.length
+          });
+          
+          // Use the modular pipeline for batch operations
+          const { integrateWithMainTool } = await import('./clinical-trials/pipeline/examples/batch-operations');
+          const pipelineResult = await integrateWithMainTool(userQuery, healthProfile, dataStream);
+          
+          if (pipelineResult) {
+            // Pipeline handled the request successfully
+            debug.log(DebugCategory.NCT_LOOKUP, 'Batch pipeline completed', {
+              success: pipelineResult.success,
+              matchCount: pipelineResult.matches?.length || 0,
+              totalCount: pipelineResult.totalCount
+            });
+            
+            // Cache the results for follow-up queries
+            if (effectiveChatId && pipelineResult.matches) {
+              const trials = pipelineResult.matches.map((m: any) => m.trial);
+              setCachedSearchForChat(effectiveChatId, trials, healthProfile, allNctIds);
+            }
+            
+            return pipelineResult;
+          }
+          // Fall through if pipeline didn't handle it
+        }
+        
+        // Handle single NCT ID lookup - direct API call for specific trial
         if (interpretation.strategy === 'nct-lookup' && interpretation.detectedEntities.nctId) {
           const executor = new SearchExecutor();
           const lookupResult = await executor.executeLookup(

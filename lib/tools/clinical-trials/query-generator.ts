@@ -188,8 +188,44 @@ export class QueryGenerator {
       descriptions.push(`Broad search: ${drug}`);
     });
 
-    // Handle mutation patterns generically (e.g., GENE VAR123X)
-    // Pattern: uppercase word followed by alphanumeric variant code
+    // Handle standalone gene names (e.g., KRAS, EGFR, ALK, etc.)
+    // These are common oncogenes/tumor suppressor genes
+    const genePattern = /\b(KRAS|EGFR|ALK|ROS1|BRAF|MET|RET|NTRK|HER2|PIK3CA|FGFR|IDH[12]|BRCA[12]|MSI-H|TMB-H|PD-?L1|TP53|PTEN|APC|MLH1|MSH2|MSH6|PMS2|NRAS|HRAS|RAF1|MAP2K1|ERBB2|CDK4|CDK6|CCND1|MDM2|MYC|BCL2|BCL6|JAK2|FLT3|NPM1|CEBPA|KIT|PDGFRA|POLE|ATM|PALB2)\b/gi;
+    const geneMatches = searchTerm.match(genePattern) || [];
+    geneMatches.forEach(gene => {
+      const geneUpper = gene.toUpperCase();
+      // Search for the gene name alone
+      queries.push(geneUpper);
+      fields.push('query.term');
+      descriptions.push(`Gene search: ${geneUpper}`);
+      
+      // Search in conditions (many trials list genes in conditions)
+      queries.push(geneUpper);
+      fields.push('query.cond');
+      descriptions.push(`${geneUpper} in conditions`);
+      
+      // Search in interventions (targeted therapies often mention the gene)
+      queries.push(geneUpper);
+      fields.push('query.intr');
+      descriptions.push(`${geneUpper} targeted therapy`);
+      
+      // Also search for common variations
+      queries.push(`${geneUpper} mutation`);
+      fields.push('query.term');
+      descriptions.push(`${geneUpper} mutation search`);
+      
+      // For KRAS specifically, also search for common variants
+      if (geneUpper === 'KRAS') {
+        ['G12C', 'G12D', 'G12V', 'G13D', 'Q61H'].forEach(variant => {
+          queries.push(`KRAS ${variant}`);
+          fields.push('query.term');
+          descriptions.push(`KRAS ${variant} specific`);
+        });
+      }
+    });
+
+    // Handle mutation patterns with variants (e.g., KRAS G12C)
+    // Pattern: uppercase gene name followed by variant code
     const mutationPattern = /\b[A-Z]{2,10}\s+[A-Z]?\d{1,4}[A-Z]?\b/gi;
     const mutations = searchTerm.match(mutationPattern) || [];
     mutations.forEach(mutation => {
@@ -270,9 +306,11 @@ export class QueryGenerator {
     // Only add discovery queries if they contain specific medical entities
     // Skip generic queries like "Are there any trials for my type and stage"
     const medicalPattern = /\b(cancer|carcinoma|tumor|malignancy|metastatic|stage|mutation|therapy|treatment)\b/i;
+    const genePattern = /\b(KRAS|EGFR|ALK|ROS1|BRAF|MET|RET|NTRK|HER2|PIK3CA|FGFR|IDH[12]|BRCA[12]|MSI-H|TMB-H|PD-?L1|TP53|PTEN|APC|MLH1|MSH2|MSH6|PMS2|NRAS|HRAS)\b/i;
     const genericPattern = /^(are there any|what|which|find|show|list).*\b(my|me|I)\b/i;
     
-    if (!genericPattern.test(searchTerm) && medicalPattern.test(searchTerm)) {
+    // Add discovery queries if the search contains medical terms OR gene names
+    if (!genericPattern.test(searchTerm) && (medicalPattern.test(searchTerm) || genePattern.test(searchTerm))) {
       const discoverySet = this.generateDiscoveryQueries(searchTerm);
       allQueries.push(...discoverySet.queries);
       allFields.push(...discoverySet.fields);
