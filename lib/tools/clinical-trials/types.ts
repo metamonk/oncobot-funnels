@@ -172,14 +172,3 @@ export interface MatchedCriteria extends CriteriaItem {
   reasoning: string;              // Explanation of match/mismatch
 }
 
-/**
- * Legacy eligibility analysis structure (deprecated, kept for compatibility)
- */
-export interface LegacyEligibilityAnalysis {
-  likelyEligible: boolean;
-  eligibilityScore?: number;
-  inclusionMatches: string[];
-  exclusionConcerns: string[];
-  uncertainFactors: string[];
-  missingInformation?: string[];
-}

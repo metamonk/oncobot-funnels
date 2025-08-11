@@ -7,11 +7,9 @@ import {
   HealthProfile, 
   ClinicalTrial,
   TrialEligibilityAssessment, 
-  MatchedCriteria,
-  LegacyEligibilityAnalysis 
+  MatchedCriteria
 } from './types';
 import { EligibilityCriteriaParser } from './eligibility-criteria-parser';
-import { isFeatureEnabled } from './feature-flags';
 import { formatMarkerName, isPositiveMarker } from '@/lib/utils';
 
 /**
@@ -49,7 +47,7 @@ export function assessEligibility(
     inclusion: parsedCriteria.inclusion,
     exclusion: parsedCriteria.exclusion,
     demographics: parsedCriteria.demographics,
-    rawText: isFeatureEnabled('PARSE_ELIGIBILITY_CRITERIA') ? undefined : criteriaText,
+    rawText: criteriaText, // Always include for progressive disclosure
     parseConfidence: parsedCriteria.parseConfidence,
   };
 
@@ -305,77 +303,4 @@ function matchCriterionToProfile(
   };
 }
 
-/**
- * Create legacy eligibility analysis for backward compatibility
- */
-export function createLegacyEligibilityAnalysis(
-  trial: ClinicalTrial,
-  healthProfile: HealthProfile | null,
-  assessment?: TrialEligibilityAssessment
-): LegacyEligibilityAnalysis {
-  const analysis: LegacyEligibilityAnalysis = {
-    likelyEligible: true,
-    eligibilityScore: 0.75,
-    inclusionMatches: [],
-    exclusionConcerns: [],
-    uncertainFactors: [],
-    missingInformation: [],
-  };
-  
-  // If we have the new assessment, convert it to legacy format
-  if (assessment?.userAssessment) {
-    analysis.eligibilityScore = assessment.userAssessment.eligibilityScore || 0.5;
-    analysis.likelyEligible = assessment.userAssessment.recommendation === 'likely' || 
-                              assessment.userAssessment.recommendation === 'possible';
-    
-    // Convert matches to legacy format
-    for (const match of assessment.userAssessment.matches.inclusion) {
-      if (match.matchType === 'exact' || match.matchType === 'partial') {
-        analysis.inclusionMatches.push(match.reasoning);
-      } else if (match.matchType === 'missing') {
-        analysis.uncertainFactors.push(match.text);
-      }
-    }
-    
-    for (const match of assessment.userAssessment.matches.exclusion) {
-      if (match.matchType === 'exact') {
-        analysis.exclusionConcerns.push(match.reasoning);
-        analysis.likelyEligible = false;
-      }
-    }
-    
-    analysis.missingInformation = assessment.userAssessment.missingData;
-  } else if (!healthProfile) {
-    // No profile case
-    analysis.eligibilityScore = 0.5;
-    analysis.missingInformation.push('Health profile needed for personalized eligibility assessment');
-  } else {
-    // Legacy logic for when new assessment isn't available
-    const conditions = trial.protocolSection.conditionsModule?.conditions || [];
-    const profileCancer = healthProfile.cancerType || healthProfile.cancer_type;
-    
-    if (profileCancer && conditions.some(c => c.toLowerCase().includes(profileCancer.toLowerCase()))) {
-      analysis.inclusionMatches.push(`${profileCancer} matches trial conditions`);
-    }
-    
-    if (healthProfile.molecularMarkers) {
-      for (const [marker, value] of Object.entries(healthProfile.molecularMarkers)) {
-        if (isPositiveMarker(value)) {
-          const briefTitle = trial.protocolSection.identificationModule.briefTitle || '';
-          const summary = trial.protocolSection.descriptionModule?.briefSummary || '';
-          const markerName = formatMarkerName(marker);
-          
-          if (briefTitle.includes(markerName) || summary.includes(markerName)) {
-            analysis.inclusionMatches.push(`${markerName} positive status may be relevant`);
-          }
-        }
-      }
-    }
-    
-    if (!healthProfile.diseaseStage && !healthProfile.stage) {
-      analysis.uncertainFactors.push('Disease stage information not available');
-    }
-  }
-  
-  return analysis;
-}
+// Legacy function removed - no backward compatibility needed

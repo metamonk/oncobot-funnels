@@ -31,12 +31,52 @@ interface ClinicalTrialResult {
   matches?: Array<{
     trial: any;
     matchScore: number;
-    matchingCriteria: string[];
-    eligibilityAnalysis: {
-      likelyEligible: boolean;
-      inclusionMatches: string[];
-      exclusionConcerns: string[];
-      uncertainFactors: string[];
+    eligibilityAssessment: {
+      searchRelevance: {
+        matchedTerms: string[];
+        relevanceScore: number;
+        searchStrategy: string;
+        reasoning: string;
+      };
+      trialCriteria: {
+        parsed: boolean;
+        inclusion: Array<{
+          id: string;
+          text: string;
+          category: string;
+          required: boolean;
+        }>;
+        exclusion: Array<{
+          id: string;
+          text: string;
+          category: string;
+          required: boolean;
+        }>;
+        demographics: any;
+        parseConfidence: number;
+        rawText?: string;
+      };
+      userAssessment?: {
+        hasProfile: boolean;
+        eligibilityScore?: number;
+        confidence: string;
+        recommendation: string;
+        missingData: string[];
+        matches: {
+          inclusion: Array<{
+            text: string;
+            matchType: string;
+            confidence: number;
+            reasoning: string;
+          }>;
+          exclusion: Array<{
+            text: string;
+            matchType: string;
+            confidence: number;
+            reasoning: string;
+          }>;
+        };
+      };
     };
     locationSummary?: string;
   }>;
@@ -68,14 +108,7 @@ interface ClinicalTrialResult {
   hasMore?: boolean;
   // For details action
   trial?: any;
-  eligibilityAnalysis?: {
-    likelyEligible: boolean;
-    eligibilityScore?: number;
-    inclusionMatches: string[];
-    exclusionConcerns: string[];
-    uncertainFactors: string[];
-    missingInformation?: string[];
-  };
+  eligibilityAssessment?: any;
   // For eligibility_check action
   trialId?: string;
   trialTitle?: string;
@@ -311,7 +344,10 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
             }
             
             const trial = match.trial.protocolSection;
-            const isEligible = match.eligibilityAnalysis?.likelyEligible ?? true;
+            const assessment = match.eligibilityAssessment;
+            const hasProfile = assessment?.userAssessment?.hasProfile;
+            const isEligible = assessment?.userAssessment?.recommendation === 'likely' || 
+                               assessment?.userAssessment?.recommendation === 'possible';
             
             // Check for required fields
             if (!trial.identificationModule?.nctId) {
@@ -347,22 +383,29 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                     </div>
                   </div>
                   <div className="shrink-0">
-                    {isEligible ? (
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                          <CheckCircle2 className="h-4 w-4" />
-                          <span className="text-xs font-medium">Potentially Eligible</span>
+                    {hasProfile ? (
+                      isEligible ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="text-xs font-medium">Potentially Eligible</span>
+                          </div>
+                          {assessment?.userAssessment?.eligibilityScore && (
+                            <span className="text-xs text-neutral-600 dark:text-neutral-400">
+                              ({Math.round(assessment.userAssessment.eligibilityScore * 100)}%)
+                            </span>
+                          )}
                         </div>
-                        {match.eligibilityAnalysis?.eligibilityScore && (
-                          <span className="text-xs text-neutral-600 dark:text-neutral-400">
-                            ({Math.round(match.eligibilityAnalysis.eligibilityScore * 100)}%)
-                          </span>
-                        )}
-                      </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="text-xs font-medium">Review Eligibility</span>
+                        </div>
+                      )
                     ) : (
-                      <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                        <AlertCircle className="h-4 w-4" />
-                        <span className="text-xs font-medium">Review Eligibility</span>
+                      <div className="flex items-center gap-1 text-neutral-500 dark:text-neutral-400">
+                        <Info className="h-4 w-4" />
+                        <span className="text-xs font-medium">Profile Needed</span>
                       </div>
                     )}
                   </div>
@@ -465,73 +508,135 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                           )}
                         </div>
 
-                        {/* Eligibility Analysis */}
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-medium">Eligibility Analysis</h4>
-                            {match.eligibilityAnalysis.eligibilityScore && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
-                                Score: {Math.round(match.eligibilityAnalysis.eligibilityScore * 100)}%
-                              </span>
-                            )}
-                          </div>
-                          <div className="space-y-2">
-                            {match.eligibilityAnalysis.inclusionMatches.length > 0 && (
-                              <div className="flex items-start gap-2">
-                                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5" />
-                                <div className="text-sm">
-                                  <p className="font-medium text-green-700 dark:text-green-300">Matching Criteria:</p>
-                                  <ul className="mt-1 space-y-0.5">
-                                    {match.eligibilityAnalysis.inclusionMatches.map((item, i) => (
-                                      <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
+                        {/* Three-Layer Eligibility Assessment */}
+                        <div className="space-y-4">
+                          {/* Layer 1: Search Relevance */}
+                          {assessment?.searchRelevance && (
+                            <div className="p-3 bg-neutral-50 dark:bg-neutral-900/50 rounded-lg">
+                              <h4 className="text-sm font-medium mb-2">Why This Trial Appeared</h4>
+                              <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-2">
+                                {assessment.searchRelevance.reasoning}
+                              </p>
+                              {assessment.searchRelevance.matchedTerms.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {assessment.searchRelevance.matchedTerms.map((term, i) => (
+                                    <Badge key={i} variant="secondary" className="text-xs">
+                                      {term}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Layer 2: Trial Requirements */}
+                          {assessment?.trialCriteria?.parsed && (
+                            <div className="p-3 bg-neutral-50 dark:bg-neutral-900/50 rounded-lg">
+                              <h4 className="text-sm font-medium mb-2">Trial Requirements</h4>
+                              
+                              {assessment.trialCriteria.inclusion.length > 0 && (
+                                <div className="mb-3">
+                                  <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">
+                                    Inclusion Criteria ({assessment.trialCriteria.inclusion.length})
+                                  </p>
+                                  <ul className="space-y-1">
+                                    {assessment.trialCriteria.inclusion.slice(0, 3).map((criterion) => (
+                                      <li key={criterion.id} className="text-xs text-neutral-600 dark:text-neutral-400">
+                                        • {criterion.text}
+                                      </li>
+                                    ))}
+                                    {assessment.trialCriteria.inclusion.length > 3 && (
+                                      <li className="text-xs text-neutral-500 dark:text-neutral-500 italic">
+                                        • ...and {assessment.trialCriteria.inclusion.length - 3} more
+                                      </li>
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
+                              
+                              {assessment.trialCriteria.exclusion.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-red-700 dark:text-red-300 mb-1">
+                                    Exclusion Criteria ({assessment.trialCriteria.exclusion.length})
+                                  </p>
+                                  <ul className="space-y-1">
+                                    {assessment.trialCriteria.exclusion.slice(0, 3).map((criterion) => (
+                                      <li key={criterion.id} className="text-xs text-neutral-600 dark:text-neutral-400">
+                                        • {criterion.text}
+                                      </li>
+                                    ))}
+                                    {assessment.trialCriteria.exclusion.length > 3 && (
+                                      <li className="text-xs text-neutral-500 dark:text-neutral-500 italic">
+                                        • ...and {assessment.trialCriteria.exclusion.length - 3} more
+                                      </li>
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Layer 3: Personal Assessment (only with profile) */}
+                          {assessment?.userAssessment ? (
+                            <div className="p-3 bg-neutral-50 dark:bg-neutral-900/50 rounded-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-sm font-medium">Your Personal Assessment</h4>
+                                {assessment.userAssessment.eligibilityScore !== undefined && (
+                                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                    assessment.userAssessment.eligibilityScore >= 0.7 
+                                      ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
+                                      : assessment.userAssessment.eligibilityScore >= 0.4
+                                      ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300'
+                                      : 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300'
+                                  }`}>
+                                    {Math.round(assessment.userAssessment.eligibilityScore * 100)}% match
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge variant={
+                                  assessment.userAssessment.recommendation === 'likely' ? 'default' :
+                                  assessment.userAssessment.recommendation === 'possible' ? 'secondary' :
+                                  'outline'
+                                } className="text-xs">
+                                  {assessment.userAssessment.recommendation}
+                                </Badge>
+                                <span className="text-xs text-neutral-500">
+                                  Confidence: {assessment.userAssessment.confidence}
+                                </span>
+                              </div>
+                              
+                              {assessment.userAssessment.missingData.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
+                                    Additional Information Needed:
+                                  </p>
+                                  <ul className="space-y-0.5">
+                                    {assessment.userAssessment.missingData.map((item, i) => (
+                                      <li key={i} className="text-xs text-neutral-600 dark:text-neutral-400">
+                                        • {item}
+                                      </li>
                                     ))}
                                   </ul>
                                 </div>
-                              </div>
-                            )}
-                            
-                            {match.eligibilityAnalysis.exclusionConcerns.length > 0 && (
-                              <div className="flex items-start gap-2">
-                                <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5" />
-                                <div className="text-sm">
-                                  <p className="font-medium text-red-700 dark:text-red-300">Potential Concerns:</p>
-                                  <ul className="mt-1 space-y-0.5">
-                                    {match.eligibilityAnalysis.exclusionConcerns.map((item, i) => (
-                                      <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </div>
-                            )}
-                            
-                            {match.eligibilityAnalysis.uncertainFactors.length > 0 && (
-                              <div className="flex items-start gap-2">
-                                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
-                                <div className="text-sm">
-                                  <p className="font-medium text-amber-700 dark:text-amber-300">Uncertain Factors:</p>
-                                  <ul className="mt-1 space-y-0.5">
-                                    {match.eligibilityAnalysis.uncertainFactors.map((item, i) => (
-                                      <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </div>
-                            )}
-                            
-                            {match.eligibilityAnalysis.missingInformation && match.eligibilityAnalysis.missingInformation.length > 0 && (
+                              )}
+                            </div>
+                          ) : (
+                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                               <div className="flex items-start gap-2">
                                 <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5" />
                                 <div className="text-sm">
-                                  <p className="font-medium text-blue-700 dark:text-blue-300">Missing Information:</p>
-                                  <ul className="mt-1 space-y-0.5">
-                                    {match.eligibilityAnalysis.missingInformation.map((item, i) => (
-                                      <li key={i} className="text-neutral-600 dark:text-neutral-400">• {item}</li>
-                                    ))}
-                                  </ul>
+                                  <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">
+                                    Health Profile Needed
+                                  </p>
+                                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                                    Create a health profile to see personalized eligibility assessment for this trial.
+                                  </p>
                                 </div>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Locations */}
