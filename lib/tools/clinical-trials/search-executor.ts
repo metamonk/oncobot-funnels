@@ -183,11 +183,17 @@ export class SearchExecutor {
     const params = new URLSearchParams({
       pageSize: maxResults.toString(),
       countTotal: 'true',
-      'filter.overallStatus': includeStatuses.join(',')
+      'filter.overallStatus': includeStatuses.join(','),
+      // Return commonly needed fields
+      fields: 'NCTId,BriefTitle,Condition,LocationCity,OverallStatus,StudyFirstPostDate'
     });
 
     // Add the query to the appropriate field
-    params.append(searchQuery.field, searchQuery.query);
+    // The ClinicalTrials.gov API expects the field name to be prefixed with 'query.'
+    const queryField = searchQuery.field.startsWith('query.') 
+      ? searchQuery.field 
+      : `query.${searchQuery.field}`;
+    params.append(queryField, searchQuery.query);
 
     // Execute with retry logic
     let lastError: Error | null = null;

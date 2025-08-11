@@ -310,11 +310,18 @@ export class SmartRouter {
     context: RouterContext
   ): Promise<RouterResult> {
     // First do a general search
-    const interpretation = QueryInterpreter.interpret(query);
+    const interpretation = QueryInterpreter.interpret(query, context.healthProfile);
+    const searchStrategy = QueryInterpreter.generateSearchStrategy(
+      interpretation,
+      context.healthProfile,
+      query
+    );
     
+    // Use 'cond' field for condition searches
+    const searchFields = searchStrategy.queries.map(() => 'cond');
     const searchResults = await this.searchExecutor.executeParallelSearches(
-      [interpretation.normalizedQuery],
-      ['NCTId,BriefTitle,Condition,LocationCity'],
+      searchStrategy.queries,
+      searchFields,
       {
         maxResults: 100,
         dataStream: context.dataStream
@@ -323,7 +330,7 @@ export class SmartRouter {
     
     const searchResult = searchResults[0];
     
-    if (searchResult && searchResult.success) {
+    if (searchResult && !searchResult.error) {
       // Then filter by location
       const locationLower = location.trim().toLowerCase();
       const filtered = searchResult.studies.filter(trial => {
@@ -383,10 +390,17 @@ export class SmartRouter {
     
     try {
       // First, get relevant trials
-      const interpretation = QueryInterpreter.interpret(query);
+      const interpretation = QueryInterpreter.interpret(query, healthProfile);
+      const searchStrategy = QueryInterpreter.generateSearchStrategy(
+        interpretation,
+        healthProfile,
+        query
+      );
+      // Use 'cond' field for condition searches
+      const searchFields = searchStrategy.queries.map(() => 'cond');
       const searchResults = await this.searchExecutor.executeParallelSearches(
-        [interpretation.normalizedQuery],
-        ['NCTId,BriefTitle,Condition'],
+        searchStrategy.queries,
+        searchFields,
         {
           maxResults: 50,
           dataStream
@@ -395,7 +409,7 @@ export class SmartRouter {
       
       const searchResult = searchResults[0];
       
-      if (searchResult && searchResult.success) {
+      if (searchResult && !searchResult.error) {
         // Run eligibility analysis
         const result = await pipeline.execute(searchResult.studies, operatorContext);
         
@@ -438,11 +452,45 @@ export class SmartRouter {
     healthProfile: HealthProfile | null,
     dataStream?: DataStreamWriter
   ): Promise<RouterResult> {
-    const interpretation = QueryInterpreter.interpret(query);
+    const interpretation = QueryInterpreter.interpret(query, healthProfile);
+    const searchStrategy = QueryInterpreter.generateSearchStrategy(
+      interpretation,
+      healthProfile,
+      query
+    );
     
+    // Handle cases where we need more specific information
+    if (interpretation.confidence < 0.5 && !healthProfile) {
+      return {
+        success: false,
+        error: 'Query too generic without health profile',
+        message: 'Please provide more specific search criteria (e.g., cancer type, stage, mutation) or complete your health profile for personalized results.',
+        matches: [],
+        totalCount: 0
+      };
+    }
+    
+    // Filter out overly generic queries that the API won't understand
+    const validQueries = searchStrategy.queries.filter(q => {
+      // Remove queries that are just generic questions
+      const genericPatterns = [
+        /^what\s+trials?\s+are\s+available/i,
+        /^are\s+there\s+any\s+trials/i,
+        /^show\s+me\s+trials/i,
+        /^find\s+trials/i,
+        /^clinical\s+trials?\??$/i
+      ];
+      return !genericPatterns.some(pattern => pattern.test(q));
+    });
+    
+    // If all queries were filtered out, use a default search
+    const queriesToUse = validQueries.length > 0 ? validQueries : ['cancer'];
+    
+    // Use 'cond' field for condition searches 
+    const searchFields = queriesToUse.map(() => 'cond');
     const searchResults = await this.searchExecutor.executeParallelSearches(
-      [interpretation.normalizedQuery],
-      ['NCTId,BriefTitle,Condition,LocationCity'],
+      queriesToUse,
+      searchFields,
       {
         maxResults: 25,
         dataStream
@@ -451,19 +499,19 @@ export class SmartRouter {
     
     const searchResult = searchResults[0];
     
-    if (searchResult && searchResult.success) {
+    if (searchResult && !searchResult.error) {
       return {
         success: true,
         trials: searchResult.studies,
         matches: this.createMatches(searchResult.studies, healthProfile),
         totalCount: searchResult.totalCount,
-        message: searchResult.message || `Found ${searchResult.studies.length} studies`
+        message: `Found ${searchResult.studies.length} studies`
       };
     } else {
       return {
         success: false,
         error: searchResult?.error || 'Search failed',
-        message: searchResult?.message || 'Search failed',
+        message: 'Search failed. Please try with more specific criteria.',
         matches: [],
         totalCount: 0
       };
