@@ -8,10 +8,12 @@ import { SearchExecutor } from './clinical-trials/search-executor';
 import { LocationMatcher } from './clinical-trials/location-matcher';
 import { QueryInterpreter } from './clinical-trials/query-interpreter';
 import { RelevanceScorer } from './clinical-trials/relevance-scorer';
-import type { HealthProfile, ClinicalTrial, StudyLocation } from './clinical-trials/types';
+import type { HealthProfile, ClinicalTrial, StudyLocation, TrialEligibilityAssessment } from './clinical-trials/types';
 import { formatMarkerName, isPositiveMarker } from '@/lib/utils';
 import { debug, DebugCategory } from './clinical-trials/debug';
 import { handleError, ClinicalTrialsError, ErrorCodes } from './clinical-trials/errors';
+import { isFeatureEnabled } from './clinical-trials/feature-flags';
+import { assessEligibility, createLegacyEligibilityAnalysis } from './clinical-trials/eligibility-assessment';
 
 // ClinicalTrials.gov API configuration
 const BASE_URL = 'https://clinicaltrials.gov/api/v2';
@@ -408,15 +410,18 @@ function createLocationSummary(trial: ClinicalTrial, targetLocation?: string) {
 interface ScoredClinicalTrial extends ClinicalTrial {
   matchReason?: string;
   relevanceScore?: number;
+  searchStrategy?: 'profile' | 'entity' | 'literal' | 'nct';
+  matchedTerms?: string[];
 }
 
 // Create match objects for UI component
-function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: HealthProfile | null, targetLocation?: string, eligibilityIntent?: 'eligibility' | 'discovery') {
+function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: HealthProfile | null, targetLocation?: string, eligibilityIntent?: 'eligibility' | 'discovery', searchStrategy?: string) {
   debug.verbose(DebugCategory.TOOL, 'Creating match objects', {
     trialsCount: trials.length,
     hasHealthProfile: !!healthProfile,
     targetLocation,
-    eligibilityIntent
+    eligibilityIntent,
+    searchStrategy
   });
   
   return trials.map((trial, index) => {
@@ -432,63 +437,86 @@ function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: Health
     const locationInfo = createLocationSummary(trial, targetLocation);
     const locationSummary = locationInfo.summary;
     
-    // Create eligibility analysis based on available data
-    const eligibilityAnalysis = {
-      likelyEligible: true, // Default to true for matched trials
-      eligibilityScore: 0.75, // Default score for matched trials (75%)
-      inclusionMatches: [] as string[],
-      exclusionConcerns: [] as string[],
-      uncertainFactors: [] as string[],
-      missingInformation: [] as string[],
+    // NEW: Create three-layer assessment if feature flag is enabled
+    let newEligibilityAssessment: TrialEligibilityAssessment | undefined;
+    let eligibilityAnalysis: any;
+    
+    if (isFeatureEnabled('USE_NEW_ELIGIBILITY_SYSTEM')) {
+      const searchContext = {
+        userQuery: '', // This should be passed from the search
+        searchStrategy: trial.searchStrategy || searchStrategy as any || 'literal',
+        matchedTerms: trial.matchedTerms || [],
+        relevanceScore: trial.relevanceScore || 0.5,
+      };
+      
+      newEligibilityAssessment = assessEligibility(trial, healthProfile, searchContext);
+      
+      // Use the new system to generate legacy format for backward compatibility
+      eligibilityAnalysis = createLegacyEligibilityAnalysis(trial, healthProfile, newEligibilityAssessment);
+      
       // Add structured summary for eligibility-focused queries
-      ...(eligibilityIntent === 'eligibility' && index < 3 ? {
-        eligibilitySummary: extractKeyRequirements(trial.protocolSection.eligibilityModule?.eligibilityCriteria)
-      } : {})
-    };
-    
-    // Add match reasons based on the trial's match reason
-    if (trial.matchReason) {
-      eligibilityAnalysis.inclusionMatches.push(trial.matchReason);
-    }
-    
-    // Add specific matches based on health profile
-    if (healthProfile?.molecularMarkers) {
-      Object.entries(healthProfile.molecularMarkers).forEach(([marker, value]) => {
-        if (isPositiveMarker(value)) {
-          const markerName = formatMarkerName(marker);
-          const markerBase = markerName.split(' ')[0]; // Get gene name (e.g., "KRAS" from "KRAS G12C")
-          if (trial.protocolSection.identificationModule.briefTitle?.includes(markerBase) ||
-              trial.protocolSection.descriptionModule?.briefSummary?.includes(markerBase)) {
-            eligibilityAnalysis.inclusionMatches.push(`${markerName} mutation match`);
-          }
-        }
-      });
-    }
-    
-    if (healthProfile?.cancerType && 
-        trial.protocolSection.conditionsModule?.conditions?.some((c: string) => 
-          c.toLowerCase().includes(healthProfile.cancerType!.toLowerCase()))) {
-      eligibilityAnalysis.inclusionMatches.push(`${healthProfile.cancerType} diagnosis match`);
-    }
-    
-    // Add missing information if no health profile
-    if (!healthProfile) {
-      eligibilityAnalysis.missingInformation.push('Health profile needed for personalized eligibility assessment');
-      eligibilityAnalysis.eligibilityScore = 0.5; // Lower score when missing profile
-    } else {
-      // Adjust score based on matches
-      if (eligibilityAnalysis.inclusionMatches.length > 0) {
-        eligibilityAnalysis.eligibilityScore = Math.min(0.95, 0.75 + (eligibilityAnalysis.inclusionMatches.length * 0.1));
+      if (eligibilityIntent === 'eligibility' && index < 3) {
+        eligibilityAnalysis.eligibilitySummary = extractKeyRequirements(trial.protocolSection.eligibilityModule?.eligibilityCriteria);
       }
+    } else {
+      // Create eligibility analysis based on available data (legacy system)
+      eligibilityAnalysis = {
+        likelyEligible: true, // Default to true for matched trials
+        eligibilityScore: 0.75, // Default score for matched trials (75%)
+        inclusionMatches: [] as string[],
+        exclusionConcerns: [] as string[],
+        uncertainFactors: [] as string[],
+        missingInformation: [] as string[],
+        // Add structured summary for eligibility-focused queries
+        ...(eligibilityIntent === 'eligibility' && index < 3 ? {
+          eligibilitySummary: extractKeyRequirements(trial.protocolSection.eligibilityModule?.eligibilityCriteria)
+        } : {})
+      };
+      
+      // Add match reasons based on the trial's match reason
+      if (trial.matchReason) {
+        eligibilityAnalysis.inclusionMatches.push(trial.matchReason);
+      }
+      
+      // Add specific matches based on health profile
+      if (healthProfile?.molecularMarkers) {
+        Object.entries(healthProfile.molecularMarkers).forEach(([marker, value]) => {
+          if (isPositiveMarker(value)) {
+            const markerName = formatMarkerName(marker);
+            const markerBase = markerName.split(' ')[0]; // Get gene name (e.g., "KRAS" from "KRAS G12C")
+            if (trial.protocolSection.identificationModule.briefTitle?.includes(markerBase) ||
+                trial.protocolSection.descriptionModule?.briefSummary?.includes(markerBase)) {
+              eligibilityAnalysis.inclusionMatches.push(`${markerName} mutation match`);
+            }
+          }
+        });
+      }
+      
+      if (healthProfile?.cancerType && 
+          trial.protocolSection.conditionsModule?.conditions?.some((c: string) => 
+            c.toLowerCase().includes(healthProfile.cancerType!.toLowerCase()))) {
+        eligibilityAnalysis.inclusionMatches.push(`${healthProfile.cancerType} diagnosis match`);
+      }
+      
+      // Add missing information if no health profile
+      if (!healthProfile) {
+        eligibilityAnalysis.missingInformation.push('Health profile needed for personalized eligibility assessment');
+        eligibilityAnalysis.eligibilityScore = 0.5; // Lower score when missing profile
+      } else {
+        // Adjust score based on matches
+        if (eligibilityAnalysis.inclusionMatches.length > 0) {
+          eligibilityAnalysis.eligibilityScore = Math.min(0.95, 0.75 + (eligibilityAnalysis.inclusionMatches.length * 0.1));
+        }
+      }
+      
+      // Add uncertainty for trials not yet recruiting
+      if (trial.protocolSection.statusModule?.overallStatus === 'NOT_YET_RECRUITING') {
+        eligibilityAnalysis.uncertainFactors.push('Trial not yet recruiting - check back for updates');
+      }
+      
+      // Deduplicate inclusion matches
+      eligibilityAnalysis.inclusionMatches = [...new Set(eligibilityAnalysis.inclusionMatches)];
     }
-    
-    // Add uncertainty for trials not yet recruiting
-    if (trial.protocolSection.statusModule?.overallStatus === 'NOT_YET_RECRUITING') {
-      eligibilityAnalysis.uncertainFactors.push('Trial not yet recruiting - check back for updates');
-    }
-    
-    // Deduplicate inclusion matches
-    eligibilityAnalysis.inclusionMatches = [...new Set(eligibilityAnalysis.inclusionMatches)];
     
     // Create a reduced trial object with only essential fields for UI
     const reducedTrial = {
@@ -547,6 +575,8 @@ function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: Health
       matchScore: trial.relevanceScore || 75, // Use AI score or default
       matchingCriteria: eligibilityAnalysis.inclusionMatches,
       eligibilityAnalysis,
+      // NEW: Include three-layer assessment when feature is enabled
+      ...(newEligibilityAssessment ? { newEligibilityAssessment } : {}),
       locationSummary,
       // Add additional location details for UI
       locationDetails: {
