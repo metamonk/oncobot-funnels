@@ -133,10 +133,26 @@ const ChatInterface = memo(
 
     // Generate a consistent ID for new chats
     const chatId = useMemo(() => initialChatId ?? uuidv4(), [initialChatId]);
+    
+    // Track active request to prevent duplicates
+    const activeRequestRef = useRef<AbortController | null>(null);
+    const appendTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // All authenticated users have unlimited access
     const hasExceededLimit = false;
     const isLimitBlocked = false;
+    
+    // Cleanup on unmount
+    useEffect(() => {
+      return () => {
+        if (appendTimeoutRef.current) {
+          clearTimeout(appendTimeoutRef.current);
+        }
+        if (activeRequestRef.current) {
+          activeRequestRef.current.abort();
+        }
+      };
+    }, []);
 
     // Timer for sign-in prompt for unauthenticated users
     useEffect(() => {
@@ -190,6 +206,20 @@ const ChatInterface = memo(
 
     type VisibilityType = 'public' | 'private';
 
+    // Stable reference for timezone to avoid recreation
+    const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
+    
+    // Create stable body object
+    const chatBody = useMemo(() => ({
+      id: chatId,
+      model: selectedModel,
+      group: selectedGroup,
+      timezone,
+      ...(initialChatId ? { chat_id: initialChatId } : {}),
+      selectedVisibilityType: chatState.selectedVisibilityType,
+      isCustomInstructionsEnabled: isCustomInstructionsEnabled,
+    }), [chatId, selectedModel, selectedGroup, timezone, initialChatId, chatState.selectedVisibilityType, isCustomInstructionsEnabled]);
+
     const chatOptions: UseChatOptions = useMemo(
       () => ({
         id: chatId,
@@ -197,15 +227,7 @@ const ChatInterface = memo(
         experimental_throttle: selectedModel === 'oncobot-anthropic' ? 1000 : 100,
         sendExtraMessageFields: true,
         maxSteps: 5,
-        body: {
-          id: chatId,
-          model: selectedModel,
-          group: selectedGroup,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          ...(initialChatId ? { chat_id: initialChatId } : {}),
-          selectedVisibilityType: chatState.selectedVisibilityType,
-          isCustomInstructionsEnabled: isCustomInstructionsEnabled,
-        },
+        body: chatBody,
         onFinish: async (message, { finishReason }) => {
           console.log('[finish reason]:', finishReason);
 
@@ -258,14 +280,13 @@ const ChatInterface = memo(
         initialMessages: initialMessages,
       }),
       [
-        selectedModel,
-        selectedGroup,
         chatId,
-        initialChatId,
+        selectedModel,
+        chatBody,
         initialMessages,
-        chatState.selectedVisibilityType,
-        isCustomInstructionsEnabled,
         user,
+        chatState.selectedVisibilityType,
+        lastSubmittedQueryRef,
       ],
     );
 
@@ -273,8 +294,8 @@ const ChatInterface = memo(
       input,
       messages,
       setInput,
-      append,
-      handleSubmit,
+      append: originalAppend,
+      handleSubmit: originalHandleSubmit,
       setMessages,
       reload,
       stop,
@@ -283,6 +304,35 @@ const ChatInterface = memo(
       error,
       experimental_resume,
     } = useChat(chatOptions);
+    
+    // Wrapped handleSubmit to prevent duplicate requests
+    const handleSubmit = useCallback((event?: React.FormEvent<HTMLFormElement>) => {
+      // Cancel any existing request
+      if (activeRequestRef.current) {
+        activeRequestRef.current.abort();
+      }
+      
+      // Create new abort controller for this request
+      activeRequestRef.current = new AbortController();
+      
+      // Call original handleSubmit
+      return originalHandleSubmit(event);
+    }, [originalHandleSubmit]);
+    
+    // Debounced append to prevent rapid-fire messages
+    const append = useCallback((message: any, options?: any) => {
+      // Clear any pending append
+      if (appendTimeoutRef.current) {
+        clearTimeout(appendTimeoutRef.current);
+      }
+      
+      // Debounce the append call by 100ms
+      return new Promise((resolve) => {
+        appendTimeoutRef.current = setTimeout(() => {
+          resolve(originalAppend(message, options));
+        }, 100);
+      });
+    }, [originalAppend]);
 
     // Debug error structure
     if (error) {
