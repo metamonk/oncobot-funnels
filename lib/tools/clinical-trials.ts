@@ -53,6 +53,67 @@ function truncateText(text: string | undefined, maxLength: number): string {
   return text.substring(0, maxLength) + '...';
 }
 
+// Detect eligibility-focused intent from query
+function detectEligibilityIntent(query: string): 'eligibility' | 'discovery' {
+  const lower = query.toLowerCase();
+  const eligibilityPatterns = [
+    'am i eligible',
+    'do i qualify',
+    'can i participate',
+    'can i join',
+    'meet the criteria',
+    'meet criteria',
+    'qualify for',
+    'eligible for',
+    'requirements for'
+  ];
+  
+  if (eligibilityPatterns.some(pattern => lower.includes(pattern))) {
+    return 'eligibility';
+  }
+  return 'discovery';
+}
+
+// Extract key eligibility requirements from full criteria text
+function extractKeyRequirements(criteria: string | undefined): {
+  mutations: string[];
+  mainRequirements: string[];
+  keyExclusions: string[];
+} {
+  if (!criteria) {
+    return {
+      mutations: [],
+      mainRequirements: [],
+      keyExclusions: []
+    };
+  }
+  
+  const mutations: string[] = [];
+  const mainRequirements: string[] = [];
+  const keyExclusions: string[] = [];
+  
+  // Extract mutation mentions
+  const mutationPattern = /\b([A-Z0-9]+)\s*(mutation|alteration|positive|amplification|fusion|deletion)\b/gi;
+  const mutationMatches = criteria.match(mutationPattern) || [];
+  mutations.push(...mutationMatches.slice(0, 3)); // Top 3 mutations
+  
+  // Extract main inclusion criteria (simplified)
+  const inclusionSection = criteria.match(/inclusion criteria:?([\s\S]*?)(?:exclusion|$)/i)?.[1] || criteria;
+  const inclusionLines = inclusionSection.split(/[\n•\-]/).filter(line => line.trim().length > 10);
+  mainRequirements.push(...inclusionLines.slice(0, 5).map(line => line.trim().substring(0, 100)));
+  
+  // Extract key exclusions
+  const exclusionSection = criteria.match(/exclusion criteria:?([\s\S]*?)(?:inclusion|$)/i)?.[1] || '';
+  const exclusionLines = exclusionSection.split(/[\n•\-]/).filter(line => line.trim().length > 10);
+  keyExclusions.push(...exclusionLines.slice(0, 3).map(line => line.trim().substring(0, 100)));
+  
+  return {
+    mutations,
+    mainRequirements,
+    keyExclusions
+  };
+}
+
 // Cache management functions - now using chatId
 function getCachedSearchByChat(chatId: string): CachedSearch | null {
   const cacheKey = `chat_${chatId}`;
@@ -271,14 +332,15 @@ interface ScoredClinicalTrial extends ClinicalTrial {
 }
 
 // Create match objects for UI component
-function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: HealthProfile | null, targetLocation?: string) {
+function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: HealthProfile | null, targetLocation?: string, eligibilityIntent?: 'eligibility' | 'discovery') {
   debug.verbose(DebugCategory.TOOL, 'Creating match objects', {
     trialsCount: trials.length,
     hasHealthProfile: !!healthProfile,
-    targetLocation
+    targetLocation,
+    eligibilityIntent
   });
   
-  return trials.map(trial => {
+  return trials.map((trial, index) => {
     // Safety check for trial structure
     if (!trial || !trial.protocolSection) {
       debug.error(DebugCategory.TOOL, 'Invalid trial structure', trial);
@@ -296,7 +358,11 @@ function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: Health
       likelyEligible: true, // Default to true for matched trials
       inclusionMatches: [] as string[],
       exclusionConcerns: [] as string[],
-      uncertainFactors: [] as string[]
+      uncertainFactors: [] as string[],
+      // Add structured summary for eligibility-focused queries
+      ...(eligibilityIntent === 'eligibility' && index < 3 ? {
+        eligibilitySummary: extractKeyRequirements(trial.protocolSection.eligibilityModule?.eligibilityCriteria)
+      } : {})
     };
     
     // Add match reasons based on the trial's match reason
@@ -864,11 +930,15 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           };
         }
 
+        // Detect eligibility-focused intent
+        const eligibilityIntent = detectEligibilityIntent(userQuery);
+        
         // Apply relevance scoring to prioritize mutation-specific trials
         const scoringContext = {
           userQuery,
           healthProfile,
-          searchStrategy: interpretation?.strategy || 'unknown'
+          searchStrategy: interpretation?.strategy || 'unknown',
+          intent: eligibilityIntent  // Add intent to scoring context
         };
         
         // Score and rank trials based on relevance to health profile
@@ -903,7 +973,7 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
         });
 
         // Create match objects for UI component
-        const matches = createMatchObjects(rankedTrials, healthProfile, searchLocation);
+        const matches = createMatchObjects(rankedTrials, healthProfile, searchLocation, eligibilityIntent);
 
         // Count trials with specific location if location was requested
         let locationMatchCount = 0;
@@ -952,6 +1022,48 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             hasLocationMatch: searchLocation ? trialHasLocation(trial, searchLocation) : false
           }))
         });
+        
+        // For eligibility-focused queries, stream full criteria for top trials
+        if (eligibilityIntent === 'eligibility') {
+          // Limit to top 3 trials for eligibility analysis to manage token usage
+          const topTrialsForEligibility = rankedTrials.slice(0, 3);
+          
+          topTrialsForEligibility.forEach(trial => {
+            const fullCriteria = trial.protocolSection.eligibilityModule?.eligibilityCriteria;
+            if (fullCriteria) {
+              const extractedRequirements = extractKeyRequirements(fullCriteria);
+              
+              dataStream?.writeMessageAnnotation({
+                type: 'full_eligibility_criteria',
+                data: {
+                  trialId: trial.protocolSection.identificationModule.nctId,
+                  title: trial.protocolSection.identificationModule.briefTitle,
+                  fullCriteria: fullCriteria,
+                  structuredCriteria: extractedRequirements,
+                  analysisHints: {
+                    checkAgainst: ['mutations', 'priorTreatments', 'performanceStatus', 'organFunction'],
+                    profileMatches: healthProfile ? {
+                      hasCancerType: !!healthProfile.cancerType,
+                      hasMutations: !!healthProfile.molecularMarkers || !!healthProfile.mutations,
+                      hasStage: !!healthProfile.stage,
+                      hasPriorTreatments: !!healthProfile.treatments
+                    } : null
+                  }
+                }
+              });
+            }
+          });
+          
+          // Add an annotation indicating eligibility analysis is available
+          dataStream?.writeMessageAnnotation({
+            type: 'eligibility_analysis_available',
+            data: {
+              trialsWithFullCriteria: topTrialsForEligibility.length,
+              intent: 'eligibility',
+              message: 'Full eligibility criteria available for detailed analysis'
+            }
+          });
+        }
 
         dataStream?.writeMessageAnnotation({
           type: 'search_status',

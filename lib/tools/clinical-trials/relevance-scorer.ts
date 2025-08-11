@@ -12,6 +12,7 @@ interface ScoringContext {
   userQuery: string;
   healthProfile?: HealthProfile | null;
   searchStrategy?: string;
+  intent?: 'eligibility' | 'discovery';  // Added intent awareness
 }
 
 export class RelevanceScorer {
@@ -33,6 +34,16 @@ export class RelevanceScorer {
    */
   private static calculateScore(trial: ClinicalTrial, context: ScoringContext): number {
     let score = 0;
+    
+    // Adjust scoring weights based on intent
+    const isEligibilityFocused = context.intent === 'eligibility';
+    
+    // Weight multipliers based on intent
+    const weights = {
+      mutation: isEligibilityFocused ? 0.4 : 0.5,  // Reduce mutation weight for eligibility
+      cancerType: isEligibilityFocused ? 0.3 : 0.3,  // Keep cancer type stable
+      treatment: isEligibilityFocused ? 0.3 : 0.2   // Increase treatment relevance for eligibility
+    };
     
     const title = trial.protocolSection?.identificationModule?.briefTitle?.toLowerCase() || '';
     const officialTitle = trial.protocolSection?.identificationModule?.officialTitle?.toLowerCase() || '';
@@ -59,27 +70,28 @@ export class RelevanceScorer {
       mutations.push(...context.healthProfile.mutations.map((m: string) => m.toLowerCase()));
     }
     
-    // Score based on mutation matches (highest priority)
+    // Score based on mutation matches (priority adjusted by intent)
+    let mutationScore = 0;
     mutations.forEach(mutation => {
       // Exact mutation match in title (strongest signal)
       if (title.includes(mutation)) {
-        score += 50;
+        mutationScore += 50;
       }
       // Mutation in official title
       if (officialTitle.includes(mutation)) {
-        score += 40;
+        mutationScore += 40;
       }
       // Mutation in conditions or keywords
       if (conditions.includes(mutation) || keywords.includes(mutation)) {
-        score += 30;
+        mutationScore += 30;
       }
       // Mutation in interventions
       if (interventions.includes(mutation)) {
-        score += 25;
+        mutationScore += 25;
       }
       // Mutation in summary
       if (summary.includes(mutation)) {
-        score += 20;
+        mutationScore += 20;
       }
       
       // Bonus for drugs targeting the specific mutation
@@ -89,26 +101,31 @@ export class RelevanceScorer {
       
       // If the trial mentions specific drugs AND the mutation, give bonus
       if (drugsInTrial.length > 0 && fullText.includes(mutation)) {
-        score += 35; // Bonus for targeted therapy drugs
+        mutationScore += 35; // Bonus for targeted therapy drugs
       }
     });
     
+    // Apply mutation score with intent-based weighting
+    score += mutationScore * weights.mutation;
+    
     // Score based on cancer type match
+    let cancerTypeScore = 0;
     const cancerType = context.healthProfile?.cancer_type || context.healthProfile?.cancerType;
     if (cancerType) {
       const normalizedCancerType = cancerType.toLowerCase();
       if (fullText.includes(normalizedCancerType)) {
-        score += 15;
+        cancerTypeScore += 15;
       }
       // Check for related terms or abbreviations (generic approach)
       // Look for exact match or partial matches with the cancer type
       const cancerWords = normalizedCancerType.split(/\s+/);
       cancerWords.forEach((word: string) => {
         if (word.length > 3 && fullText.includes(word)) {
-          score += 5; // Partial match bonus
+          cancerTypeScore += 5; // Partial match bonus
         }
       });
     }
+    score += cancerTypeScore * weights.cancerType;
     
     // Score based on stage match
     if (context.healthProfile?.stage) {
@@ -143,9 +160,12 @@ export class RelevanceScorer {
       score -= 20; // Penalize generic trials when user has specific mutations
     }
     
+    // Treatment-related scoring (more important for eligibility intent)
+    let treatmentScore = 0;
+    
     // Bonus for combination therapies if relevant
     if (fullText.includes('combination') || fullText.includes('plus') || fullText.includes(' + ')) {
-      score += 5;
+      treatmentScore += 5;
     }
     
     // Bonus for targeted therapies and immunotherapies (generic)
@@ -153,7 +173,19 @@ export class RelevanceScorer {
     const targetedTherapyPattern = /\b(inhibitor|antibody|blocker|antagonist|agonist|modulator)\b/gi;
     const targetedTherapyMatches = fullText.match(targetedTherapyPattern) || [];
     if (targetedTherapyMatches.length > 0) {
-      score += Math.min(targetedTherapyMatches.length * 3, 15); // Cap at 15 points
+      treatmentScore += Math.min(targetedTherapyMatches.length * 3, 15); // Cap at 15 points
+    }
+    
+    // Apply treatment score with intent-based weighting
+    score += treatmentScore * weights.treatment;
+    
+    // For eligibility-focused queries, add bonus for trials with detailed criteria
+    if (isEligibilityFocused) {
+      const hasDetailedCriteria = trial.protocolSection?.eligibilityModule?.eligibilityCriteria && 
+                                  trial.protocolSection.eligibilityModule.eligibilityCriteria.length > 500;
+      if (hasDetailedCriteria) {
+        score += 10; // Bonus for having detailed eligibility information
+      }
     }
     
     return score;
