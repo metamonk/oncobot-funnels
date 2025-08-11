@@ -53,10 +53,62 @@ function truncateText(text: string | undefined, maxLength: number): string {
   return text.substring(0, maxLength) + '...';
 }
 
+// Helper function to stream eligibility criteria for top trials
+function streamEligibilityCriteria(
+  trials: any[], 
+  eligibilityIntent: 'eligibility' | 'discovery',
+  healthProfile: HealthProfile | null,
+  dataStream?: DataStreamWriter
+): void {
+  if (eligibilityIntent !== 'eligibility' || !dataStream) return;
+  
+  // Stream full criteria for top 3 trials when intent is eligibility-focused
+  const topTrialsForEligibility = trials.slice(0, 3);
+  
+  topTrialsForEligibility.forEach(trial => {
+    const fullCriteria = trial.protocolSection?.eligibilityModule?.eligibilityCriteria;
+    if (fullCriteria) {
+      const extractedRequirements = extractKeyRequirements(fullCriteria);
+      
+      dataStream.writeMessageAnnotation({
+        type: 'full_eligibility_criteria',
+        data: {
+          trialId: trial.protocolSection.identificationModule.nctId,
+          title: trial.protocolSection.identificationModule.briefTitle,
+          fullCriteria: fullCriteria,
+          structuredCriteria: extractedRequirements,
+          analysisHints: {
+            checkAgainst: ['mutations', 'priorTreatments', 'performanceStatus', 'organFunction'],
+            profileMatches: healthProfile ? {
+              hasCancerType: !!healthProfile.cancerType,
+              hasMutations: !!healthProfile.molecularMarkers || !!healthProfile.mutations,
+              hasStage: !!healthProfile.stage,
+              hasPriorTreatments: !!healthProfile.treatments
+            } : null
+          }
+        }
+      });
+    }
+  });
+  
+  // Add an annotation indicating eligibility analysis is available
+  dataStream.writeMessageAnnotation({
+    type: 'eligibility_analysis_available',
+    data: {
+      trialsWithFullCriteria: topTrialsForEligibility.length,
+      intent: 'eligibility',
+      message: 'Full eligibility criteria available for detailed analysis'
+    }
+  });
+}
+
 // Detect eligibility-focused intent from query
 function detectEligibilityIntent(query: string): 'eligibility' | 'discovery' {
   const lower = query.toLowerCase();
+  
+  // Expanded patterns to catch more eligibility-related queries
   const eligibilityPatterns = [
+    // Original patterns
     'am i eligible',
     'do i qualify',
     'can i participate',
@@ -65,12 +117,39 @@ function detectEligibilityIntent(query: string): 'eligibility' | 'discovery' {
     'meet criteria',
     'qualify for',
     'eligible for',
-    'requirements for'
+    'requirements for',
+    
+    // New patterns for broader coverage
+    'what is the criteria',
+    'what are the criteria',
+    'criteria for',
+    'eligibility',
+    'eligible',
+    'inclusion',
+    'exclusion',
+    'who can',
+    'who is eligible',
+    'participant criteria',
+    'patient criteria',
+    'entry criteria',
+    'enrollment criteria',
+    'qualification',
+    'requirements',
+    'prerequisite'
   ];
+  
+  // Check for standalone keywords that strongly indicate eligibility intent
+  const strongKeywords = ['criteria', 'eligibility', 'eligible', 'qualify', 'inclusion', 'exclusion'];
   
   if (eligibilityPatterns.some(pattern => lower.includes(pattern))) {
     return 'eligibility';
   }
+  
+  // Also check for strong keywords when asking about specific NCT IDs
+  if (lower.includes('nct') && strongKeywords.some(keyword => lower.includes(keyword))) {
+    return 'eligibility';
+  }
+  
   return 'discovery';
 }
 
@@ -424,8 +503,20 @@ function createMatchObjects(trials: ScoredClinicalTrial[], healthProfile: Health
           interventions: trial.protocolSection.armsInterventionsModule?.interventions?.slice(0, 2)
         },
         eligibilityModule: {
-          // Don't include full eligibility criteria in the response - too much text
-          eligibilityCriteria: trial.protocolSection.eligibilityModule?.eligibilityCriteria ? 'Available' : 'Not specified'
+          // Include structured eligibility data based on intent
+          ...(eligibilityIntent === 'eligibility' && index < 3 ? {
+            // For eligibility-focused queries on top 3 trials, include structured summary
+            eligibilityCriteria: trial.protocolSection.eligibilityModule?.eligibilityCriteria ? 
+              truncateText(trial.protocolSection.eligibilityModule.eligibilityCriteria, 200) + '...' : 
+              'Not specified',
+            eligibilitySummary: extractKeyRequirements(trial.protocolSection.eligibilityModule?.eligibilityCriteria)
+          } : {
+            // For other queries, just indicate availability
+            eligibilityCriteria: trial.protocolSection.eligibilityModule?.eligibilityCriteria ? 'Available' : 'Not specified'
+          }),
+          sex: trial.protocolSection.eligibilityModule?.sex,
+          minimumAge: trial.protocolSection.eligibilityModule?.minimumAge,
+          maximumAge: trial.protocolSection.eligibilityModule?.maximumAge
         },
         contactsLocationsModule: {
           // Include slightly more locations to avoid missing key sites
@@ -780,8 +871,11 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           // Check if a location was also specified (e.g., "NCT05568550 near Boston")
           const detectedLocation = interpretation.detectedEntities.locations?.[0];
           
+          // Detect eligibility intent for NCT lookup
+          const eligibilityIntent = detectEligibilityIntent(userQuery);
+          
           // Create match object for UI
-          const matches = createMatchObjects([scoredTrial], healthProfile, detectedLocation);
+          const matches = createMatchObjects([scoredTrial], healthProfile, detectedLocation, eligibilityIntent);
           debug.verbose(DebugCategory.NCT_LOOKUP, 'Matches created', {
             matchesLength: matches.length,
             firstMatchScore: matches[0]?.matchScore
@@ -812,6 +906,9 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
             matchesLength: result.matches.length,
             totalCount: result.totalCount
           });
+          
+          // Stream eligibility criteria if intent is eligibility-focused
+          streamEligibilityCriteria([trial], eligibilityIntent, healthProfile, dataStream);
           
           return result;
         }
@@ -1023,47 +1120,8 @@ export const clinicalTrialsTool = (dataStream?: DataStreamWriter, chatId?: strin
           }))
         });
         
-        // For eligibility-focused queries, stream full criteria for top trials
-        if (eligibilityIntent === 'eligibility') {
-          // Limit to top 3 trials for eligibility analysis to manage token usage
-          const topTrialsForEligibility = rankedTrials.slice(0, 3);
-          
-          topTrialsForEligibility.forEach(trial => {
-            const fullCriteria = trial.protocolSection.eligibilityModule?.eligibilityCriteria;
-            if (fullCriteria) {
-              const extractedRequirements = extractKeyRequirements(fullCriteria);
-              
-              dataStream?.writeMessageAnnotation({
-                type: 'full_eligibility_criteria',
-                data: {
-                  trialId: trial.protocolSection.identificationModule.nctId,
-                  title: trial.protocolSection.identificationModule.briefTitle,
-                  fullCriteria: fullCriteria,
-                  structuredCriteria: extractedRequirements,
-                  analysisHints: {
-                    checkAgainst: ['mutations', 'priorTreatments', 'performanceStatus', 'organFunction'],
-                    profileMatches: healthProfile ? {
-                      hasCancerType: !!healthProfile.cancerType,
-                      hasMutations: !!healthProfile.molecularMarkers || !!healthProfile.mutations,
-                      hasStage: !!healthProfile.stage,
-                      hasPriorTreatments: !!healthProfile.treatments
-                    } : null
-                  }
-                }
-              });
-            }
-          });
-          
-          // Add an annotation indicating eligibility analysis is available
-          dataStream?.writeMessageAnnotation({
-            type: 'eligibility_analysis_available',
-            data: {
-              trialsWithFullCriteria: topTrialsForEligibility.length,
-              intent: 'eligibility',
-              message: 'Full eligibility criteria available for detailed analysis'
-            }
-          });
-        }
+        // Stream eligibility criteria if intent is eligibility-focused
+        streamEligibilityCriteria(rankedTrials, eligibilityIntent, healthProfile, dataStream);
 
         dataStream?.writeMessageAnnotation({
           type: 'search_status',
