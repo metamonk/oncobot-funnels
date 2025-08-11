@@ -40,6 +40,8 @@ export function useHealthProfilePrompt(
 ) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const mountedRef = useRef(true);
+  const hasCheckedRef = useRef(false); // Track if we've already checked
+  const cachedHasCompletedRef = useRef<boolean | null>(null); // Cache the result
   
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
 
@@ -128,16 +130,72 @@ export function useHealthProfilePrompt(
   useEffect(() => {
     mountedRef.current = true;
     
-    if (user) {
-      startPromptTimer();
+    // Only start timer if user exists
+    if (!user) {
+      hasCheckedRef.current = false; // Reset when user changes
+      cachedHasCompletedRef.current = null;
+      return;
     }
+    
+    // If we've already checked for this user, don't check again
+    if (hasCheckedRef.current) {
+      return;
+    }
+    
+    // Check conditions and start timer
+    const initTimer = async () => {
+      // Clear any existing timer
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      
+      try {
+        // Use cached result if available, otherwise check
+        let hasCompleted = cachedHasCompletedRef.current;
+        
+        if (hasCompleted === null) {
+          // Only make the DB call once
+          hasCompleted = await hasCompletedHealthProfile();
+          cachedHasCompletedRef.current = hasCompleted;
+          hasCheckedRef.current = true;
+        }
+        
+        // Never show to users with completed profiles
+        if (hasCompleted) {
+          return;
+        }
+        
+        // Check dismissal cooldown
+        if (mergedConfig.checkDismissalCooldown && 
+            wasHealthProfileRecentlyDismissed(mergedConfig.dismissalCooldownHours)) {
+          return;
+        }
+        
+        // Start the timer
+        if (mountedRef.current) {
+          timerRef.current = setTimeout(() => {
+            if (mountedRef.current) {
+              onShowPrompt();
+            }
+          }, mergedConfig.delayMs);
+        }
+      } catch (error) {
+        console.error('Error setting up health profile prompt timer:', error);
+      }
+    };
+    
+    initTimer();
     
     // Cleanup on unmount
     return () => {
       mountedRef.current = false;
-      cancelTimer();
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
     };
-  }, [user, startPromptTimer, cancelTimer]);
+  }, [user?.id]); // Only depend on user.id to prevent unnecessary re-runs
 
   return {
     recordDismissal,

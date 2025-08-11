@@ -190,18 +190,24 @@ const ChatInterface = memo(
       };
     }, [user, chatState.hasShownSignInPrompt, setPersitedHasShownSignInPrompt]);
 
+    // Memoize the health profile prompt callback to prevent re-renders
+    const handleShowHealthProfilePrompt = useCallback(() => {
+      dispatch({ type: 'SET_SHOW_HEALTH_PROFILE_PROMPT', payload: true });
+      dispatch({ type: 'SET_HAS_SHOWN_HEALTH_PROFILE_PROMPT', payload: true });
+      setPersitedHasShownHealthProfilePrompt(true);
+    }, [setPersitedHasShownHealthProfilePrompt]);
+    
+    // Memoize the health profile config to prevent re-renders
+    const healthProfileConfig = useMemo(() => ({
+      delayMs: 180000, // 3 minutes
+      checkDismissalCooldown: !chatState.hasShownHealthProfilePrompt // Only check cooldown if not shown in this session
+    }), [chatState.hasShownHealthProfilePrompt]);
+
     // Use the health profile prompt hook for 3-minute timer
     const { recordDismissal: recordHealthDismissal } = useHealthProfilePrompt(
       user,
-      { 
-        delayMs: 180000, // 3 minutes
-        checkDismissalCooldown: !chatState.hasShownHealthProfilePrompt // Only check cooldown if not shown in this session
-      },
-      () => {
-        dispatch({ type: 'SET_SHOW_HEALTH_PROFILE_PROMPT', payload: true });
-        dispatch({ type: 'SET_HAS_SHOWN_HEALTH_PROFILE_PROMPT', payload: true });
-        setPersitedHasShownHealthProfilePrompt(true);
-      }
+      healthProfileConfig,
+      handleShowHealthProfilePrompt
     );
 
     type VisibilityType = 'public' | 'private';
