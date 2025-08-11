@@ -71,12 +71,12 @@ export class PipelineIntegrator {
     this.pipelineConfigs.set(QueryStrategy.NCT_LOOKUP, {
       strategy: QueryStrategy.NCT_LOOKUP,
       createPipeline: (decision) => {
-        const pipeline = new TrialPipeline('nct-lookup');
-        pipeline.addOperator(new NCTFetcher({ batch: false }));
+        const pipeline = new TrialPipeline();
+        pipeline.add(new NCTFetcher({ batch: false }));
         
         // Add eligibility analysis if health profile available
         if (decision.metadata.requiresDetails) {
-          pipeline.addOperator(new EligibilityAnalyzer());
+          pipeline.add(new EligibilityAnalyzer());
         }
         
         return pipeline;
@@ -94,21 +94,21 @@ export class PipelineIntegrator {
     this.pipelineConfigs.set(QueryStrategy.BATCH_NCT_LOOKUP, {
       strategy: QueryStrategy.BATCH_NCT_LOOKUP,
       createPipeline: (decision) => {
-        const pipeline = new TrialPipeline('batch-nct-lookup');
-        pipeline.addOperator(new NCTFetcher({ 
+        const pipeline = new TrialPipeline();
+        pipeline.add(new NCTFetcher({ 
           batch: true,
           parallel: true,
           maxConcurrent: 5 
         }));
         
         // Add location filter if specified
-        if (decision.extractedEntities?.locations?.length > 0) {
-          pipeline.addOperator(new LocationFilter());
+        if (decision.extractedEntities?.locations && decision.extractedEntities.locations.length > 0) {
+          pipeline.add(new LocationFilter());
         }
         
         // Add eligibility analysis if needed
         if (decision.metadata.analyzeEligibility) {
-          pipeline.addOperator(new EligibilityAnalyzer());
+          pipeline.add(new EligibilityAnalyzer());
         }
         
         return pipeline;
@@ -133,11 +133,11 @@ export class PipelineIntegrator {
     this.pipelineConfigs.set(QueryStrategy.CACHE_FILTER, {
       strategy: QueryStrategy.CACHE_FILTER,
       createPipeline: (decision, context) => {
-        const pipeline = new TrialPipeline('cache-filter');
+        const pipeline = new TrialPipeline();
         
         // Add appropriate filters based on extracted entities
         if (decision.extractedEntities?.locations?.length > 0) {
-          pipeline.addOperator(new LocationFilter());
+          pipeline.add(new LocationFilter());
         }
         
         return pipeline;
@@ -154,7 +154,7 @@ export class PipelineIntegrator {
     this.pipelineConfigs.set(QueryStrategy.ENTITY_SEARCH, {
       strategy: QueryStrategy.ENTITY_SEARCH,
       createPipeline: (decision) => {
-        const pipeline = new TrialPipeline('entity-search');
+        const pipeline = new TrialPipeline();
         
         // Entity search uses regular search flow with extracted entities
         // This would typically use SearchExecutor directly
@@ -172,7 +172,7 @@ export class PipelineIntegrator {
     this.pipelineConfigs.set(QueryStrategy.ELIGIBILITY_SEARCH, {
       strategy: QueryStrategy.ELIGIBILITY_SEARCH,
       createPipeline: () => {
-        return PipelineTemplates.eligibility();
+        return PipelineTemplates.batchEligibilityCheck();
       },
       processResults: (results) => ({
         success: true,
@@ -187,7 +187,8 @@ export class PipelineIntegrator {
     this.pipelineConfigs.set(QueryStrategy.GENERAL_SEARCH, {
       strategy: QueryStrategy.GENERAL_SEARCH,
       createPipeline: () => {
-        return PipelineTemplates.discovery();
+        // Use fullAnalysis as a general discovery pipeline
+        return PipelineTemplates.fullAnalysis();
       },
       processResults: (results) => ({
         success: true,
@@ -234,7 +235,9 @@ export class PipelineIntegrator {
       return {
         success: false,
         error: `No pipeline configured for strategy: ${routingDecision.strategy}`,
-        message: 'Unable to process your query. Please try rephrasing.'
+        message: 'Unable to process your query. Please try rephrasing.',
+        matches: [],
+        totalCount: 0
       };
     }
     
@@ -274,7 +277,9 @@ export class PipelineIntegrator {
         return {
           success: false,
           error: result.error,
-          message: 'Failed to execute search pipeline'
+          message: 'Failed to execute search pipeline',
+          matches: [],
+          totalCount: 0
         };
       }
     } catch (error) {
@@ -282,7 +287,9 @@ export class PipelineIntegrator {
       return {
         success: false,
         error: error.message,
-        message: 'An error occurred while processing your query'
+        message: 'An error occurred while processing your query',
+        matches: [],
+        totalCount: 0
       };
     }
   }
@@ -298,7 +305,9 @@ export class PipelineIntegrator {
       return {
         success: false,
         error: 'No cached results available',
-        message: 'No previous search results found. Please search for trials first.'
+        message: 'No previous search results found. Please search for trials first.',
+        matches: [],
+        totalCount: 0
       };
     }
     
@@ -347,7 +356,9 @@ export class PipelineIntegrator {
         return {
           success: false,
           error: searchResult.error,
-          message: 'Search failed'
+          message: 'Search failed',
+          matches: [],
+          totalCount: 0
         };
       }
     }
@@ -355,7 +366,9 @@ export class PipelineIntegrator {
     return {
       success: false,
       error: 'Strategy not implemented',
-      message: 'This query type is not yet supported'
+      message: 'This query type is not yet supported',
+      matches: [],
+      totalCount: 0
     };
   }
   
