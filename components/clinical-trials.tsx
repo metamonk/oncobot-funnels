@@ -688,24 +688,24 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                               </div>
 
                               {/* Quick Summary of Criteria Matches */}
-                              {(assessment.userAssessment.inclusionMatches?.length > 0 || 
-                                assessment.userAssessment.exclusionConcerns?.length > 0) && (
+                              {((assessment.userAssessment.inclusionMatches?.length ?? 0) > 0 || 
+                                (assessment.userAssessment.exclusionConcerns?.length ?? 0) > 0) && (
                                 <div className="space-y-2 mb-3">
                                   {/* Inclusion Matches */}
-                                  {assessment.userAssessment.inclusionMatches?.length > 0 && (
+                                  {(assessment.userAssessment.inclusionMatches?.length ?? 0) > 0 && (
                                     <div>
                                       <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">
                                         ✓ You meet these criteria:
                                       </p>
                                       <ul className="space-y-0.5">
-                                        {assessment.userAssessment.inclusionMatches.slice(0, 3).map((match, i) => (
+                                        {assessment.userAssessment.inclusionMatches!.slice(0, 3).map((match, i) => (
                                           <li key={i} className="text-xs text-neutral-600 dark:text-neutral-400">
                                             • {match}
                                           </li>
                                         ))}
-                                        {assessment.userAssessment.inclusionMatches.length > 3 && (
+                                        {assessment.userAssessment.inclusionMatches!.length > 3 && (
                                           <li className="text-xs text-neutral-500 dark:text-neutral-500 italic">
-                                            • {assessment.userAssessment.inclusionMatches.length - 3} more...
+                                            • {assessment.userAssessment.inclusionMatches!.length - 3} more...
                                           </li>
                                         )}
                                       </ul>
@@ -713,20 +713,20 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                                   )}
 
                                   {/* Exclusion Concerns */}
-                                  {assessment.userAssessment.exclusionConcerns?.length > 0 && (
+                                  {(assessment.userAssessment.exclusionConcerns?.length ?? 0) > 0 && (
                                     <div>
                                       <p className="text-xs font-medium text-red-700 dark:text-red-300 mb-1">
                                         ✗ Potential concerns:
                                       </p>
                                       <ul className="space-y-0.5">
-                                        {assessment.userAssessment.exclusionConcerns.slice(0, 2).map((concern, i) => (
+                                        {assessment.userAssessment.exclusionConcerns!.slice(0, 2).map((concern, i) => (
                                           <li key={i} className="text-xs text-neutral-600 dark:text-neutral-400">
                                             • {concern}
                                           </li>
                                         ))}
-                                        {assessment.userAssessment.exclusionConcerns.length > 2 && (
+                                        {assessment.userAssessment.exclusionConcerns!.length > 2 && (
                                           <li className="text-xs text-neutral-500 dark:text-neutral-500 italic">
-                                            • {assessment.userAssessment.exclusionConcerns.length - 2} more...
+                                            • {assessment.userAssessment.exclusionConcerns!.length - 2} more...
                                           </li>
                                         )}
                                       </ul>
