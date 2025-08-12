@@ -117,9 +117,12 @@ interface ClinicalTrialResult {
           inclusion: MatchedCriteriaItem[];
           exclusion: MatchedCriteriaItem[];
         };
+        inclusionMatches?: string[];
+        exclusionConcerns?: string[];
       };
     };
     locationSummary?: string;
+    recommendations?: string[];
   }>;
   searchCriteria?: SearchCriteria;
   query?: string;
