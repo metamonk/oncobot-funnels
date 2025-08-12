@@ -566,10 +566,19 @@ const ChatInterface = memo(
         >
           <div className={`w-full max-w-[95%] sm:max-w-2xl space-y-6 p-0 mx-auto transition-all duration-300`}>
             {status === 'ready' && messages.length === 0 && (
-              <div className="text-center m-0 mb-2">
-                <h1 className="text-5xl sm:text-6xl !mb-0 text-foreground dark:text-foreground font-mono font-medium tracking-tight">
+              <div className="text-center m-0 mb-8">
+                <h1 className="text-4xl sm:text-5xl !mb-0 text-foreground dark:text-foreground font-mono font-medium tracking-tight">
                   oncobot
                 </h1>
+                <p className="text-sm text-muted-foreground mt-2">
+                  AI-powered oncology assistant.{' '}
+                  <a 
+                    href="/about" 
+                    className="text-primary hover:underline transition-colors"
+                  >
+                    Learn more
+                  </a>
+                </p>
               </div>
             )}
 

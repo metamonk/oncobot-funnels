@@ -31,7 +31,7 @@ import { TextLoop } from '@/components/core/text-loop';
 import { TextShimmer } from '@/components/core/text-shimmer';
 import { OncoBotLogo } from '@/components/logos/oncobot-logo';
 import { useRouter } from 'next/navigation';
-import { Github, X } from 'lucide-react';
+import { XLogo } from '@phosphor-icons/react';
 import {
   ProAccordion,
   ProAccordionItem,
@@ -39,7 +39,7 @@ import {
   ProAccordionContent,
 } from '@/components/ui/pro-accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { models } from '@/ai/providers';
+import { getAvailableModels } from '@/lib/model-config';
 
 const container = {
   hidden: { opacity: 0 },
@@ -55,6 +55,59 @@ const item = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0 },
 };
+
+// Component to display available models
+function ModelsList() {
+  const availableModels = getAvailableModels();
+  
+  // Group models by category
+  const modelsByCategory = availableModels.reduce((acc, model) => {
+    const category = model.category || 'Other';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(model);
+    return acc;
+  }, {} as Record<string, typeof availableModels>);
+  
+  // Get unique model names for summary
+  const modelNames = availableModels.map(m => {
+    // Extract the provider name from the label
+    if (m.label.includes('Grok')) return 'Grok';
+    if (m.label.includes('Claude')) return 'Claude';
+    if (m.label.includes('GPT') || m.label.includes('o3') || m.label.includes('o4')) return 'OpenAI';
+    if (m.label.includes('Gemini')) return 'Gemini';
+    if (m.label.includes('Qwen')) return 'Qwen';
+    if (m.label.includes('DeepSeek')) return 'DeepSeek';
+    if (m.label.includes('Mistral')) return 'Mistral';
+    if (m.label.includes('Kimi')) return 'Kimi';
+    return m.label;
+  });
+  
+  const uniqueProviders = [...new Set(modelNames)];
+  
+  return (
+    <div className="space-y-3">
+      <p>
+        OncoBot uses a range of advanced AI models from providers including {uniqueProviders.slice(0, -1).join(', ')}{uniqueProviders.length > 1 && `, and ${uniqueProviders[uniqueProviders.length - 1]}`} to provide the best possible answers.
+      </p>
+      <div className="space-y-2">
+        {Object.entries(modelsByCategory).map(([category, categoryModels]) => (
+          <div key={category}>
+            <p className="text-sm font-medium text-muted-foreground mb-1">{category} Models:</p>
+            <ul className="text-sm list-disc list-inside space-y-1">
+              {categoryModels.map(model => (
+                <li key={model.value}>
+                  {model.label} - {model.description}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function AboutPage() {
   const router = useRouter();
@@ -185,15 +238,6 @@ export default function AboutPage() {
             >
               Privacy
             </Link>
-            <Link
-              href="https://github.com/metamonk/oncobot-v3"
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Github className="h-4 w-4" />
-              <span className="hidden sm:inline">GitHub</span>
-            </Link>
           </nav>
         </div>
       </header>
@@ -217,9 +261,9 @@ export default function AboutPage() {
 
               <div className="space-y-5">
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-light tracking-tight text-balance max-w-5xl mx-auto leading-tight font-be-vietname-pro">
-                  Open Source Medical
+                  Medical Oncology
                   <br />
-                  Oncology AI Assistant
+                  AI Assistant
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
                   Evidence-based cancer treatment insights powered by AI and medical databases.
@@ -385,7 +429,7 @@ export default function AboutPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {models.map((model: any) => (
+                      {getAvailableModels().map((model: any) => (
                         <TableRow
                           key={model.value}
                           className="border-b border-border/20 hover:bg-muted/10 transition-colors"
@@ -626,7 +670,7 @@ export default function AboutPage() {
               <ProAccordionItem value="item-1">
                 <ProAccordionTrigger>What is OncoBot?</ProAccordionTrigger>
                 <ProAccordionContent>
-                  OncoBot is an open-source AI-powered medical oncology assistant that provides evidence-based information
+                  OncoBot is an AI-powered medical oncology assistant that provides evidence-based information
                   about cancer treatments, clinical trials, and patient care using advanced AI models and medical databases.
                 </ProAccordionContent>
               </ProAccordionItem>
@@ -661,8 +705,7 @@ export default function AboutPage() {
               <ProAccordionItem value="item-5">
                 <ProAccordionTrigger>What AI models does OncoBot use?</ProAccordionTrigger>
                 <ProAccordionContent>
-                  OncoBot uses a range of advanced AI models including Grok 3.0, Claude 3.7 Sonnet, OpenAI GPT 4o, Gemini
-                  2.5 Pro, and more to provide the best possible answers.
+                  <ModelsList />
                 </ProAccordionContent>
               </ProAccordionItem>
 
@@ -717,15 +760,7 @@ export default function AboutPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <X className="h-4 w-4" />
-                </Link>
-                <Link
-                  href="https://github.com/metamonk/oncobot-v3"
-                  className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Github className="h-4 w-4" />
+                  <XLogo className="h-4 w-4" weight="fill" />
                 </Link>
               </div>
             </div>
