@@ -305,6 +305,7 @@ export interface TrialMatch {
     country: string;
     status: string;
   }>;
+  locationSummary?: string;
   enrollmentCount?: number;
   studyType?: string;
   phases?: string[];

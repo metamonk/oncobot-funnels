@@ -6,3 +6,4 @@ This file contains runtime context and error logs for debugging purposes.
 ✅ All TypeScript errors resolved
 ✅ Server running successfully
 ✅ Compilation successful
+✅ locationSummary added to TrialMatch type
