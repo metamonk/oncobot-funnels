@@ -204,8 +204,8 @@ export default function TermsPage() {
           <h2>14. Contact Us</h2>
           <p>If you have any questions about these Terms of Service, please contact us at:</p>
           <p>
-            <a href="mailto:zeno@ratlabs.xyz" className="flex items-center gap-1">
-              zeno@ratlabs.xyz <ExternalLink className="h-4 w-4" />
+            <a href="mailto:hi@onco.bot" className="flex items-center gap-1">
+              hi@onco.bot <ExternalLink className="h-4 w-4" />
             </a>
           </p>
 

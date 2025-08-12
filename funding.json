@@ -3,10 +3,10 @@
   "entity": {
     "type": "individual",
     "role": "maintainer",
-    "name": "Zeno Shin",
-    "email": "zeno@ratlabs.xyz",
+    "name": "OncoBot",
+    "email": "hi@onco.bot",
     "phone": "",
-    "description": "I built OncoBot, a minimalistic open source AI Powered Search Engine.",
+    "description": "AI Powered Oncology Assistant",
     "webpageUrl": {
       "url": "https://github.com/metamonk/oncobot-v3"
     }

@@ -197,8 +197,8 @@ export default function PrivacyPage() {
           <h2>Contact Us</h2>
           <p>If you have any questions about this Privacy Policy, please contact us at:</p>
           <p>
-            <a href="mailto:zeno@ratlabs.xyz" className="flex items-center gap-1">
-              zeno@ratlabs.xyz <ExternalLink className="h-4 w-4" />
+            <a href="mailto:hi@onco.bot" className="flex items-center gap-1">
+              hi@onco.bot <ExternalLink className="h-4 w-4" />
             </a>
           </p>
 
