@@ -649,7 +649,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                             
                             {/* Progressive Disclosure for full criteria */}
                             <ProgressiveCriteria
-                              nctId={match.nctId}
+                              nctId={trial.identificationModule.nctId}
                               truncatedCriteria={trial.eligibilityModule?.eligibilityCriteria}
                               structuredCriteria={assessment?.trialCriteria}
                               className="mt-3"
