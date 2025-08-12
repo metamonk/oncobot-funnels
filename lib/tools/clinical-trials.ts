@@ -3,8 +3,6 @@
  * Simplified implementation without backward compatibility
  */
 
-import { createStreamableValue } from 'ai/rsc';
-type DataStreamWriter = ReturnType<typeof createStreamableValue>;
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
 import { tool } from 'ai';
 import { z } from 'zod';
@@ -111,7 +109,7 @@ function streamEligibilityCriteria(
   trials: ClinicalTrial[],
   messageType: string,
   healthProfile: HealthProfile | null,
-  dataStream?: DataStreamWriter
+  dataStream?: any
 ): void {
   if (!dataStream) return;
 
@@ -135,7 +133,7 @@ function streamEligibilityCriteria(
 }
 
 // Clean, minimal tool export
-export const clinicalTrialsTool = (chatId?: string, dataStream?: DataStreamWriter) => tool({
+export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
   description: `Search and analyze clinical trials. Simply pass the user's natural language query.
   
   The tool automatically:
@@ -170,10 +168,10 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: DataStreamWrite
           primarySite: userHealthData.profile.primarySite,
           cancerType: userHealthData.profile.cancerType,
           diseaseStage: userHealthData.profile.diseaseStage,
-          treatmentHistory: userHealthData.profile.treatmentHistory,
+          treatmentHistory: userHealthData.profile.treatmentHistory as string[] | undefined,
           molecularMarkers: userHealthData.profile.molecularMarkers as MolecularMarkers | undefined,
           performanceStatus: userHealthData.profile.performanceStatus,
-          complications: userHealthData.profile.complications
+          complications: userHealthData.profile.complications as string[] | undefined
         };
       }
       debug.log(DebugCategory.PROFILE, 'Health profile loaded', {
@@ -212,17 +210,30 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: DataStreamWrite
           updateCacheForChat(effectiveChatId, result.trials, healthProfile, query);
         }
 
-        // Stream eligibility criteria if appropriate
-        if (result.metadata?.focusedOnEligibility && result.matches) {
-          streamEligibilityCriteria(
-            result.matches.map(m => m.trial),
-            'eligibility',
-            healthProfile,
-            dataStream
-          );
+        // Stream eligibility criteria if appropriate (but don't include in main response)
+        if (result.metadata?.focusedOnEligibility && result.matches && dataStream) {
+          // Note: We no longer extract full trials from matches since they're compressed
+          // The streaming is optional and only for UI display
+          debug.log(DebugCategory.TOOL, 'Eligibility streaming skipped - trials are compressed');
         }
 
-        return result;
+        // Remove the full trials array from the result to save tokens
+        // The matches array already contains all necessary information
+        const { trials, ...responseWithoutTrials } = result;
+        
+        // Log token savings
+        if (trials && result.matches) {
+          const fullSize = JSON.stringify({ ...result }).length;
+          const compressedSize = JSON.stringify(responseWithoutTrials).length;
+          debug.log(DebugCategory.TOOL, 'Response compression', {
+            fullSize,
+            compressedSize,
+            reduction: `${Math.round((1 - compressedSize / fullSize) * 100)}%`,
+            trialCount: trials.length
+          });
+        }
+
+        return responseWithoutTrials;
       } else {
         // Pipeline returned an error
         return {

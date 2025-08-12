@@ -12,9 +12,12 @@ import { EligibilityAnalyzer } from './pipeline/operators/analyzers/eligibility-
 import { SearchExecutor } from './search-executor';
 import { QueryInterpreter } from './query-interpreter';
 import { EligibilityScorer } from './eligibility-scorer';
+import { trialAssessmentBuilder } from './trial-assessment-builder';
+import { TrialCompressor } from './trial-compressor';
+import { LocationMatcher } from './location-matcher';
 import type { ClinicalTrial, HealthProfile, TrialMatch } from './types';
 import type { OperatorContext } from './pipeline/types';
-import type { DataStreamWriter } from 'ai';
+// DataStreamWriter type removed - using any for data stream parameter
 import { debug, DebugCategory } from './debug';
 
 /**
@@ -54,7 +57,7 @@ interface RouterContext {
   chatId?: string;
   healthProfile?: HealthProfile | null;
   cachedTrials?: ClinicalTrial[];
-  dataStream?: DataStreamWriter;
+  dataStream?: any;
 }
 
 /**
@@ -86,25 +89,25 @@ export class SmartRouter {
     // 1. Check for NCT ID lookups (highest priority)
     const nctIds = this.extractNCTIds(query);
     if (nctIds.length > 0) {
-      return this.handleNCTLookup(nctIds, healthProfile, dataStream);
+      return this.handleNCTLookup(nctIds, healthProfile || null, dataStream);
     }
     
     // 2. Handle continuation queries with cache
     if (cachedTrials && cachedTrials.length > 0) {
       // Pagination
       if (queryLower.includes('more') || queryLower.includes('next')) {
-        return this.handlePagination(cachedTrials, context);
+        return await this.handlePagination(cachedTrials, context);
       }
       
       // Location filter
       const locationMatch = query.match(/(?:near|in|proximity to|closest to)\s+([\w\s,]+?)(?:\.|,|\?|$)/i);
       if (locationMatch) {
-        return this.handleLocationFilter(cachedTrials, locationMatch[1], context);
+        return await this.handleLocationFilter(cachedTrials, locationMatch[1], context);
       }
       
       // Eligibility check on cached results
       if (queryLower.includes('eligible') && healthProfile) {
-        return this.handleEligibilityCheck(cachedTrials, healthProfile, dataStream);
+        return await this.handleEligibilityCheck(cachedTrials, healthProfile, dataStream);
       }
     }
     
@@ -118,11 +121,11 @@ export class SmartRouter {
     
     // Eligibility-focused search
     if (queryLower.includes('eligible') || queryLower.includes('qualify')) {
-      return this.handleEligibilitySearch(query, healthProfile, dataStream);
+      return this.handleEligibilitySearch(query, healthProfile || null, dataStream);
     }
     
     // General search (fallback)
-    return this.handleGeneralSearch(query, healthProfile, dataStream);
+    return this.handleGeneralSearch(query, healthProfile || null, dataStream);
   }
   
   /**
@@ -131,7 +134,7 @@ export class SmartRouter {
   private async handleNCTLookup(
     nctIds: string[], 
     healthProfile: HealthProfile | null,
-    dataStream?: DataStreamWriter
+    dataStream?: any
   ): Promise<RouterResult> {
     debug.log(DebugCategory.NCT_LOOKUP, 'Processing NCT lookup', { 
       count: nctIds.length,
@@ -164,10 +167,11 @@ export class SmartRouter {
       const result = await pipeline.execute([], operatorContext);
       
       if (result.success) {
+        const matches = await this.createMatches(result.data, healthProfile);
         return {
           success: true,
           trials: result.data,
-          matches: this.createMatches(result.data, healthProfile),
+          matches,
           totalCount: result.data.length,
           message: nctIds.length === 1 
             ? `Found trial ${nctIds[0]}`
@@ -197,18 +201,19 @@ export class SmartRouter {
   /**
    * Handle pagination of cached results
    */
-  private handlePagination(
+  private async handlePagination(
     cachedTrials: ClinicalTrial[], 
     context: RouterContext
-  ): RouterResult {
+  ): Promise<RouterResult> {
     const offset = 10; // Simple pagination for now
     const limit = 10;
     const paginatedTrials = cachedTrials.slice(offset, offset + limit);
+    const matches = await this.createMatches(paginatedTrials, context.healthProfile);
     
     return {
       success: true,
       trials: paginatedTrials,
-      matches: this.createMatches(paginatedTrials, context.healthProfile),
+      matches,
       totalCount: cachedTrials.length,
       currentOffset: offset,
       hasMore: offset + limit < cachedTrials.length,
@@ -235,10 +240,11 @@ export class SmartRouter {
       );
     });
     
+    const matches = await this.createMatches(filtered, context.healthProfile);
     return {
       success: true,
       trials: filtered,
-      matches: this.createMatches(filtered, context.healthProfile),
+      matches,
       totalCount: filtered.length,
       message: `Found ${filtered.length} trials near ${location}`,
       metadata: { filterLocation: location }
@@ -251,7 +257,7 @@ export class SmartRouter {
   private async handleEligibilityCheck(
     cachedTrials: ClinicalTrial[],
     healthProfile: HealthProfile,
-    dataStream?: DataStreamWriter
+    dataStream?: any
   ): Promise<RouterResult> {
     const pipeline = new TrialPipeline();
     pipeline.add(new EligibilityAnalyzer());
@@ -272,10 +278,11 @@ export class SmartRouter {
           trial._eligibilityScore && trial._eligibilityScore > 50
         );
         
+        const matches = await this.createMatches(eligibleTrials, healthProfile);
         return {
           success: true,
           trials: eligibleTrials,
-          matches: this.createMatches(eligibleTrials, healthProfile),
+          matches,
           totalCount: eligibleTrials.length,
           message: `Found ${eligibleTrials.length} trials you may be eligible for`,
           metadata: { focusedOnEligibility: true }
@@ -342,10 +349,11 @@ export class SmartRouter {
         );
       });
       
+      const matches = await this.createMatches(filtered, context.healthProfile);
       return {
         success: true,
         trials: filtered,
-        matches: this.createMatches(filtered, context.healthProfile),
+        matches,
         totalCount: filtered.length,
         message: `Found ${filtered.length} trials near ${location}`
       };
@@ -366,7 +374,7 @@ export class SmartRouter {
   private async handleEligibilitySearch(
     query: string,
     healthProfile: HealthProfile | null,
-    dataStream?: DataStreamWriter
+    dataStream?: any
   ): Promise<RouterResult> {
     if (!healthProfile) {
       return {
@@ -414,10 +422,11 @@ export class SmartRouter {
         const result = await pipeline.execute(searchResult.studies, operatorContext);
         
         if (result.success) {
+          const matches = await this.createMatches(result.data, healthProfile);
           return {
             success: true,
             trials: result.data,
-            matches: this.createMatches(result.data, healthProfile),
+            matches,
             totalCount: result.data.length,
             message: `Found ${result.data.length} trials matching your profile`,
             metadata: { focusedOnEligibility: true }
@@ -450,7 +459,7 @@ export class SmartRouter {
   private async handleGeneralSearch(
     query: string,
     healthProfile: HealthProfile | null,
-    dataStream?: DataStreamWriter
+    dataStream?: any
   ): Promise<RouterResult> {
     const interpretation = QueryInterpreter.interpret(query, healthProfile);
     const searchStrategy = QueryInterpreter.generateSearchStrategy(
@@ -500,10 +509,11 @@ export class SmartRouter {
     const searchResult = searchResults[0];
     
     if (searchResult && !searchResult.error) {
+      const matches = await this.createMatches(searchResult.studies, healthProfile);
       return {
         success: true,
         trials: searchResult.studies,
-        matches: this.createMatches(searchResult.studies, healthProfile),
+        matches,
         totalCount: searchResult.totalCount,
         message: `Found ${searchResult.studies.length} studies`
       };
@@ -529,11 +539,11 @@ export class SmartRouter {
   /**
    * Create match objects for UI display with eligibility scoring
    */
-  private createMatches(
+  private async createMatches(
     trials: ClinicalTrial[], 
     healthProfile?: HealthProfile | null
-  ): TrialMatch[] {
-    return trials.map(trial => {
+  ): Promise<TrialMatch[]> {
+    const matches = trials.map(trial => {
       // Calculate eligibility score if health profile is available
       let eligibilityInfo: { score?: number; confidence?: string; recommendations?: string[] } = {};
       
@@ -549,7 +559,15 @@ export class SmartRouter {
         trial._eligibilityScore = eligibilityScore.totalScore;
       }
       
-      return {
+      // Generate location summary for efficient display
+      const locationSummaryArray = LocationMatcher.getLocationSummary(trial);
+      const locationSummary = locationSummaryArray.length > 0 
+        ? locationSummaryArray.length === 1 
+          ? locationSummaryArray[0]
+          : `${locationSummaryArray[0]} + ${locationSummaryArray.length - 1} more location${locationSummaryArray.length - 1 > 1 ? 's' : ''}`
+        : undefined;
+
+      const match: TrialMatch = {
         nctId: trial.protocolSection?.identificationModule?.nctId || '',
         title: trial.protocolSection?.identificationModule?.briefTitle || '',
         summary: trial.protocolSection?.descriptionModule?.briefSummary || '',
@@ -562,6 +580,7 @@ export class SmartRouter {
           country: loc.country || '',
           status: 'status' in loc ? (loc as { status: string }).status : ''
         })),
+        locationSummary,
         enrollmentCount: trial.protocolSection?.designModule?.enrollmentInfo?.count,
         studyType: trial.protocolSection?.designModule?.studyType,
         phases: trial.protocolSection?.designModule?.phases,
@@ -570,11 +589,40 @@ export class SmartRouter {
           ? `Eligibility score: ${eligibilityInfo.score}% (${eligibilityInfo.confidence} confidence)`
           : 'Matches search criteria',
         relevanceScore: eligibilityInfo.score || 85,
+        // Keep the full trial for now (will be compressed after assessment)
         trial: trial,
         // Add eligibility recommendations if available
         ...(eligibilityInfo.recommendations && { recommendations: eligibilityInfo.recommendations })
       };
+      
+      return match;
     });
+    
+    // Enhance matches with proper assessment structure for UI
+    const enhancedMatches = await trialAssessmentBuilder.enhanceMatches(matches, healthProfile);
+    
+    // Compress trial data to reduce tokens (after assessment is built)
+    const compressedMatches = enhancedMatches.map(match => {
+      // Log compression before and after for debugging
+      const originalSize = JSON.stringify(match.trial).length;
+      const compressedTrial = TrialCompressor.compressTrial(match.trial);
+      const compressedSize = JSON.stringify(compressedTrial).length;
+      
+      debug.log(DebugCategory.TOOL, 'Trial compression', {
+        nctId: match.nctId,
+        originalSize,
+        compressedSize,
+        reduction: `${Math.round((1 - compressedSize / originalSize) * 100)}%`
+      });
+      
+      return {
+        ...match,
+        // Replace full trial with compressed version
+        trial: compressedTrial as any
+      };
+    });
+    
+    return compressedMatches;
   }
 }
 

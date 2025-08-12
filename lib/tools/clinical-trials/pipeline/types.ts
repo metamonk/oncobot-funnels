@@ -3,7 +3,7 @@
  */
 
 import type { ClinicalTrial, HealthProfile, ScoredTrial } from '../types';
-import type { DataStreamWriter } from '@ai-sdk/ui-utils';
+// DataStreamWriter type removed - using any for data stream parameter
 
 /**
  * Base operator context that flows through the pipeline
@@ -12,7 +12,7 @@ export interface OperatorContext {
   // User and query context
   healthProfile?: HealthProfile | null;
   userQuery?: string;
-  intent?: 'eligibility' | 'discovery' | 'comparison' | 'status';
+  intent?: 'eligibility' | 'discovery' | 'comparison' | 'status' | 'lookup';
   
   // Filtering context
   location?: string;
@@ -25,7 +25,7 @@ export interface OperatorContext {
   sortBy?: 'relevance' | 'date' | 'location' | 'phase';
   
   // Infrastructure
-  dataStream?: DataStreamWriter;
+  dataStream?: any;
   chatId?: string;
   cacheKey?: string;
   

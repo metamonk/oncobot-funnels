@@ -20,7 +20,7 @@ import { QueryInterpreter } from './query-interpreter';
 import type { ClinicalTrial, HealthProfile, TrialMatch } from './types';
 import type { OperatorContext } from './pipeline/types';
 import { debug, DebugCategory } from './debug';
-import type { DataStreamWriter } from 'ai';
+// DataStreamWriter type removed - using any for data stream parameter
 
 /**
  * Pipeline execution result
@@ -353,7 +353,7 @@ export class PipelineIntegrator {
     
     if (!pipeline) {
       // Some strategies might not need a pipeline
-      return this.handleDirectExecution(routingDecision, queryContext);
+      return this.handleDirectExecution(routingDecision, queryContext, context.dataStream);
     }
     
     // Create operator context
@@ -442,22 +442,28 @@ export class PipelineIntegrator {
    */
   private async handleDirectExecution(
     decision: RoutingDecision,
-    context: QueryContext
+    context: QueryContext,
+    dataStream?: any
   ): Promise<PipelineResult> {
     // For entity and general searches, use SearchExecutor directly
     if (decision.strategy === QueryStrategy.ENTITY_SEARCH || 
         decision.strategy === QueryStrategy.GENERAL_SEARCH) {
       
       // Use QueryInterpreter to build search parameters
-      const interpretation = QueryInterpreter.interpret(context.query);
+      const interpretation = QueryInterpreter.interpret(context.query, context.healthProfile);
+      const searchStrategy = QueryInterpreter.generateSearchStrategy(
+        interpretation,
+        context.healthProfile,
+        context.query
+      );
       
       // Execute the search using the SearchExecutor
       const searchResults = await this.searchExecutor.executeParallelSearches(
-        [interpretation.normalizedQuery],
+        searchStrategy.queries,
         ['NCTId,BriefTitle,Condition,LocationCity'],
         {
           maxResults: 25,
-          dataStream: context.dataStream as DataStreamWriter
+          dataStream: dataStream
         }
       );
       
@@ -500,7 +506,7 @@ export class PipelineIntegrator {
       title: trial.protocolSection?.identificationModule?.briefTitle || '',
       summary: trial.protocolSection?.descriptionModule?.briefSummary || '',
       conditions: trial.protocolSection?.conditionsModule?.conditions || [],
-      interventions: trial.protocolSection?.armsInterventionsModule?.interventions?.map(i => i.name) || [],
+      interventions: (trial.protocolSection?.armsInterventionsModule?.interventions?.map(i => i.name).filter((n): n is string => Boolean(n))) || [],
       locations: (trial.protocolSection?.contactsLocationsModule?.locations || []).map(loc => ({
         facility: loc.facility || '',
         city: loc.city || '',
@@ -551,8 +557,7 @@ export class PipelineIntegrator {
           maximumAge: trial.protocolSection?.eligibilityModule?.maximumAge
         },
         contactsLocationsModule: {
-          locations: trial.protocolSection?.contactsLocationsModule?.locations?.slice(0, 3),
-          totalLocations: trial.protocolSection?.contactsLocationsModule?.locations?.length || 0
+          locations: trial.protocolSection?.contactsLocationsModule?.locations?.slice(0, 3)
         }
       }
     };

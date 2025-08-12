@@ -5,7 +5,7 @@
  * Handles rate limiting, retries, and error recovery.
  */
 
-import { DataStreamWriter } from 'ai';
+// DataStreamWriter type removed - using any for data stream parameter
 import type { ClinicalTrial } from './types';
 
 interface SearchQuery {
@@ -26,7 +26,7 @@ interface SearchResult {
 interface ExecutorOptions {
   maxResults?: number;
   includeStatuses?: string[];
-  dataStream?: DataStreamWriter;
+  dataStream?: any;
   cacheKey?: string;
 }
 
@@ -107,14 +107,8 @@ export class SearchExecutor {
 
       const batchResults = await Promise.all(batchPromises);
       // Transform SearchResult to the expected format
-      const transformedResults = batchResults.map(r => ({
-        success: !r.error,
-        studies: r.studies,
-        totalCount: r.totalCount,
-        error: r.error,
-        message: r.error ? `Search failed: ${r.error}` : `Found ${r.studies.length} studies`
-      }));
-      allResults.push(...transformedResults);
+      // batchResults already contains SearchResult objects with query and field
+      allResults.push(...batchResults);
 
       // Notify batch completion
       if (dataStream) {
@@ -135,7 +129,14 @@ export class SearchExecutor {
       }
     }
 
-    return allResults;
+    // Transform SearchResult[] to the expected return type
+    return allResults.map(r => ({
+      success: !r.error,
+      studies: r.studies,
+      totalCount: r.totalCount,
+      error: r.error,
+      message: r.error ? `Search failed: ${r.error}` : `Found ${r.studies.length} studies`
+    }));
   }
 
   /**
@@ -145,7 +146,7 @@ export class SearchExecutor {
     searchQuery: SearchQuery,
     maxResults: number,
     includeStatuses: string[],
-    dataStream?: DataStreamWriter,
+    dataStream?: any,
     cacheKey?: string
   ): Promise<SearchResult> {
     // Check cache first
@@ -275,7 +276,7 @@ export class SearchExecutor {
    */
   async executeLookup(
     nctId: string,
-    dataStream?: DataStreamWriter
+    dataStream?: any
   ): Promise<SearchResult> {
     // Notify lookup start
     if (dataStream) {

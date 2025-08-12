@@ -91,8 +91,8 @@ export class EligibilityAnalyzer extends BaseOperator<ClinicalTrial, ClinicalTri
         
         const analysis = await this.analyzeEligibility(
           trial,
-          healthProfile,
-          isDetailed
+          healthProfile || null,
+          isDetailed || false
         );
         
         // Stream full criteria for top trials if enabled

@@ -85,7 +85,16 @@ export class NCTLookupProcessor implements QueryProcessor {
   process(context: QueryContext): RoutingDecision {
     const nctIds = this.extractNCTIds(context.query);
     
-    if (nctIds.length === 0) return null;
+    // This shouldn't happen if canHandle returned true, but add a fallback
+    if (nctIds.length === 0) {
+      return {
+        strategy: QueryStrategy.GENERAL_SEARCH,
+        confidence: 0,
+        reasoning: 'No NCT IDs found despite pattern match',
+        extractedEntities: {},
+        metadata: {}
+      };
+    }
     
     const strategy = nctIds.length === 1 
       ? QueryStrategy.NCT_LOOKUP 

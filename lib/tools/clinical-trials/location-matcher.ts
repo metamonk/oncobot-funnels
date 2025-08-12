@@ -149,6 +149,317 @@ export class LocationMatcher {
         "Boston Children's", 'BCH'
       ],
       radius: 40
+    },
+    {
+      name: 'Houston Metropolitan Area',
+      center: 'Houston',
+      state: 'Texas',
+      cities: [
+        'Houston', 'The Woodlands', 'Sugar Land', 'Pasadena', 'Pearland',
+        'League City', 'Baytown', 'Missouri City', 'Conroe', 'Galveston',
+        'Texas City', 'Friendswood', 'La Porte', 'Deer Park', 'Rosenberg',
+        'Stafford', 'Bellaire', 'West University Place', 'Katy', 'Spring',
+        'Cypress', 'Humble', 'Kingwood', 'Clear Lake', 'Webster'
+      ],
+      majorFacilities: [
+        'MD Anderson', 'MD Anderson Cancer Center', 'MDACC',
+        'Houston Methodist', 'Methodist Hospital',
+        'Texas Medical Center', 'TMC',
+        'Baylor', 'Baylor College of Medicine', 'BCM',
+        'Memorial Hermann', 'UTHealth', 'UT Health',
+        'Texas Children\'s', 'Texas Children\'s Hospital',
+        'Harris Health', 'Ben Taub'
+      ],
+      radius: 50
+    },
+    {
+      name: 'Minneapolis-St. Paul Metropolitan Area',
+      center: 'Minneapolis',
+      state: 'Minnesota',
+      cities: [
+        'Minneapolis', 'St. Paul', 'Saint Paul', 'Bloomington', 'Plymouth',
+        'Woodbury', 'Maple Grove', 'Blaine', 'Lakeville', 'Burnsville',
+        'Minnetonka', 'Eden Prairie', 'Apple Valley', 'Edina', 'St. Louis Park',
+        'Richfield', 'Roseville', 'Inver Grove Heights', 'Brooklyn Park',
+        'Shakopee', 'Cottage Grove', 'Eagan', 'Rochester'
+      ],
+      majorFacilities: [
+        'Mayo Clinic', 'Mayo', 'Mayo Rochester',
+        'University of Minnesota', 'UMN', 'U of M',
+        'Abbott Northwestern', 'Allina Health',
+        'Regions Hospital', 'HealthPartners',
+        'Hennepin Healthcare', 'HCMC',
+        'Children\'s Minnesota', 'Park Nicollet'
+      ],
+      radius: 60
+    },
+    {
+      name: 'Philadelphia Metropolitan Area',
+      center: 'Philadelphia',
+      state: 'Pennsylvania',
+      cities: [
+        'Philadelphia', 'Philly', 'Camden', 'Wilmington', 'Chester',
+        'Bensalem', 'Bristol', 'Levittown', 'King of Prussia', 'Norristown',
+        'Upper Darby', 'Lower Merion', 'Abington', 'Haverford', 'Bryn Mawr',
+        'Media', 'West Chester', 'Conshohocken', 'Lansdale', 'Doylestown',
+        'Cherry Hill', 'Voorhees', 'Mount Laurel', 'Moorestown', 'Princeton'
+      ],
+      majorFacilities: [
+        'Penn', 'Penn Medicine', 'University of Pennsylvania', 'UPenn',
+        'Jefferson', 'Thomas Jefferson', 'Sidney Kimmel',
+        'Fox Chase', 'Fox Chase Cancer Center',
+        'Temple', 'Temple University Hospital',
+        'CHOP', 'Children\'s Hospital of Philadelphia',
+        'Wistar', 'Wistar Institute'
+      ],
+      radius: 50
+    },
+    {
+      name: 'Seattle Metropolitan Area',
+      center: 'Seattle',
+      state: 'Washington',
+      cities: [
+        'Seattle', 'Tacoma', 'Bellevue', 'Kent', 'Everett', 'Renton',
+        'Federal Way', 'Spokane', 'Vancouver', 'Yakima', 'Bellingham',
+        'Kirkland', 'Redmond', 'Sammamish', 'Auburn', 'Lakewood', 'Shoreline',
+        'Marysville', 'Puyallup', 'Olympia', 'Lacey', 'Edmonds', 'Bremerton',
+        'Lynnwood', 'Bothell', 'Burien', 'Des Moines', 'SeaTac', 'Issaquah'
+      ],
+      majorFacilities: [
+        'Fred Hutchinson', 'Fred Hutch', 'FHCRC',
+        'Seattle Cancer Care Alliance', 'SCCA',
+        'University of Washington', 'UW Medicine', 'UW Medical',
+        'Seattle Children\'s', 'Swedish', 'Swedish Medical',
+        'Virginia Mason', 'Harborview', 'Northwest Hospital',
+        'Overlake', 'EvergreenHealth'
+      ],
+      radius: 60
+    },
+    {
+      name: 'Atlanta Metropolitan Area',
+      center: 'Atlanta',
+      state: 'Georgia',
+      cities: [
+        'Atlanta', 'ATL', 'Sandy Springs', 'Roswell', 'Johns Creek',
+        'Alpharetta', 'Marietta', 'Smyrna', 'Dunwoody', 'Brookhaven',
+        'Peachtree City', 'East Point', 'Milton', 'Kennesaw', 'Duluth',
+        'Lawrenceville', 'Decatur', 'Tucker', 'Stockbridge', 'Woodstock',
+        'Canton', 'McDonough', 'Douglasville', 'Union City', 'Forest Park'
+      ],
+      majorFacilities: [
+        'Emory', 'Emory University', 'Emory Healthcare',
+        'Winship', 'Winship Cancer Institute',
+        'Grady', 'Grady Health',
+        'Piedmont', 'Piedmont Healthcare',
+        'Northside', 'Northside Hospital',
+        'Children\'s Healthcare of Atlanta', 'CHOA',
+        'WellStar', 'Kaiser Permanente Georgia'
+      ],
+      radius: 50
+    },
+    {
+      name: 'Washington DC Metropolitan Area',
+      center: 'Washington',
+      state: 'District of Columbia',
+      cities: [
+        'Washington', 'DC', 'Washington DC', 'Arlington', 'Alexandria',
+        'Silver Spring', 'Bethesda', 'Frederick', 'Rockville', 'Gaithersburg',
+        'Bowie', 'Annandale', 'Centreville', 'Dale City', 'Reston', 'Fairfax',
+        'Germantown', 'Waldorf', 'Wheaton', 'McLean', 'Potomac', 'Chevy Chase',
+        'College Park', 'Greenbelt', 'Laurel', 'Beltsville', 'Takoma Park'
+      ],
+      majorFacilities: [
+        'NIH', 'National Institutes of Health',
+        'NCI', 'National Cancer Institute',
+        'Johns Hopkins', 'Hopkins', 'JHU',
+        'Georgetown', 'Georgetown University', 'MedStar Georgetown',
+        'George Washington', 'GW', 'GWU',
+        'Howard University Hospital',
+        'Inova', 'Inova Health',
+        'Walter Reed', 'WRNMMC'
+      ],
+      radius: 50
+    },
+    {
+      name: 'Miami Metropolitan Area',
+      center: 'Miami',
+      state: 'Florida',
+      cities: [
+        'Miami', 'Fort Lauderdale', 'West Palm Beach', 'Miami Beach',
+        'Pembroke Pines', 'Hollywood', 'Miramar', 'Coral Springs', 'Pompano Beach',
+        'Doral', 'Davie', 'Plantation', 'Sunrise', 'Boca Raton', 'Deerfield Beach',
+        'Boynton Beach', 'Lauderhill', 'Weston', 'Homestead', 'Delray Beach',
+        'Aventura', 'Miami Gardens', 'Wellington', 'Jupiter', 'Coconut Creek'
+      ],
+      majorFacilities: [
+        'Sylvester', 'Sylvester Comprehensive', 'University of Miami',
+        'Jackson', 'Jackson Health', 'Jackson Memorial',
+        'Baptist', 'Baptist Health South Florida',
+        'Mount Sinai Medical Center Miami',
+        'Cleveland Clinic Florida',
+        'Memorial Healthcare', 'Memorial Regional',
+        'Broward Health', 'Holy Cross'
+      ],
+      radius: 60
+    },
+    {
+      name: 'Phoenix Metropolitan Area',
+      center: 'Phoenix',
+      state: 'Arizona',
+      cities: [
+        'Phoenix', 'Mesa', 'Chandler', 'Scottsdale', 'Glendale', 'Gilbert',
+        'Tempe', 'Peoria', 'Surprise', 'Avondale', 'Goodyear', 'Buckeye',
+        'Queen Creek', 'Sun City', 'Casa Grande', 'Maricopa', 'Apache Junction',
+        'El Mirage', 'Fountain Hills', 'Paradise Valley', 'Cave Creek', 'Anthem'
+      ],
+      majorFacilities: [
+        'Mayo Clinic Arizona', 'Mayo Scottsdale',
+        'Banner', 'Banner Health', 'Banner MD Anderson',
+        'Honor Health', 'HonorHealth',
+        'Dignity Health', 'St. Joseph\'s',
+        'Phoenix Children\'s', 'PCH',
+        'Barrow', 'Barrow Neurological'
+      ],
+      radius: 50
+    },
+    {
+      name: 'Cleveland Metropolitan Area',
+      center: 'Cleveland',
+      state: 'Ohio',
+      cities: [
+        'Cleveland', 'Akron', 'Canton', 'Parma', 'Lakewood', 'Elyria',
+        'Euclid', 'Mentor', 'Cleveland Heights', 'Strongsville', 'Westlake',
+        'Boardman', 'Cuyahoga Falls', 'Lorain', 'Shaker Heights', 'North Olmsted',
+        'North Royalton', 'Medina', 'Massillon', 'Barberton', 'Solon', 'Avon'
+      ],
+      majorFacilities: [
+        'Cleveland Clinic', 'Cleveland Clinic Foundation', 'CCF',
+        'University Hospitals', 'UH', 'UH Cleveland',
+        'MetroHealth', 'Metro Health',
+        'Rainbow Babies', 'Rainbow Babies and Children\'s',
+        'Case Western', 'CWRU'
+      ],
+      radius: 50
+    },
+    {
+      name: 'Detroit Metropolitan Area',
+      center: 'Detroit',
+      state: 'Michigan',
+      cities: [
+        'Detroit', 'Warren', 'Sterling Heights', 'Ann Arbor', 'Lansing',
+        'Dearborn', 'Livonia', 'Troy', 'Westland', 'Farmington Hills',
+        'Rochester Hills', 'Southfield', 'Taylor', 'Pontiac', 'St. Clair Shores',
+        'Royal Oak', 'Novi', 'Dearborn Heights', 'Auburn Hills', 'Madison Heights',
+        'Bloomfield Hills', 'Birmingham', 'Grosse Pointe'
+      ],
+      majorFacilities: [
+        'Karmanos', 'Barbara Ann Karmanos',
+        'Henry Ford', 'Henry Ford Health',
+        'Beaumont', 'Beaumont Health',
+        'Michigan Medicine', 'University of Michigan', 'U of M',
+        'DMC', 'Detroit Medical Center',
+        'St. John', 'Ascension St. John'
+      ],
+      radius: 50
+    },
+    {
+      name: 'San Diego Metropolitan Area',
+      center: 'San Diego',
+      state: 'California',
+      cities: [
+        'San Diego', 'SD', 'Chula Vista', 'Oceanside', 'Escondido', 'Carlsbad',
+        'El Cajon', 'Vista', 'San Marcos', 'Encinitas', 'National City',
+        'La Mesa', 'Santee', 'Poway', 'La Jolla', 'Del Mar', 'Coronado',
+        'Imperial Beach', 'Lemon Grove', 'Solana Beach', 'Rancho Santa Fe'
+      ],
+      majorFacilities: [
+        'UCSD', 'UC San Diego', 'UCSD Health', 'Moores Cancer Center',
+        'Scripps', 'Scripps Health', 'Scripps Research',
+        'Sharp', 'Sharp Healthcare',
+        'Kaiser Permanente San Diego',
+        'Rady Children\'s', 'Rady Children\'s Hospital'
+      ],
+      radius: 50
+    },
+    {
+      name: 'Denver Metropolitan Area',
+      center: 'Denver',
+      state: 'Colorado',
+      cities: [
+        'Denver', 'Aurora', 'Lakewood', 'Thornton', 'Arvada', 'Westminster',
+        'Centennial', 'Colorado Springs', 'Fort Collins', 'Highlands Ranch',
+        'Parker', 'Castle Rock', 'Littleton', 'Wheat Ridge', 'Englewood',
+        'Northglenn', 'Broomfield', 'Commerce City', 'Greenwood Village',
+        'Boulder', 'Longmont', 'Loveland', 'Grand Junction', 'Greeley'
+      ],
+      majorFacilities: [
+        'University of Colorado', 'CU Anschutz', 'UCHealth',
+        'National Jewish', 'National Jewish Health',
+        'Denver Health', 'Denver General',
+        'Children\'s Hospital Colorado', 'Children\'s Colorado',
+        'Presbyterian/St. Joseph', 'HealthONE',
+        'Kaiser Permanente Colorado'
+      ],
+      radius: 60
+    },
+    {
+      name: 'Baltimore Metropolitan Area',
+      center: 'Baltimore',
+      state: 'Maryland',
+      cities: [
+        'Baltimore', 'Columbia', 'Germantown', 'Silver Spring', 'Waldorf',
+        'Glen Burnie', 'Ellicott City', 'Frederick', 'Dundalk', 'Rockville',
+        'Bethesda', 'Towson', 'Bowie', 'Severn', 'Odenton', 'Catonsville',
+        'Gaithersburg', 'Annapolis', 'Laurel', 'Greenbelt', 'Bel Air'
+      ],
+      majorFacilities: [
+        'Johns Hopkins', 'Hopkins', 'JHU', 'Johns Hopkins Hospital',
+        'University of Maryland', 'UMD Medical', 'UMMC',
+        'MedStar', 'MedStar Health',
+        'Sinai', 'Sinai Hospital',
+        'GBMC', 'Greater Baltimore Medical',
+        'Kennedy Krieger', 'Sheppard Pratt'
+      ],
+      radius: 50
+    },
+    {
+      name: 'Pittsburgh Metropolitan Area',
+      center: 'Pittsburgh',
+      state: 'Pennsylvania',
+      cities: [
+        'Pittsburgh', 'Penn Hills', 'Mount Lebanon', 'Bethel Park', 'Ross Township',
+        'Shaler', 'Plum', 'Moon', 'Upper St. Clair', 'Peters', 'Hampton',
+        'Monroeville', 'McCandless', 'Robinson', 'Scott', 'Cranberry',
+        'North Hills', 'South Hills', 'Squirrel Hill', 'Shadyside', 'Oakland'
+      ],
+      majorFacilities: [
+        'UPMC', 'University of Pittsburgh Medical Center',
+        'Hillman', 'UPMC Hillman Cancer Center',
+        'Allegheny Health', 'AHN', 'Allegheny General',
+        'Children\'s Hospital of Pittsburgh', 'CHP',
+        'Magee', 'Magee-Womens'
+      ],
+      radius: 40
+    },
+    {
+      name: 'St. Louis Metropolitan Area',
+      center: 'St. Louis',
+      state: 'Missouri',
+      cities: [
+        'St. Louis', 'STL', 'Florissant', 'Belleville', 'O\'Fallon',
+        'St. Charles', 'St. Peters', 'Chesterfield', 'Wildwood', 'University City',
+        'Ballwin', 'Wentzville', 'Kirkwood', 'Maryland Heights', 'Hazelwood',
+        'Webster Groves', 'Ferguson', 'Arnold', 'Manchester', 'Clayton'
+      ],
+      majorFacilities: [
+        'Washington University', 'WashU', 'Barnes-Jewish', 'Barnes',
+        'Siteman', 'Siteman Cancer Center',
+        'St. Louis Children\'s', 'SLCH',
+        'SLU', 'Saint Louis University Hospital',
+        'Mercy', 'Mercy Hospital',
+        'SSM Health', 'SSM'
+      ],
+      radius: 40
     }
   ];
 
@@ -231,7 +542,7 @@ export class LocationMatcher {
         locations.push({
           city: loc.city,
           state: loc.state,
-          country: loc.country || loc.countryCode,
+          country: loc.country || (loc as any).countryCode,
           facility: loc.facility,
           zipCode: loc.zip
         });
@@ -239,8 +550,8 @@ export class LocationMatcher {
     }
 
     // Extract from central contacts (sometimes has location info)
-    if (locationsModule?.centralContacts) {
-      for (const contact of locationsModule.centralContacts) {
+    if ((locationsModule as any)?.centralContacts) {
+      for (const contact of (locationsModule as any).centralContacts) {
         if (contact.affiliation) {
           locations.push({
             facility: contact.affiliation

@@ -312,7 +312,7 @@ const ChatInterface = memo(
     } = useChat(chatOptions);
     
     // Wrapped handleSubmit to prevent duplicate requests
-    const handleSubmit = useCallback((event?: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = useCallback((event?: { preventDefault?: () => void }, chatRequestOptions?: any) => {
       // Cancel any existing request
       if (activeRequestRef.current) {
         activeRequestRef.current.abort();
@@ -322,18 +322,18 @@ const ChatInterface = memo(
       activeRequestRef.current = new AbortController();
       
       // Call original handleSubmit
-      return originalHandleSubmit(event);
+      return originalHandleSubmit(event, chatRequestOptions);
     }, [originalHandleSubmit]);
     
     // Debounced append to prevent rapid-fire messages
-    const append = useCallback((message: any, options?: any) => {
+    const append = useCallback((message: any, options?: any): Promise<string | null | undefined> => {
       // Clear any pending append
       if (appendTimeoutRef.current) {
         clearTimeout(appendTimeoutRef.current);
       }
       
       // Debounce the append call by 100ms
-      return new Promise((resolve) => {
+      return new Promise<string | null | undefined>((resolve) => {
         appendTimeoutRef.current = setTimeout(() => {
           resolve(originalAppend(message, options));
         }, 100);

@@ -323,6 +323,33 @@ export interface TrialMatch {
     demographicMatch: number;
     performanceStatusMatch: number;
   };
+  // UI-expected assessment structure
+  eligibilityAssessment?: {
+    trialCriteria?: {
+      parsed: boolean;
+      inclusion: Array<{
+        id: string;
+        text: string;
+        category: string;
+        required: boolean;
+      }>;
+      exclusion: Array<{
+        id: string;
+        text: string;
+        category: string;
+        required: boolean;
+      }>;
+    };
+    userAssessment?: {
+      hasProfile: boolean;
+      eligibilityScore?: number;
+      confidence?: 'high' | 'medium' | 'low';
+      recommendation?: 'likely' | 'possible' | 'unlikely';
+      inclusionMatches?: string[];
+      exclusionConcerns?: string[];
+      missingData: string[];
+    };
+  };
 }
 
 /**

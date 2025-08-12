@@ -149,20 +149,20 @@ export function HealthProfileSection({ user }: HealthProfileSectionProps) {
                 </div>
               )}
             </div>
-
-            <div className="pt-2 border-t">
-              <p className={cn("text-muted-foreground", isMobile ? "text-xs" : "text-sm")}>
-                Last updated: {new Date(profile.updatedAt).toLocaleDateString()}
-              </p>
-            </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2">
+          <div className={cn(
+            "pt-3 border-t flex",
+            isMobile ? "flex-col gap-3" : "items-center justify-between"
+          )}>
+            <p className={cn("text-muted-foreground", isMobile ? "text-xs" : "text-sm")}>
+              Last updated: {new Date(profile.updatedAt).toLocaleDateString()}
+            </p>
             <Button 
               onClick={() => setShowQuestionnaire(true)}
               size={isMobile ? "sm" : "default"}
-              className="flex-1"
+              variant="default"
+              className={isMobile ? "w-full" : ""}
             >
               <NotebookPen className={isMobile ? "w-3.5 h-3.5 mr-1.5" : "w-4 h-4 mr-2"} />
               {isComplete ? 'Update Profile' : 'Continue Profile'}
