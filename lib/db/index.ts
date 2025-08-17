@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@/lib/db/schema';
 import { serverEnv } from '@/env/server';
+import { Logger } from '@/lib/logger';
 
 // Unified connection with optimized pooling
 const client = postgres(serverEnv.DATABASE_URL, {
@@ -12,8 +13,9 @@ const client = postgres(serverEnv.DATABASE_URL, {
   // Add connection error logging
   onnotice: () => {},
   debug: (connection, query, params) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('DB Query:', query.substring(0, 100));
+    // Only log DB queries in debug mode
+    if (process.env.LOG_LEVEL === 'debug' || process.env.LOG_LEVEL === 'trace') {
+      Logger.logDbQuery(query, params);
     }
   },
 });

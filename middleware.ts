@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionCookie } from 'better-auth/cookies';
+import { Logger } from '@/lib/logger';
 
 const authRoutes = ['/sign-in', '/sign-up'];
 const protectedRoutes = ['/settings'];
+const logger = new Logger('Middleware');
 
 export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
-
   const { pathname } = request.nextUrl;
-  console.log('Pathname: ', pathname);
+  
+  // Only log pathname in debug mode
+  logger.debug(`Processing: ${pathname}`);
 
   // /api/payments/webhooks is a webhook endpoint that should be accessible without authentication
   if (pathname.startsWith('/api/payments/webhooks')) {
@@ -21,12 +24,14 @@ export async function middleware(request: NextRequest) {
 
   // If user is authenticated but trying to access auth routes
   if (sessionCookie && authRoutes.some((route) => pathname.startsWith(route))) {
-    console.log('Redirecting to home');
-    console.log('Session cookie: ', sessionCookie);
+    logger.info(`Redirecting authenticated user from ${pathname} to home`);
+    // Don't log session cookie for security
+    logger.debug('Session exists, redirecting to home');
     return NextResponse.redirect(new URL('/', request.url));
   }
 
   if (!sessionCookie && protectedRoutes.some((route) => pathname.startsWith(route))) {
+    logger.info(`Redirecting unauthenticated user from ${pathname} to sign-in`);
     return NextResponse.redirect(new URL('/sign-in', request.url));
   }
 

@@ -1,7 +1,14 @@
 import { SearchGroupId } from './utils';
+import { Logger } from './logger';
 
 // Cache the parsed configuration
 let enabledModesCache: Set<SearchGroupId> | null | undefined = undefined;
+
+// All possible modes for comparison
+const ALL_MODES: SearchGroupId[] = [
+  'web', 'academic', 'youtube', 'x', 'reddit', 
+  'health', 'crypto', 'analysis', 'memory', 'chat', 'extreme'
+];
 
 /**
  * Parse and cache the enabled search modes from environment variable
@@ -16,12 +23,10 @@ function getEnabledModes(): Set<SearchGroupId> | null {
   // Parse from environment variable
   const enabledModesEnv = process.env.NEXT_PUBLIC_ENABLED_SEARCH_MODES;
   
-  console.log('[Feature Toggle] Environment variable NEXT_PUBLIC_ENABLED_SEARCH_MODES:', enabledModesEnv);
-  
   // If not set or empty, enable all modes
   if (!enabledModesEnv || enabledModesEnv.trim() === '') {
     enabledModesCache = null;
-    console.log('[Feature Toggle] No modes specified, enabling all');
+    Logger.logFeatureToggles(ALL_MODES, ALL_MODES);
     return null;
   }
 
@@ -31,7 +36,8 @@ function getEnabledModes(): Set<SearchGroupId> | null {
     .map(mode => mode.trim() as SearchGroupId)
     .filter(mode => mode.length > 0);
 
-  console.log('[Feature Toggle] Parsed modes:', modes);
+  // Log only enabled modes
+  Logger.logFeatureToggles(modes, ALL_MODES);
 
   // Cache and return
   enabledModesCache = new Set(modes);
@@ -51,7 +57,10 @@ export function isSearchModeEnabled(mode: SearchGroupId): boolean {
   
   // Check if mode is in the enabled set
   const isEnabled = enabledModes.has(mode);
-  console.log(`[Feature Toggle] Mode ${mode} is ${isEnabled ? 'enabled' : 'disabled'}`);
+  // Only log in debug mode to reduce verbosity
+  if (process.env.LOG_LEVEL === 'debug') {
+    console.log(`[Feature Toggle] Mode ${mode} is ${isEnabled ? 'enabled' : 'disabled'}`);
+  }
   return isEnabled;
 }
 
