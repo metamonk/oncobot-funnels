@@ -13,6 +13,12 @@ export * from './response-composer';
 // Import all modules
 import { EligibilityModule } from './eligibility';
 import { SafetyModule } from './safety';
+import { PhasesModule } from './phases';
+import { CostModule } from './cost';
+import { EnrollmentModule } from './enrollment';
+import { TreatmentHistoryModule } from './treatment-history';
+import { RightsModule } from './rights';
+import { SpecialProgramsModule } from './special-programs';
 import { moduleRegistry } from './registry';
 import { ResponseComposer } from './response-composer';
 import type { InfoContext, ComposedResponse } from './types';
@@ -27,13 +33,12 @@ export function initializeModules(): void {
   // Register all available modules
   moduleRegistry.register(new EligibilityModule());
   moduleRegistry.register(new SafetyModule());
-  
-  // Add more modules here as they're created:
-  // moduleRegistry.register(new ProcessModule());
-  // moduleRegistry.register(new CostModule());
-  // moduleRegistry.register(new FindingModule());
-  // moduleRegistry.register(new PhasesModule());
-  // moduleRegistry.register(new RightsModule());
+  moduleRegistry.register(new PhasesModule());
+  moduleRegistry.register(new CostModule());
+  moduleRegistry.register(new EnrollmentModule());
+  moduleRegistry.register(new TreatmentHistoryModule());
+  moduleRegistry.register(new RightsModule());
+  moduleRegistry.register(new SpecialProgramsModule());
 }
 
 // Create singleton composer
@@ -63,3 +68,9 @@ export async function handleInfoQuery(
 // Export individual module classes for testing
 export { EligibilityModule } from './eligibility';
 export { SafetyModule } from './safety';
+export { PhasesModule } from './phases';
+export { CostModule } from './cost';
+export { EnrollmentModule } from './enrollment';
+export { TreatmentHistoryModule } from './treatment-history';
+export { RightsModule } from './rights';
+export { SpecialProgramsModule } from './special-programs';
