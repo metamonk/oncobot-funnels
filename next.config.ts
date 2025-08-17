@@ -15,7 +15,6 @@ const nextConfig: NextConfig = {
   experimental: {
     useCache: true,
     devtoolSegmentExplorer: true,
-    instrumentationHook: true,
     serverActions: {
       bodySizeLimit: '10mb',
     },
