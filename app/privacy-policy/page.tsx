@@ -66,7 +66,11 @@ export default function PrivacyPage() {
             At OncoBot, we respect your privacy and are committed to protecting your personal and health-related data.
             This Privacy Policy explains how we collect, use, and safeguard your information when you use our medical
             oncology AI assistant. We understand the sensitive nature of health information and maintain strict
-            confidentiality standards.
+            confidentiality standards. For information about how we handle AI-generated content, see our{' '}
+            <Link href="/ai-terms" className="underline">
+              AI Terms of Use
+            </Link>
+            .
           </p>
 
           <h2>Our Commitment to Privacy</h2>
@@ -266,6 +270,9 @@ export default function PrivacyPage() {
               </Link>
               <Link href="/privacy-policy" className="text-neutral-900 dark:text-neutral-100 font-medium">
                 Privacy
+              </Link>
+              <Link href="/ai-terms" className="hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors">
+                AI Terms
               </Link>
             </div>
           </div>

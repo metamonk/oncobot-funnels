@@ -66,7 +66,12 @@ export default function TermsPage() {
             Welcome to OncoBot, a medical oncology AI assistant. These Terms of Service govern your use of our platform
             and services. By using OncoBot, you agree to these terms in full. If you disagree with any part of these
             terms, please do not use our service. <strong>OncoBot is designed to assist healthcare professionals and
-            should not be used as a substitute for professional medical judgment.</strong>
+            should not be used as a substitute for professional medical judgment.</strong> For specific terms regarding 
+            our AI features, please see our{' '}
+            <Link href="/ai-terms" className="underline">
+              AI Terms of Use
+            </Link>
+            .
           </p>
 
           <h2>1. Acceptance of Terms</h2>
@@ -265,6 +270,9 @@ export default function TermsPage() {
                 className="hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
               >
                 Privacy
+              </Link>
+              <Link href="/ai-terms" className="hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors">
+                AI Terms
               </Link>
             </div>
           </div>
