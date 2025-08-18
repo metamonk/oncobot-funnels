@@ -66,7 +66,7 @@ export class PostHogProvider implements AnalyticsProvider {
   public async track(event: AnalyticsEvent): Promise<void> {
     if (!this.isReady || !this.client) return;
 
-    const properties = {
+    const properties: Record<string, any> = {
       ...event.properties,
       category: event.category,
       session_id: event.sessionId,
