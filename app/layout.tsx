@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     template: '%s | OncoBot',
     absolute: 'OncoBot',
   },
-  description: 'OncoBot is an AI-powered medical oncology assistant that helps healthcare professionals find clinical trials, treatment guidelines, and evidence-based cancer care information.',
+  description: 'OncoBot is an AI-powered medical oncology assistant that helps patients and healthcare professionals find clinical trials, explore treatment options, and access evidence-based cancer care information.',
   icons: {
     icon: '/favicon.ico',
     apple: '/apple-icon.png',
@@ -42,6 +42,9 @@ export const metadata: Metadata = {
     'oncology AI',
     'medical AI assistant',
     'cancer care',
+    'cancer patients',
+    'patient support',
+    'treatment options',
     'treatment guidelines',
     'oncology research',
     'clinical trial matching',
@@ -53,6 +56,8 @@ export const metadata: Metadata = {
     'oncology support',
     'medical search',
     'healthcare professionals',
+    'cancer journey',
+    'patient resources',
   ],
 };
 
