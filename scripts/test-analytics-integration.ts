@@ -17,15 +17,12 @@ async function testAnalyticsIntegration() {
   // Check if analytics services are configured
   console.log('=== Configuration Check ===');
   
-  const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN;
+  // Plausible is hardcoded in layout.tsx for onco.bot domain
+  console.log('✅ Plausible domain: onco.bot (hardcoded in layout.tsx)');
+  console.log('   Note: Plausible will only track when deployed to https://onco.bot');
+  
   const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
   const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://app.posthog.com';
-  
-  if (!plausibleDomain) {
-    console.warn('⚠️  NEXT_PUBLIC_PLAUSIBLE_DOMAIN not configured');
-  } else {
-    console.log(`✅ Plausible domain: ${plausibleDomain}`);
-  }
   
   if (!posthogKey) {
     console.warn('⚠️  NEXT_PUBLIC_POSTHOG_KEY not configured');
@@ -81,11 +78,10 @@ async function testAnalyticsIntegration() {
   
   console.log('\n=== Dashboard Verification ===');
   
-  if (plausibleDomain) {
-    console.log(`\nPlausible Dashboard: https://plausible.io/${plausibleDomain}`);
-    console.log('  - Check Real-time view for immediate events');
-    console.log('  - Look for custom events under "Goals"');
-  }
+  console.log('\nPlausible Dashboard: https://plausible.io/onco.bot');
+  console.log('  - Check Real-time view for immediate events (only works in production)');
+  console.log('  - Look for custom events under "Goals"');
+  console.log('  - Note: Plausible only tracks on the actual onco.bot domain, not localhost')
   
   if (posthogKey) {
     console.log(`\nPostHog Dashboard: ${posthogHost}/project/current`);

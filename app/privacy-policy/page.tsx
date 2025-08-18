@@ -52,8 +52,7 @@ export default function PrivacyPage() {
             <motion.div variants={item} className="text-center">
               <h1 className="text-4xl font-bold tracking-tight">Privacy Policy</h1>
               <p className="text-neutral-600 dark:text-neutral-400 mt-3">
-                Last updated:{' '}
-                {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                Last updated: August 18, 2025
               </p>
             </motion.div>
           </motion.div>
@@ -70,132 +69,156 @@ export default function PrivacyPage() {
             confidentiality standards.
           </p>
 
+          <h2>Our Commitment to Privacy</h2>
+          <p>
+            OncoBot is designed with privacy at its core. We collect only the data necessary to provide and improve our
+            clinical trial search services. <strong>We never sell your data to third parties</strong>, and we never use
+            your health information for advertising.
+          </p>
+
           <h2>Information We Collect</h2>
-          <p>We may collect the following types of information:</p>
+          
+          <h3>1. Usage Analytics</h3>
+          <p>We use privacy-focused analytics to understand how our service is used:</p>
           <ul>
-            <li>
-              <strong>Medical Queries:</strong> Questions and searches related to oncology, treatments, and clinical trials.
-            </li>
-            <li>
-              <strong>Health Profile Data:</strong> Optional health information you provide for clinical trial matching,
-              including cancer type, stage, biomarkers, and treatment history. This information is used solely to provide
-              relevant clinical trial recommendations.
-            </li>
-            <li>
-              <strong>Account Information:</strong> Email address and authentication details required for account creation.
-            </li>
-            <li>
-              <strong>Usage Data:</strong> Information about how you interact with our service, including features used
-              and search patterns.
-            </li>
-            <li>
-              <strong>Device Information:</strong> Technical information about your device, browser type, and operating
-              system for service optimization.
-            </li>
+            <li>Page views and navigation patterns (which pages you visit)</li>
+            <li>Search queries for clinical trials (not linked to your identity)</li>
+            <li>Interaction events (buttons clicked, features used)</li>
+            <li>Device information (browser type, operating system, screen size)</li>
+            <li>General location (country and state only, never precise location)</li>
+            <li>Session quality metrics (time spent, engagement scores)</li>
+          </ul>
+          <p>
+            <strong>We DO NOT collect:</strong> Your name or email (unless you provide it), IP addresses, precise
+            location data, or any cross-site tracking information.
+          </p>
+
+          <h3>2. Clinical Trial Interactions</h3>
+          <p>To improve our matching and recommendation system, we track:</p>
+          <ul>
+            <li>Which clinical trials you view (anonymized)</li>
+            <li>Trial match scores and ranking positions</li>
+            <li>When you click contact information or external links</li>
+            <li>When you expand eligibility criteria</li>
+            <li>Search filters and keywords used</li>
+          </ul>
+
+          <h3>3. Optional Health Profile</h3>
+          <p>If you choose to create a health profile for personalized trial matching:</p>
+          <ul>
+            <li><strong>What we store:</strong> General cancer type and region, disease stage category, treatment
+              history (surgery, chemo, radiation, immunotherapy), performance status, general molecular marker status</li>
+            <li><strong>What we DON&apos;T store:</strong> Your name, contact information, specific medical record numbers,
+              detailed clinical notes, or physician information</li>
+            <li><strong>Your control:</strong> You can skip the profile entirely, abandon it at any point, delete your
+              profile data at any time, or update information when your situation changes</li>
+          </ul>
+
+          <h3>4. Account Information</h3>
+          <p>If you create an account:</p>
+          <ul>
+            <li>Email address for authentication</li>
+            <li>Authentication tokens for secure access</li>
+            <li>Account preferences and settings</li>
+          </ul>
+
+          <h3>5. Performance Metrics</h3>
+          <p>We monitor technical performance to ensure a smooth experience:</p>
+          <ul>
+            <li>Core Web Vitals (page load speed, interactivity, visual stability)</li>
+            <li>Search response times and API performance</li>
+            <li>Error occurrences (not personal details)</li>
           </ul>
 
           <h2>How We Use Your Information</h2>
-          <p>We use your information for the following purposes:</p>
           <ul>
-            <li>To provide medical oncology information and clinical trial matching services</li>
-            <li>To improve the accuracy and relevance of medical information provided</li>
-            <li>To match health profiles with appropriate clinical trials when requested</li>
-            <li>To ensure the security and proper functioning of our platform</li>
-            <li>To comply with legal and regulatory requirements</li>
-            <li>To analyze usage patterns to improve our medical information services</li>
-          </ul>
-          <p>
-            <strong>Important:</strong> We never sell or share your health information with third parties for marketing
-            purposes. Health profile data is used exclusively for providing clinical trial matching services.
-          </p>
-
-          <h2>Data Sharing and Disclosure</h2>
-          <p>We may share your information in the following circumstances:</p>
-          <ul>
-            <li>
-              <strong>Service Providers:</strong> With third-party service providers who help us operate, improve, and
-              analyze our service. Specifically, we use services from:
-            </li>
-            <ul>
-              <li>
-                <strong>Infrastructure Providers:</strong> We use secure hosting services to maintain our platform
-              </li>
-              <li>
-                <strong>AI Processing Partners:</strong> We utilize AI services to process medical queries. These partners
-                do not store or have access to your health profile data
-              </li>
-              <li>
-                <strong>Medical Databases:</strong> We access public medical databases like ClinicalTrials.gov to provide
-                up-to-date clinical trial information
-              </li>
-            </ul>
-            <li>
-              <strong>Compliance with Laws:</strong> When required by applicable law, regulation, legal process, or
-              governmental request.
-            </li>
-            <li>
-              <strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets.
-            </li>
+            <li>To provide medical oncology information and clinical trial matching</li>
+            <li>To improve the accuracy and relevance of search results</li>
+            <li>To understand which features are most helpful</li>
+            <li>To fix technical issues and optimize performance</li>
+            <li>To personalize recommendations (only if you create a health profile)</li>
           </ul>
 
-          <h2>Data Security and Health Information Protection</h2>
-          <p>
-            We implement stringent security measures to protect your personal and health information:
-          </p>
+          <h2>Analytics Technologies We Use</h2>
+          <p>We use privacy-respecting analytics services:</p>
           <ul>
-            <li>Encryption of health data in transit and at rest</li>
-            <li>Access controls limiting who can view health information</li>
-            <li>Regular security audits and updates</li>
-            <li>Secure authentication requirements for all users</li>
-            <li>Compliance with healthcare data protection best practices</li>
+            <li><strong>Plausible Analytics:</strong> GDPR-compliant, cookie-free analytics that doesn&apos;t track individual users</li>
+            <li><strong>PostHog:</strong> Product analytics configured for privacy protection, respects Do Not Track settings</li>
+            <li><strong>Vercel Analytics:</strong> Performance monitoring with no personal data collection</li>
+          </ul>
+
+          <h2>Data Sharing and Third Parties</h2>
+          <p>We may share your information only in these limited circumstances:</p>
+          <ul>
+            <li><strong>Service Providers:</strong> With secure hosting services and AI providers who help us operate
+              the platform (they cannot use your data for their own purposes)</li>
+            <li><strong>Medical Databases:</strong> We access public databases like ClinicalTrials.gov to provide
+              up-to-date trial information</li>
+            <li><strong>Legal Requirements:</strong> When required by law or to protect rights and safety</li>
           </ul>
           <p>
-            While we employ industry-standard security measures, no method of transmission over the Internet is 100%
-            secure. We continuously work to enhance our security practices to protect your sensitive health information.
+            <strong>We never:</strong> Sell your data, share individual user behavior, use your data for advertising,
+            create personal profiles for marketing, or track you across other websites.
           </p>
 
-          <h2>Your Rights and Health Data Control</h2>
-          <p>You have the following rights regarding your personal and health information:</p>
+          <h2>Data Security</h2>
+          <p>We implement stringent security measures:</p>
           <ul>
-            <li>Access all personal and health information we hold about you</li>
-            <li>Request correction or deletion of your health profile data at any time</li>
-            <li>Export your health profile information in a portable format</li>
-            <li>Opt-out of any data processing activities</li>
-            <li>Withdraw consent for health data processing</li>
-            <li>Request complete deletion of your account and all associated data</li>
+            <li>All data transmitted using HTTPS encryption</li>
+            <li>Health profiles encrypted at rest</li>
+            <li>Regular security audits</li>
+            <li>Access controls and monitoring</li>
+            <li>Secure authentication requirements</li>
           </ul>
-          <p>
-            To exercise any of these rights, please contact us at the email address provided below. We will respond to
-            your request within 30 days.
-          </p>
+
+          <h2>Your Privacy Rights</h2>
+          <p>You have complete control over your data:</p>
+          <ul>
+            <li>Access all information we have about you</li>
+            <li>Request correction or deletion of your data</li>
+            <li>Export your health profile in a portable format</li>
+            <li>Opt-out of analytics tracking</li>
+            <li>Use our service completely anonymously</li>
+            <li>Delete your account and all associated data</li>
+          </ul>
+          <p>To exercise any of these rights, contact us at hi@onco.bot</p>
 
           <h2>Data Retention</h2>
-          <p>
-            We retain your information for as long as necessary to provide our services and comply with legal obligations:
-          </p>
           <ul>
-            <li>Health profile data is retained until you request deletion or delete your account</li>
-            <li>Search queries may be retained in anonymized form for service improvement</li>
-            <li>Account information is retained for the duration of your account&apos;s existence</li>
-            <li>We promptly delete all personal and health data upon account deletion</li>
+            <li><strong>Analytics data:</strong> Aggregated after 30 days, deleted after 1 year</li>
+            <li><strong>Health profiles:</strong> Deleted 90 days after last activity</li>
+            <li><strong>Session data:</strong> Cleared when you close your browser</li>
+            <li><strong>Search history:</strong> Not stored beyond current session</li>
+            <li><strong>Error logs:</strong> Retained for 30 days for debugging</li>
           </ul>
+
+          <h2>Do Not Track</h2>
+          <p>
+            We respect your browser&apos;s &quot;Do Not Track&quot; setting. When enabled, we will not collect any analytics data
+            about your usage.
+          </p>
 
           <h2>Children&apos;s Privacy</h2>
           <p>
-            OncoBot is designed for use by healthcare professionals and adult patients. Our service is not directed to
-            children under the age of 18. We do not knowingly collect personal or health information from minors. If you
-            are a parent or guardian and believe your child has provided us with personal information, please contact us
+            OncoBot is designed for healthcare professionals and adult patients. We do not knowingly collect information
+            from anyone under 18. If you believe a child has provided us with personal information, please contact us
             immediately.
           </p>
 
-          <h2>Changes to This Privacy Policy</h2>
+          <h2>International Users</h2>
           <p>
-            We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new
-            Privacy Policy on this page and updating the &quot;Last updated&quot; date.
+            Data may be processed in the United States. We comply with applicable international privacy laws including
+            GDPR (EU users) and CCPA (California users).
+          </p>
+
+          <h2>Changes to This Policy</h2>
+          <p>
+            We may update this Privacy Policy from time to time. We will notify you of any significant changes by
+            posting the new Privacy Policy on this page and updating the &quot;Last updated&quot; date.
           </p>
 
           <h2>Contact Us</h2>
-          <p>If you have any questions about this Privacy Policy, please contact us at:</p>
+          <p>If you have any questions about this Privacy Policy or our data practices, please contact us at:</p>
           <p>
             <a href="mailto:hi@onco.bot" className="flex items-center gap-1">
               hi@onco.bot <ExternalLink className="h-4 w-4" />
