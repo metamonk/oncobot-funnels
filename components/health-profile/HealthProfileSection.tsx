@@ -126,7 +126,7 @@ export function HealthProfileSection({ user }: HealthProfileSectionProps) {
                 <div>
                   <span className="text-xs text-muted-foreground">Cancer Region</span>
                   <p className="text-sm font-medium capitalize">
-                    {profile.cancerRegion.toLowerCase().replace('_', ' ')}
+                    {profile.cancerRegion.toLowerCase().replace(/_/g, ' ')}
                   </p>
                 </div>
               )}
@@ -134,8 +134,8 @@ export function HealthProfileSection({ user }: HealthProfileSectionProps) {
               {profile.diseaseStage && (
                 <div>
                   <span className="text-xs text-muted-foreground">Disease Stage</span>
-                  <p className="text-sm font-medium capitalize">
-                    {profile.diseaseStage.toLowerCase().replace('_', ' ')}
+                  <p className="text-sm font-medium">
+                    {profile.diseaseStage.replace('_', ' ')}
                   </p>
                 </div>
               )}
