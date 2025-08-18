@@ -78,7 +78,7 @@ We track how users discover and engage with features:
 
 We monitor technical performance to ensure a smooth experience:
 
-- **Core Web Vitals**
+- **Core Web Vitals** (automatically tracked via Web Vitals Tracker)
   - Cumulative Layout Shift (CLS)
   - First Contentful Paint (FCP)
   - Largest Contentful Paint (LCP)
@@ -245,6 +245,22 @@ Questions about our data practices? Contact us at:
 - **Conversion**: Key actions with value attribution
 - **Navigation**: Page views, user journeys
 - **Engagement**: Feedback, sharing, session quality
+
+### Specific Events We Track
+For full transparency, here are the exact event names we use:
+- `Search Performed` - When you search for anything
+- `Trial Viewed` - When you view clinical trial details
+- `Trial Contact Clicked` - When you click contact information
+- `Trial External Link Clicked` - When you visit ClinicalTrials.gov
+- `Trial Criteria Expanded` - When you expand eligibility criteria
+- `Health Profile Started` - When you begin the questionnaire
+- `Health Profile Question Answered` - Each question answered
+- `Health Profile Completed` - When you finish the profile
+- `Health Profile Abandoned` - If you leave without finishing
+- `Feature Discovered` - First time using a feature
+- `Conversion` - Key valuable actions completed
+- `Web Vital` - Performance metrics (automatic)
+- `Error Occurred` - When something goes wrong (no personal data)
 
 ### Anonymous Identifiers
 - Session IDs: Random, temporary, cleared on browser close
