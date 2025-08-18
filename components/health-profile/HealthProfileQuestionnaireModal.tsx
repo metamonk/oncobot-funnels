@@ -20,34 +20,37 @@ import {
 import { createHealthProfile, updateHealthProfile, saveHealthProfileResponse } from '@/lib/health-profile-actions';
 import { toast } from 'sonner';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 
 // Helper function to derive cancer region from cancer type responses
 function deriveRegionFromResponses(responses: Record<string, any>): string | null {
-  // Map cancer types to regions
+  // Map cancer types to regions based on actual question IDs
   if (responses.THORACIC_PRIMARY) {
     return 'THORACIC';
-  } else if (responses.GI_PRIMARY) {
+  } else if (responses.GI_PRIMARY_SITE || responses.GI_HISTOLOGY) {
     return 'GI';
-  } else if (responses.GU_PRIMARY) {
+  } else if (responses.GU_PRIMARY_SITE || responses.GU_CANCER_TYPE) {
     return 'GU';
-  } else if (responses.GYN_PRIMARY) {
+  } else if (responses.GYN_PRIMARY_SITE || responses.GYN_HISTOLOGY) {
     return 'GYN';
-  } else if (responses.BREAST_TYPE) {
+  } else if (responses.BREAST_PRIMARY_SITE || responses.BREAST_HISTOLOGY) {
     return 'BREAST';
-  } else if (responses.HEAD_NECK_PRIMARY) {
+  } else if (responses.HN_PRIMARY_SITE || responses.HN_HISTOLOGY) {
     return 'HEAD_NECK';
-  } else if (responses.CNS_PRIMARY) {
+  } else if (responses.CNS_PRIMARY_LOCATION || responses.CNS_TUMOR_TYPE) {
     return 'CNS';
-  } else if (responses.HEMATOLOGIC_PRIMARY) {
+  } else if (responses.HEME_PRIMARY_TYPE) {
     return 'HEMATOLOGIC';
-  } else if (responses.SKIN_PRIMARY) {
+  } else if (responses.SKIN_PRIMARY_SITE || responses.SKIN_CANCER_TYPE) {
     return 'SKIN';
-  } else if (responses.SARCOMA_PRIMARY) {
+  } else if (responses.SARCOMA_PRIMARY_LOCATION || responses.SARCOMA_TYPE) {
     return 'SARCOMA';
+  } else if (responses.PEDIATRIC_PRIMARY_SITE || responses.PEDIATRIC_CANCER_TYPE) {
+    return 'PEDIATRIC';
   }
   
   // Try to derive from disease stage if it contains cancer type info
-  const diseaseStage = responses.STAGE_CATEGORY?.toLowerCase() || '';
+  const diseaseStage = responses.STAGE_DISEASE?.toLowerCase() || '';
   if (diseaseStage.includes('lung')) {
     return 'THORACIC';
   } else if (diseaseStage.includes('breast')) {
@@ -69,7 +72,13 @@ function mapMolecularMarkers(responses: Record<string, any>): Record<string, any
     'GI_MOLECULAR_MARKERS',
     'GU_MOLECULAR_MARKERS',
     'GYN_MOLECULAR_MARKERS',
-    'BREAST_MOLECULAR_MARKERS'
+    'BREAST_MOLECULAR_MARKERS',
+    'HN_MOLECULAR_MARKERS',
+    'CNS_MOLECULAR_MARKERS',
+    'HEME_MOLECULAR_MARKERS',
+    'SKIN_MOLECULAR_MARKERS',
+    'SARCOMA_MOLECULAR_MARKERS',
+    'PEDIATRIC_MOLECULAR_MARKERS'
   ];
   
   markerQuestions.forEach(question => {
@@ -106,6 +115,7 @@ export function HealthProfileQuestionnaireModal({
   onComplete,
 }: HealthProfileQuestionnaireModalProps) {
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const { track, trackHealthProfile, trackConversion } = useUnifiedAnalytics();
   
   // Initialize responses from existing data
   const [responses, setResponses] = useState<Record<string, any>>(() => {
@@ -121,6 +131,8 @@ export function HealthProfileQuestionnaireModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState(existingProfile?.cancerRegion || responses.CANCER_REGION || null);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [sessionStartTime] = useState(Date.now());
+  const [questionsAnswered, setQuestionsAnswered] = useState(0);
 
   // Check if question should be shown based on dependencies
   const shouldShowQuestion = useCallback((question: Question): boolean => {
@@ -148,8 +160,17 @@ export function HealthProfileQuestionnaireModal({
         setCurrentQuestionIndex(firstValidIndex);
       }
       setHasInitialized(true);
+      
+      // Track questionnaire opened
+      if (open) {
+        track('Health Profile Questionnaire Opened', {
+          has_existing_profile: !!existingProfile,
+          total_questions: questions.length,
+          starting_question: questions[firstValidIndex]?.id || 'unknown'
+        });
+      }
     }
-  }, [hasInitialized, questions, currentQuestionIndex, shouldShowQuestion]);
+  }, [hasInitialized, questions, currentQuestionIndex, shouldShowQuestion, open, existingProfile, track]);
 
   // Handle case where no question is found or questions array is empty
   if (!currentQuestion || questions.length === 0) {
@@ -179,10 +200,28 @@ export function HealthProfileQuestionnaireModal({
   const handleResponse = async (value: string | string[]) => {
     const newResponses = { ...responses, [currentQuestion.id]: value };
     setResponses(newResponses);
+    
+    // Track question answered
+    if (!responses[currentQuestion.id]) {
+      setQuestionsAnswered(prev => prev + 1);
+      trackHealthProfile('question', {
+        question_id: currentQuestion.id,
+        question_category: currentQuestion.category,
+        question_number: currentQuestionIndex + 1,
+        total_questions: questions.length,
+        progress_percentage: Math.round(((currentQuestionIndex + 1) / questions.length) * 100),
+        time_on_question: Date.now() - sessionStartTime,
+        answer_type: Array.isArray(value) ? 'multiple' : 'single'
+      });
+    }
 
     // Special handling for cancer region selection
     if (currentQuestion.id === 'CANCER_REGION' && typeof value === 'string') {
       setSelectedRegion(value);
+      track('Health Profile Cancer Region Selected', {
+        region: value,
+        question_number: currentQuestionIndex + 1
+      });
     }
 
     // Save response to database if we have a profile
@@ -209,6 +248,11 @@ export function HealthProfileQuestionnaireModal({
     
     if (isEmpty) {
       toast.error('Please select an answer before continuing');
+      track('Health Profile Navigation Error', {
+        error_type: 'no_answer_selected',
+        question_id: currentQuestion.id,
+        question_number: currentQuestionIndex + 1
+      });
       return;
     }
 
@@ -217,6 +261,12 @@ export function HealthProfileQuestionnaireModal({
       // No more questions, complete the profile
       handleComplete();
     } else {
+      track('Health Profile Progress', {
+        action: 'next_question',
+        from_question: currentQuestion.id,
+        to_question: questions[nextIndex]?.id,
+        progress_percentage: Math.round(((nextIndex + 1) / questions.length) * 100)
+      });
       setCurrentQuestionIndex(nextIndex);
     }
   };
@@ -224,6 +274,12 @@ export function HealthProfileQuestionnaireModal({
   const handlePrevious = () => {
     const prevIndex = findPreviousValidQuestion(currentQuestionIndex);
     if (prevIndex >= 0) {
+      track('Health Profile Progress', {
+        action: 'previous_question',
+        from_question: currentQuestion.id,
+        to_question: questions[prevIndex]?.id,
+        progress_percentage: Math.round(((prevIndex + 1) / questions.length) * 100)
+      });
       setCurrentQuestionIndex(prevIndex);
     }
   };
@@ -231,52 +287,64 @@ export function HealthProfileQuestionnaireModal({
   const handleComplete = async () => {
     // Validate critical fields before saving
     const derivedRegion = responses.CANCER_REGION || deriveRegionFromResponses(responses);
-    const cancerType = responses.THORACIC_PRIMARY || responses.GI_PRIMARY || responses.GU_PRIMARY || 
-                       responses.GYN_PRIMARY || responses.BREAST_TYPE || responses.HEAD_NECK_PRIMARY ||
-                       responses.CNS_PRIMARY || responses.HEMATOLOGIC_PRIMARY || responses.SKIN_PRIMARY ||
-                       responses.SARCOMA_PRIMARY;
+    const cancerType = responses.THORACIC_PRIMARY || responses.GU_CANCER_TYPE || 
+                       responses.GI_HISTOLOGY || responses.GYN_HISTOLOGY || 
+                       responses.BREAST_HISTOLOGY || responses.HN_HISTOLOGY ||
+                       responses.CNS_TUMOR_TYPE || responses.HEME_PRIMARY_TYPE || 
+                       responses.SKIN_CANCER_TYPE || responses.SARCOMA_TYPE ||
+                       responses.PEDIATRIC_CANCER_TYPE;
     
     if (!derivedRegion && !cancerType) {
       toast.error('Please complete cancer type information to save your profile');
+      track('Health Profile Completion Error', {
+        error_type: 'missing_cancer_type',
+        questions_answered: questionsAnswered,
+        total_questions: questions.length
+      });
       return;
     }
+    
+    // Track completion attempt
+    const completionTime = Date.now() - sessionStartTime;
+    track('Health Profile Completion Started', {
+      questions_answered: questionsAnswered,
+      total_questions: questions.length,
+      completion_percentage: Math.round((questionsAnswered / questions.length) * 100),
+      time_to_complete_ms: completionTime,
+      time_to_complete_seconds: Math.round(completionTime / 1000)
+    });
     
     setIsSubmitting(true);
     try {
       // Prepare profile data with smart mappings
       const profileData = {
         cancerRegion: responses.CANCER_REGION || deriveRegionFromResponses(responses),
-        cancerType: responses.THORACIC_PRIMARY || responses.GI_PRIMARY || responses.GU_PRIMARY || 
-                    responses.GYN_PRIMARY || responses.BREAST_TYPE || responses.HEAD_NECK_PRIMARY ||
-                    responses.CNS_PRIMARY || responses.HEMATOLOGIC_PRIMARY || responses.SKIN_PRIMARY ||
-                    responses.SARCOMA_PRIMARY,
+        cancerType: responses.THORACIC_PRIMARY || responses.GU_CANCER_TYPE || 
+                    responses.GI_HISTOLOGY || responses.GYN_HISTOLOGY || 
+                    responses.BREAST_HISTOLOGY || responses.HN_HISTOLOGY ||
+                    responses.CNS_TUMOR_TYPE || responses.HEME_PRIMARY_TYPE || 
+                    responses.SKIN_CANCER_TYPE || responses.SARCOMA_TYPE ||
+                    responses.PEDIATRIC_CANCER_TYPE,
         primarySite: responses.THORACIC_PRIMARY_SITE || responses.GI_PRIMARY_SITE || 
                      responses.GU_PRIMARY_SITE || responses.GYN_PRIMARY_SITE ||
-                     responses.HEAD_NECK_PRIMARY_SITE || responses.CNS_PRIMARY_SITE,
-        diseaseStage: responses.STAGE_CATEGORY,
-        performanceStatus: responses.PERF_STATUS_ECOG,
-        treatmentHistory: {
-          surgery: responses.TREATMENT_SURGERY,
-          chemotherapy: responses.TREATMENT_CHEMOTHERAPY,
-          radiation: responses.TREATMENT_RADIATION,
-          immunotherapy: responses.TREATMENT_IMMUNOTHERAPY,
-          // Include any multiple choice treatment responses
-          ...Object.keys(responses)
-            .filter(key => key.startsWith('TREATMENT_') && Array.isArray(responses[key]))
-            .reduce((acc, key) => ({ ...acc, [key.toLowerCase()]: responses[key] }), {})
-        },
+                     responses.BREAST_PRIMARY_SITE || responses.HN_PRIMARY_SITE ||
+                     responses.CNS_PRIMARY_LOCATION || responses.SKIN_PRIMARY_SITE ||
+                     responses.SARCOMA_PRIMARY_LOCATION || responses.PEDIATRIC_PRIMARY_SITE,
+        diseaseStage: responses.STAGE_DISEASE,
+        performanceStatus: responses.PERFORMANCE_STATUS,
+        treatmentHistory: responses.TREATMENT_HISTORY || [],
         molecularMarkers: {
           testingStatus: responses.MOLECULAR_TESTING,
           // Map specific molecular markers with proper values
           ...mapMolecularMarkers(responses)
         },
         complications: {
-          brainMets: responses.COMPLICATION_BRAIN_METS,
-          liverMets: responses.COMPLICATION_LIVER_METS,
-          // Include all complication responses
+          // Include all complication responses dynamically
           ...Object.keys(responses)
-            .filter(key => key.includes('COMPLICATION') && !key.includes('BRAIN_METS') && !key.includes('LIVER_METS'))
-            .reduce((acc, key) => ({ ...acc, [key.toLowerCase()]: responses[key] }), {})
+            .filter(key => key.includes('COMPLICATIONS'))
+            .reduce((acc, key) => ({ ...acc, [key]: responses[key] }), {}),
+          // Include autoimmune history if present
+          ...(responses.AUTOIMMUNE_HISTORY && { autoimmune_history: responses.AUTOIMMUNE_HISTORY })
         },
         completedAt: new Date(),
       };
@@ -292,6 +360,31 @@ export function HealthProfileQuestionnaireModal({
           await saveHealthProfileResponse(newProfile.id, questionId, response);
         }
       }
+      
+      // Track successful completion
+      const finalCompletionTime = Date.now() - sessionStartTime;
+      // Track completion with unified system
+      
+      // Track conversion event for profile completion
+      trackConversion('PROFILE_COMPLETED', 30, {
+        cancer_region: derivedRegion,
+        cancer_type: cancerType,
+        disease_stage: profileData.diseaseStage,
+        questions_answered: questionsAnswered,
+        time_to_complete_seconds: Math.round(finalCompletionTime / 1000)
+      });
+      
+      trackHealthProfile('complete', {
+        cancer_region: derivedRegion,
+        cancer_type: cancerType,
+        disease_stage: profileData.diseaseStage,
+        questions_answered: questionsAnswered,
+        total_questions: questions.length,
+        time_to_complete_ms: finalCompletionTime,
+        time_to_complete_seconds: Math.round(finalCompletionTime / 1000),
+        has_molecular_markers: !!responses.MOLECULAR_TESTING,
+        has_treatment_history: !!(responses.TREATMENT_SURGERY || responses.TREATMENT_CHEMOTHERAPY)
+      });
 
       toast.success('Health profile saved successfully!');
       onComplete?.();
@@ -299,13 +392,38 @@ export function HealthProfileQuestionnaireModal({
     } catch (error) {
       console.error('Failed to save profile:', error);
       toast.error('Failed to save health profile');
+      
+      // Track failure
+      track('Health Profile Save Failed', {
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        questions_answered: questionsAnswered,
+        time_spent_ms: Date.now() - sessionStartTime
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Track drop-off when modal is closed without completion
+  const handleModalClose = (newOpen: boolean) => {
+    if (!newOpen && !isSubmitting && questionsAnswered > 0) {
+      const timeSpent = Date.now() - sessionStartTime;
+      trackHealthProfile('abandon', {
+        last_question_id: currentQuestion?.id,
+        last_question_number: currentQuestionIndex + 1,
+        questions_answered: questionsAnswered,
+        total_questions: questions.length,
+        abandonment_percentage: Math.round(((currentQuestionIndex + 1) / questions.length) * 100),
+        time_spent_ms: timeSpent,
+        time_spent_seconds: Math.round(timeSpent / 1000),
+        cancer_region_selected: !!selectedRegion
+      });
+    }
+    onOpenChange(newOpen);
+  };
+  
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleModalClose}>
       <DialogContent 
         className={cn(
           "!max-w-full !w-full !h-screen !m-0 !rounded-none flex flex-col",
@@ -325,7 +443,14 @@ export function HealthProfileQuestionnaireModal({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                track('Health Profile Close Button Clicked', {
+                  current_question: currentQuestion?.id,
+                  progress_percentage: progress,
+                  questions_answered: questionsAnswered
+                });
+                handleModalClose(false);
+              }}
               className="h-8 w-8"
             >
               <X className="h-4 w-4" />

@@ -26,6 +26,7 @@ import { useSession } from '@/lib/auth-client';
 import { checkImageModeration } from '@/app/actions';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 
 interface ModelSwitcherProps {
   selectedModel: string;
@@ -51,6 +52,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
   }) => {
 
     const availableModels = useMemo(() => getAvailableModels(), []);
+    const { trackFeatureDiscovery } = useUnifiedAnalytics();
 
     const [showSignInDialog, setShowSignInDialog] = useState(false);
     const [selectedAuthModel, setSelectedAuthModel] = useState<ReturnType<typeof getAvailableModels>[0] | null>(null);
@@ -130,12 +132,20 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
         console.log('Setting selected model:', model.value);
         setSelectedModel(model.value);
+        
+        // Track model switch feature
+        trackFeatureDiscovery('MODEL_SWITCH', 'AI Model Switch', 5, {
+          from_model: selectedModel,
+          to_model: model.value,
+          model_label: model.label,
+          requires_auth: requiresAuthentication(model.value)
+        });
 
         if (onModelSelect) {
           onModelSelect(model);
         }
       },
-      [availableModels, user, setSelectedModel, onModelSelect, selectedModel],
+      [availableModels, user, setSelectedModel, onModelSelect, selectedModel, trackFeatureDiscovery],
     );
 
     return (
@@ -839,6 +849,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
 }) => {
   // Get available models once at the component level
   const availableModels = getAvailableModels();
+  const { trackFeatureDiscovery } = useUnifiedAnalytics();
   
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
   const isMounted = useRef(true);
@@ -973,12 +984,17 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
         recorder.start();
         setIsRecording(true);
+        
+        // Track voice search feature
+        trackFeatureDiscovery('VOICE_SEARCH', 'Voice Search', 15, {
+          search_mode: selectedGroup
+        });
       } catch (error) {
         console.error('Error accessing microphone:', error);
         setIsRecording(false);
       }
     }
-  }, [isRecording, cleanupMediaRecorder, setInput]);
+  }, [isRecording, cleanupMediaRecorder, setInput, trackFeatureDiscovery, selectedGroup]);
 
   const handleInput = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -999,8 +1015,15 @@ const FormComponent: React.FC<FormComponentProps> = ({
     (group: SearchGroup) => {
       setSelectedGroup(group.id);
       inputRef.current?.focus();
+      
+      // Track search mode switch
+      trackFeatureDiscovery('SEARCH_MODE_SWITCH', 'Search Mode Switch', 5, {
+        from_mode: selectedGroup,
+        to_mode: group.id,
+        mode_name: group.name
+      });
     },
-    [setSelectedGroup, inputRef],
+    [setSelectedGroup, inputRef, selectedGroup, trackFeatureDiscovery],
   );
 
   const uploadFile = useCallback(async (file: File): Promise<Attachment> => {
@@ -1376,6 +1399,15 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
       setUploadQueue(validFiles.map((file) => file.name));
       toast.info(`Starting upload of ${validFiles.length} files...`);
+      
+      // Track image upload feature
+      if (imageFiles.length > 0) {
+        trackFeatureDiscovery('IMAGE_SEARCH', 'Image Upload Search', 20, {
+          image_count: imageFiles.length,
+          has_pdf: pdfFiles.length > 0,
+          total_files: validFiles.length
+        });
+      }
 
       setTimeout(async () => {
         try {

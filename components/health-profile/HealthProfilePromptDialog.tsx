@@ -1,10 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 
 interface HealthProfilePromptDialogProps {
   open: boolean;
@@ -19,12 +20,32 @@ export const HealthProfilePromptDialog = React.memo(({
   onStartProfile,
   onDismiss
 }: HealthProfilePromptDialogProps) => {
+  const { track } = useUnifiedAnalytics();
+  
+  // Track when the prompt is shown
+  useEffect(() => {
+    if (open) {
+      track('Health Profile Prompt Shown', {
+        source: 'dialog',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [open, track]);
+  
   const handleStart = () => {
+    track('Health Profile Started', {
+      source: 'prompt_dialog',
+      step: 'prompt_accepted'
+    });
     onOpenChange(false);
     onStartProfile?.();
   };
 
   const handleDismiss = () => {
+    track('Health Profile Dismissed', {
+      source: 'prompt_dialog',
+      step: 'prompt_dismissed'
+    });
     onOpenChange(false);
     onDismiss?.();
   };

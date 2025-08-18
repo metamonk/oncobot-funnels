@@ -13,7 +13,7 @@ import { Toaster } from 'sonner';
 
 import { Providers } from './providers';
 import { config } from '@/lib/config';
-import { SessionQualityTracker } from '@/components/analytics/session-quality-tracker';
+import { WebVitalsTracker } from '@/components/web-vitals-tracker';
 
 export const metadata: Metadata = {
   metadataBase: new URL(config.app.url),
@@ -117,7 +117,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${merriweather.variable} ${jetbrainsMono.variable} ${oxanium.variable} font-sans antialiased`} suppressHydrationWarning>
         <NuqsAdapter>
           <Providers>
-            <SessionQualityTracker />
+            <WebVitalsTracker />
             <Toaster position="top-center" />
             {children}
           </Providers>

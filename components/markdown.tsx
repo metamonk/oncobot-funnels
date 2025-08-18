@@ -16,7 +16,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { cn } from '@/lib/utils';
 import { Check, Copy, WrapText, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { useEnhancedAnalytics } from '@/hooks/use-enhanced-analytics';
+import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 
 interface MarkdownRendererProps {
   content: string;
@@ -109,7 +109,7 @@ const preprocessLaTeX = (content: string) => {
 };
 
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, responseContext }) => {
-  const { trackAIResponseLink, trackContentCopy } = useEnhancedAnalytics();
+  const { track, trackFeatureDiscovery } = useUnifiedAnalytics();
   const [processedContent, extractedCitations, latexBlocks] = useMemo(() => {
     const citations: CitationLink[] = [];
 
@@ -294,9 +294,11 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, responseCo
         toast.success('Code copied to clipboard');
         
         // Track the copy event with actual content
-        trackContentCopy(children, 'code_block', {
+        track('Content Copied', {
+          content_type: 'code_block',
           language: language || 'unknown',
           source: 'ai_response',
+          content_length: children.length,
           context: responseContext
         });
       } catch (error) {
@@ -477,9 +479,11 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, responseCo
         toast.success('Code copied to clipboard');
         
         // Track the copy event with actual content
-        trackContentCopy(code, 'inline_code', {
+        track('Content Copied', {
+          content_type: 'inline_code',
           source: 'ai_response',
-          context: responseContext
+          context: responseContext,
+          content_length: code.length
         });
       } catch (error) {
         console.error('Failed to copy code:', error);
@@ -554,7 +558,12 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, responseCo
             }
             onClick={() => {
               const linkText = typeof text === 'string' ? text : String(text);
-              trackAIResponseLink(href, linkText, responseContext);
+              track('Link Clicked', {
+                url: href,
+                link_text: linkText,
+                source: 'ai_response',
+                context: responseContext
+              });
             }}
           >
             {text}
@@ -738,7 +747,12 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, responseCo
             className="text-primary hover:underline font-medium"
             onClick={() => {
               const linkText = typeof text === 'string' ? text : String(text);
-              trackAIResponseLink(href, linkText, responseContext);
+              track('Link Clicked', {
+                url: href,
+                link_text: linkText,
+                source: 'ai_response',
+                context: responseContext
+              });
             }}
           >
             {text}

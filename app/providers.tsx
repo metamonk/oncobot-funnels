@@ -9,6 +9,8 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 
+// Initialize PostHog for the unified analytics system
+// This is used by the PostHogProvider in lib/analytics/providers/posthog-provider.ts
 if (typeof window !== 'undefined') {
   posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY!, {
     api_host: clientEnv.NEXT_PUBLIC_POSTHOG_HOST,

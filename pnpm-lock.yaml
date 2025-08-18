@@ -257,6 +257,9 @@ importers:
       posthog-js:
         specifier: ^1.257.1
         version: 1.257.1
+      posthog-node:
+        specifier: ^5.7.0
+        version: 5.7.0
       prismjs:
         specifier: ^1.30.0
         version: 1.30.0
@@ -323,6 +326,9 @@ importers:
       vaul:
         specifier: ^1.1.2
         version: 1.1.2(@types/react-dom@19.1.6(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      web-vitals:
+        specifier: ^5.1.0
+        version: 5.1.0
       zod:
         specifier: ^3.25.73
         version: 3.25.73
@@ -1401,6 +1407,9 @@ packages:
     peerDependenciesMeta:
       '@modelcontextprotocol/sdk':
         optional: true
+
+  '@posthog/core@1.0.0':
+    resolution: {integrity: sha512-gquQld+duT9DdzLIFoHZkUMW0DZOTSLCtSjuuC/zKFz65Qecbz9p37DHBJMkw0dCuB8Mgh2GtH8Ag3PznJrP3g==}
 
   '@qdrant/js-client-rest@1.13.0':
     resolution: {integrity: sha512-bewMtnXlGvhhnfXsp0sLoLXOGvnrCM15z9lNlG0Snp021OedNAnRtKkerjk5vkOcbQWUmJHXYCuxDfcT93aSkA==}
@@ -5419,6 +5428,10 @@ packages:
       rrweb-snapshot:
         optional: true
 
+  posthog-node@5.7.0:
+    resolution: {integrity: sha512-6J1AIZWtbr2lEbZOO2AzO/h1FPJjUZM4KWcdaL2UQw7FY8J7VNaH3NiaRockASFmglpID7zEY25gV/YwCtuXjg==}
+    engines: {node: '>=20'}
+
   potpack@2.0.0:
     resolution: {integrity: sha512-Q+/tYsFU9r7xoOJ+y/ZTtdVQwTWfzjbiXBDMM/JKUux3+QPP02iUuIoeBQ+Ot6oEDlC+/PGjB/5A3K7KKb7hcw==}
 
@@ -6327,6 +6340,9 @@ packages:
 
   web-vitals@4.2.4:
     resolution: {integrity: sha512-r4DIlprAGwJ7YM11VZp4R884m0Vmgr6EAKe3P+kO0PPj3Unqyvv59rczf6UiGcb9Z8QxZVcqKNwv/g0WNdWwsw==}
+
+  web-vitals@5.1.0:
+    resolution: {integrity: sha512-ArI3kx5jI0atlTtmV0fWU3fjpLmq/nD3Zr1iFFlJLaqa5wLBkUSzINwBPySCX/8jRyjlmy1Volw1kz1g9XE4Jg==}
 
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
@@ -7601,6 +7617,8 @@ snapshots:
     dependencies:
       standardwebhooks: 1.0.0
       zod: 3.25.73
+
+  '@posthog/core@1.0.0': {}
 
   '@qdrant/js-client-rest@1.13.0(typescript@5.8.2)':
     dependencies:
@@ -12196,6 +12214,10 @@ snapshots:
       preact: 10.26.4
       web-vitals: 4.2.4
 
+  posthog-node@5.7.0:
+    dependencies:
+      '@posthog/core': 1.0.0
+
   potpack@2.0.0: {}
 
   preact@10.26.4: {}
@@ -13329,6 +13351,8 @@ snapshots:
   web-streams-polyfill@4.0.0-beta.3: {}
 
   web-vitals@4.2.4: {}
+
+  web-vitals@5.1.0: {}
 
   webidl-conversions@3.0.1: {}
 

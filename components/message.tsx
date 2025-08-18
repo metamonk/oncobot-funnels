@@ -33,7 +33,7 @@ import { TextUIPart, ReasoningUIPart, ToolInvocationUIPart, SourceUIPart, StepSt
 import { MarkdownRenderer, preprocessLaTeX } from '@/components/markdown';
 import { deleteTrailingMessages } from '@/app/actions';
 import { getErrorActions, getErrorIcon, isSignInRequired, isRateLimited } from '@/lib/errors';
-import { useAnalytics } from '@/hooks/use-analytics';
+import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 
 // Define MessagePart type
 type MessagePart = TextUIPart | ReasoningUIPart | ToolInvocationUIPart | SourceUIPart | StepStartUIPart;
@@ -458,7 +458,7 @@ export const Message: React.FC<MessageProps> = ({
   // Mode state for editing
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   // Analytics hook - must be called unconditionally
-  const { trackEvent } = useAnalytics();
+  const { track, trackFeatureDiscovery } = useUnifiedAnalytics();
   // Feedback state for assistant messages
   const [feedbackGiven, setFeedbackGiven] = useState<'helpful' | 'not_helpful' | null>(null);
 
@@ -499,13 +499,20 @@ export const Message: React.FC<MessageProps> = ({
       if (selectedVisibilityType === 'public' && !user) return;
 
       setSuggestedQuestions([]);
+      
+      // Track suggested question feature usage
+      trackFeatureDiscovery('SUGGESTED_QUESTIONS', 'Suggested Questions', 5, {
+        question_text: question,
+        question_index: suggestedQuestions.indexOf(question),
+        total_suggestions: suggestedQuestions.length
+      });
 
       await append({
         content: question.trim(),
         role: 'user',
       });
     },
-    [append, setSuggestedQuestions, user, selectedVisibilityType],
+    [append, setSuggestedQuestions, user, selectedVisibilityType, trackFeatureDiscovery, suggestedQuestions],
   );
 
   if (message.role === 'user') {
@@ -747,7 +754,7 @@ export const Message: React.FC<MessageProps> = ({
       if (feedbackGiven) return;
       
       setFeedbackGiven(type);
-      trackEvent('AI Response Feedback', {
+      track('AI Response Feedback', {
         feedback_type: type,
         message_id: message.id,
         has_error: !!error,

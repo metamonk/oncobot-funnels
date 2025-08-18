@@ -5,9 +5,23 @@
  * Run with: pnpm tsx scripts/fix-health-profiles.ts
  */
 
-import { db } from '@/lib/db';
-import { healthProfile } from '@/lib/db/schema';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { healthProfile } from '../lib/db/schema';
 import { eq, isNull, and } from 'drizzle-orm';
+import * as dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL not found in environment variables');
+  process.exit(1);
+}
+
+const client = postgres(process.env.DATABASE_URL);
+const db = drizzle(client);
 
 async function fixHealthProfiles() {
   console.log('Starting health profile migration...');
@@ -103,11 +117,13 @@ async function fixHealthProfiles() {
 
 // Run the migration
 fixHealthProfiles()
-  .then(() => {
+  .then(async () => {
     console.log('Done!');
+    await client.end();
     process.exit(0);
   })
-  .catch((error) => {
+  .catch(async (error) => {
     console.error('Error:', error);
+    await client.end();
     process.exit(1);
   });

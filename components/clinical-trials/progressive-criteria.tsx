@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { useAnalytics } from '@/hooks/use-analytics';
+import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 
 interface FullCriteria {
   raw: string;
@@ -56,8 +56,10 @@ export function ProgressiveCriteria({
   const [activeTab, setActiveTab] = useState('structured');
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState<number>(0);
-  const { trackEvent } = useAnalytics();
+  const { track, trackFeatureDiscovery } = useUnifiedAnalytics();
   const [expansionCount, setExpansionCount] = useState(0);
+  const [hasMarkedCriteriaExpand, setHasMarkedCriteriaExpand] = useState(false);
+  const [hasUsedSearch, setHasUsedSearch] = useState(false);
 
   // Measure content height for smooth animation
   useEffect(() => {
@@ -77,22 +79,31 @@ export function ProgressiveCriteria({
   useEffect(() => {
     if (searchQuery.length > 2) {
       const timer = setTimeout(() => {
-        trackEvent('Criteria Search Used', {
+        track('Criteria Search Used', {
           trial_id: nctId,
           search_term_length: searchQuery.length,
           has_results: true // We'd need to calculate this based on actual matches
         });
+        
+        // Track criteria search feature discovery
+        if (!hasUsedSearch) {
+          trackFeatureDiscovery('CRITERIA_SEARCH', 'Criteria Search', 8, {
+            trial_id: nctId,
+            first_search_length: searchQuery.length
+          });
+          setHasUsedSearch(true);
+        }
       }, 1000); // Wait 1 second after user stops typing
       
       return () => clearTimeout(timer);
     }
-  }, [searchQuery, nctId, trackEvent]);
+  }, [searchQuery, nctId, track, hasUsedSearch, trackFeatureDiscovery]);
 
   const fetchFullCriteria = useCallback(async () => {
     if (fullCriteria) {
       setIsExpanded(true);
       // Track re-expansion
-      trackEvent('Criteria Section Expanded', {
+      track('Criteria Section Expanded', {
         trial_id: nctId,
         expansion_number: expansionCount + 1,
         section_name: 'full_criteria',
@@ -118,7 +129,7 @@ export function ProgressiveCriteria({
       setIsExpanded(true);
       
       // Track successful expansion
-      trackEvent('Criteria Section Expanded', {
+      track('Criteria Section Expanded', {
         trial_id: nctId,
         expansion_number: 1,
         section_name: 'full_criteria',
@@ -126,19 +137,28 @@ export function ProgressiveCriteria({
         criteria_length: data.fullCriteria?.raw?.length || 0
       });
       setExpansionCount(1);
+      
+      // Mark TTV milestone for first criteria expansion
+      if (!hasMarkedCriteriaExpand) {
+        track('First Criteria Expand', {
+          trial_id: nctId,
+          criteria_length: data.fullCriteria?.raw?.length || 0
+        });
+        setHasMarkedCriteriaExpand(true);
+      }
     } catch (err) {
       console.error('Error fetching full criteria:', err);
       setError(err instanceof Error ? err.message : 'Failed to load full criteria');
       
       // Track error
-      trackEvent('Criteria Load Error', {
+      track('Criteria Load Error', {
         trial_id: nctId,
         error_message: err instanceof Error ? err.message : 'Unknown error'
       });
     } finally {
       setIsLoading(false);
     }
-  }, [nctId, fullCriteria, expansionCount, trackEvent]);
+  }, [nctId, fullCriteria, expansionCount, track, hasMarkedCriteriaExpand]);
 
   const copyCriterion = useCallback((id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -146,13 +166,19 @@ export function ProgressiveCriteria({
     setTimeout(() => setCopiedId(null), 2000);
     
     // Track copy action
-    trackEvent('Criteria Copied', {
+    track('Criteria Copied', {
       trial_id: nctId,
       criterion_id: id,
       text_length: text.length,
       sections_expanded: expansionCount
     });
-  }, [nctId, expansionCount, trackEvent]);
+    
+    // Track criteria copy feature
+    trackFeatureDiscovery('CRITERIA_COPY', 'Criteria Copy', 5, {
+      trial_id: nctId,
+      is_raw_text: id === 'raw'
+    });
+  }, [nctId, expansionCount, track, trackFeatureDiscovery]);
 
   const highlightText = (text: string, query: string) => {
     if (!query) return text;

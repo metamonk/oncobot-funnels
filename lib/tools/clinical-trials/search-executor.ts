@@ -185,8 +185,9 @@ export class SearchExecutor {
       pageSize: maxResults.toString(),
       countTotal: 'true',
       'filter.overallStatus': includeStatuses.join(','),
-      // Return commonly needed fields
-      fields: 'NCTId,BriefTitle,Condition,LocationCity,OverallStatus,StudyFirstPostDate'
+      // Return all fields needed by the application, including eligibility criteria
+      // Note: Without the fields parameter, the API returns all fields by default
+      // We'll remove the fields parameter to get complete trial data
     });
 
     // Add the query to the appropriate field

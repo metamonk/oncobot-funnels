@@ -22,7 +22,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { useAnalytics } from '@/hooks/use-analytics';
+import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { ProgressiveCriteria } from '@/components/clinical-trials/progressive-criteria';
 
 // Type definitions
@@ -206,14 +206,14 @@ function ToggleableCriteria({
 // Component for NCT ID badge with copy functionality
 function NCTBadge({ nctId }: { nctId: string }) {
   const [copied, setCopied] = useState(false);
-  const { trackTrialCopy } = useAnalytics();
+  const { track } = useUnifiedAnalytics();
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       await navigator.clipboard.writeText(nctId);
       setCopied(true);
-      trackTrialCopy(nctId);
+      track('Trial NCT ID Copied', { nct_id: nctId });
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
@@ -237,18 +237,31 @@ function NCTBadge({ nctId }: { nctId: string }) {
 }
 
 export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) {
-  const { trackExternalView, trackContactView, trackContactInitiated, trackEligibilityCheck, trackTrialSearch } = useAnalytics();
+  const { track, trackTrialView, trackTrialContact, trackConversion } = useUnifiedAnalytics();
+  const [hasContactedTrial, setHasContactedTrial] = useState(false);
+  const [hasViewedContact, setHasViewedContact] = useState(false);
   
-  // Track search results
+  // Track search results and trial matches
   useEffect(() => {
     if (action === 'search' && result.matches && result.matches.length > 0 && result.totalCount) {
-      trackTrialSearch(
-        result.searchCriteria?.condition ? 'condition' : 'general',
-        !!result.searchCriteria?.cancerType,
-        result.totalCount
-      );
+      track('Clinical Trial Search', {
+        search_type: result.searchCriteria?.condition ? 'condition' : 'general',
+        has_cancer_type: !!result.searchCriteria?.cancerType,
+        results_count: result.totalCount
+      });
+      
+      // Check if we have matched trials (with scores)
+      const hasMatchedTrials = result.matches.some(match => match.matchScore && match.matchScore > 0);
+      if (hasMatchedTrials) {
+        track('First Trial Match', {
+          total_matches: result.totalCount,
+          top_score: Math.max(...result.matches.map(m => m.matchScore || 0)),
+          has_cancer_type: !!result.searchCriteria?.cancerType,
+          search_condition: result.searchCriteria?.condition
+        });
+      }
     }
-  }, [action, result, trackTrialSearch]);
+  }, [action, result, track]);
   
   // Track eligibility check - updated for new assessment structure
   useEffect(() => {
@@ -259,9 +272,13 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
       const score = assessment.userAssessment?.eligibilityScore 
         ? Math.round(assessment.userAssessment.eligibilityScore * 100)
         : 0;
-      trackEligibilityCheck(result.trialId, isEligible, score);
+      track('Eligibility Check', {
+        trial_id: result.trialId,
+        is_eligible: isEligible,
+        score: score
+      });
     }
-  }, [action, result, trackEligibilityCheck]);
+  }, [action, result, track]);
   if (!result.success) {
     return (
       <Card className="w-full my-4 border-red-200 dark:border-red-800">
@@ -518,7 +535,19 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                 
                 {/* Contact Summary - Always visible */}
                 {trial.contactsLocationsModule?.centralContacts && trial.contactsLocationsModule.centralContacts.length > 0 && (
-                  <div className="mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-800">
+                  <div className="mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-800"
+                    onMouseEnter={() => {
+                      if (!hasViewedContact) {
+                        trackTrialContact(trial.identificationModule.nctId, 'view', 'view');
+                        trackConversion('TRIAL_CONTACT_VIEWED', 50, {
+                          trial_id: trial.identificationModule.nctId,
+                          match_score: match?.matchScore,
+                          location: 'summary'
+                        });
+                        setHasViewedContact(true);
+                      }
+                    }}
+                  >
                     <p className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-2">Contact Information</p>
                     <div className="space-y-1">
                       {trial.contactsLocationsModule.centralContacts.slice(0, 2).map((contact: Contact, i: number) => (
@@ -529,7 +558,17 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                               className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                trackContactInitiated(trial.identificationModule.nctId, 'phone', undefined, contact.phone);
+                                trackTrialContact(trial.identificationModule.nctId, 'phone', 'click');
+                                
+                                // Track conversion for first contact
+                                if (!hasContactedTrial) {
+                                  trackConversion('TRIAL_CONTACT_CLICKED', 100, {
+                                    method: 'phone',
+                                    trial_id: trial.identificationModule.nctId,
+                                    match_score: match?.matchScore
+                                  });
+                                  setHasContactedTrial(true);
+                                }
                               }}
                             >
                               <Phone className="h-3 w-3" />
@@ -542,7 +581,17 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                               className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                trackContactInitiated(trial.identificationModule.nctId, 'email', undefined, contact.email);
+                                trackTrialContact(trial.identificationModule.nctId, 'email', 'click');
+                                
+                                // Track conversion for first contact
+                                if (!hasContactedTrial) {
+                                  trackConversion('TRIAL_CONTACT_CLICKED', 100, {
+                                    method: 'email',
+                                    trial_id: trial.identificationModule.nctId,
+                                    match_score: match?.matchScore
+                                  });
+                                  setHasContactedTrial(true);
+                                }
                               }}
                             >
                               <Mail className="h-3 w-3" />
@@ -808,7 +857,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                                       href={`tel:${contact.phone}`}
                                       className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                                       onClick={() => {
-                                        trackContactInitiated(trial.identificationModule.nctId, 'phone', undefined, contact.phone);
+                                        trackTrialContact(trial.identificationModule.nctId, 'phone', 'click');
                                       }}
                                     >
                                       <Phone className="h-3 w-3" />
@@ -820,7 +869,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                                       href={`mailto:${contact.email}`}
                                       className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                                       onClick={() => {
-                                        trackContactInitiated(trial.identificationModule.nctId, 'email', undefined, contact.email);
+                                        trackTrialContact(trial.identificationModule.nctId, 'email', 'click');
                                       }}
                                     >
                                       <Mail className="h-3 w-3" />
@@ -840,7 +889,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                           <Button
                             size="sm"
                             onClick={() => {
-                              trackExternalView(trial.identificationModule.nctId);
+                              trackTrialView(trial.identificationModule.nctId);
                               window.open(`https://clinicaltrials.gov/study/${trial.identificationModule.nctId}`, '_blank');
                             }}
                           >
@@ -1121,7 +1170,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                           href={`tel:${contact.phone}`}
                           className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                           onClick={() => {
-                            trackContactInitiated(trial.identificationModule.nctId, 'phone', trial.contactsLocationsModule?.locations?.[0]?.facility, contact.phone);
+                            trackTrialContact(trial.identificationModule.nctId, 'phone', 'click');
                           }}
                         >
                           <Phone className="h-3 w-3" />
@@ -1133,7 +1182,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                           href={`mailto:${contact.email}`}
                           className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                           onClick={() => {
-                            trackContactInitiated(trial.identificationModule.nctId, 'email', trial.contactsLocationsModule?.locations?.[0]?.facility, contact.email);
+                            trackTrialContact(trial.identificationModule.nctId, 'email', 'click');
                           }}
                         >
                           <Mail className="h-3 w-3" />
@@ -1153,7 +1202,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
           <div className="flex justify-end">
             <Button
               onClick={() => {
-                trackExternalView(trial.identificationModule.nctId);
+                trackTrialView(trial.identificationModule.nctId);
                 window.open(`https://clinicaltrials.gov/study/${trial.identificationModule.nctId}`, '_blank');
               }}
             >

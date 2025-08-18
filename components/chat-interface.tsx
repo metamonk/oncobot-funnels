@@ -31,6 +31,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useValidatedSearchMode } from '@/hooks/use-validated-search-mode';
 import { useProUserStatus } from '@/hooks/use-user-data';
 import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
+import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 
 // Utility and type imports
 import { ChatSDKError } from '@/lib/errors';
@@ -64,6 +65,7 @@ const ChatInterface = memo(
     const router = useRouter();
     const [query] = useQueryState('query', parseAsString.withDefault(''));
     const [q] = useQueryState('q', parseAsString.withDefault(''));
+    const { track, trackSearch, startTimer, endTimer } = useUnifiedAnalytics();
 
     // Use localStorage hook directly for model selection with validation
     const [storedModel, setStoredModel] = useLocalStorage('oncobot-selected-model', 'oncobot-default');
@@ -226,6 +228,9 @@ const ChatInterface = memo(
       isCustomInstructionsEnabled: isCustomInstructionsEnabled,
     }), [chatId, selectedModel, selectedGroup, timezone, initialChatId, chatState.selectedVisibilityType, isCustomInstructionsEnabled]);
 
+    // Use a ref to track if this is the first assistant message
+    const isFirstAssistantMessageRef = useRef(true);
+
     const chatOptions: UseChatOptions = useMemo(
       () => ({
         id: chatId,
@@ -236,6 +241,26 @@ const ChatInterface = memo(
         body: chatBody,
         onFinish: async (message, { finishReason }) => {
           console.log('[finish reason]:', finishReason);
+          
+          // End the search timer if it exists
+          if (typeof window !== 'undefined' && (window as any).__currentSearchTimer) {
+            endTimer('search_query', {
+              finish_reason: finishReason,
+              has_content: !!message.content,
+              search_mode: selectedGroup
+            });
+            delete (window as any).__currentSearchTimer;
+          }
+          
+          // Track first result view using ref instead of messages array
+          if (isFirstAssistantMessageRef.current && message.role === 'assistant') {
+            track('First Result View', {
+              search_mode: selectedGroup,
+              model: selectedModel,
+              finish_reason: finishReason
+            });
+            isFirstAssistantMessageRef.current = false;
+          }
 
           // Refresh usage data after message completion for authenticated users
 
@@ -293,6 +318,9 @@ const ChatInterface = memo(
         user,
         chatState.selectedVisibilityType,
         lastSubmittedQueryRef,
+        track,
+        selectedGroup,
+        endTimer,
       ],
     );
 
@@ -321,9 +349,26 @@ const ChatInterface = memo(
       // Create new abort controller for this request
       activeRequestRef.current = new AbortController();
       
+      // Track first search
+      if (messages.length === 0) {
+        track('First Search', {
+          search_mode: selectedGroup,
+          model: selectedModel,
+          has_user: !!user
+        });
+      }
+      
+      // Start timer for this search
+      startTimer('search_query');
+      
+      // Mark that we have a timer running
+      if (typeof window !== 'undefined') {
+        (window as any).__currentSearchTimer = true;
+      }
+      
       // Call original handleSubmit
       return originalHandleSubmit(event, chatRequestOptions);
-    }, [originalHandleSubmit]);
+    }, [originalHandleSubmit, messages.length, track, startTimer, selectedGroup, selectedModel, user]);
     
     // Debounced append to prevent rapid-fire messages
     const append = useCallback((message: any, options?: any): Promise<string | null | undefined> => {

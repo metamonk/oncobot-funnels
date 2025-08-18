@@ -97,6 +97,7 @@
     "nuqs": "^2.4.3",
     "postgres": "^3.4.7",
     "posthog-js": "^1.257.1",
+    "posthog-node": "^5.7.0",
     "prismjs": "^1.30.0",
     "react": "^19",
     "react-dom": "^19",
@@ -119,6 +120,7 @@
     "unist-util-visit": "^5.0.0",
     "uuid": "^11.1.0",
     "vaul": "^1.1.2",
+    "web-vitals": "^5.1.0",
     "zod": "^3.25.73"
   },
   "devDependencies": {

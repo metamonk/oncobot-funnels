@@ -9,7 +9,6 @@ import { z } from 'zod';
 import { debug, DebugCategory } from './clinical-trials/debug';
 import { ClinicalTrial, HealthProfile, TrialMatch, CachedSearch, MolecularMarkers, StudyLocation } from './clinical-trials/types';
 import { smartRouter } from './clinical-trials/smart-router';
-import { trackClinicalTrialSearch } from './clinical-trials-analytics';
 
 // Enhanced chat-based cache for search results
 const searchCache = new Map<string, CachedSearch>();
@@ -177,7 +176,9 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
       }
       debug.log(DebugCategory.PROFILE, 'Health profile loaded', {
         hasProfile: !!healthProfile,
-        hasCancerType: !!healthProfile?.cancerType
+        hasCancerType: !!healthProfile?.cancerType,
+        hasDiseaseStage: !!healthProfile?.diseaseStage,
+        diseaseStage: healthProfile?.diseaseStage
       });
     } catch (error) {
       debug.log(DebugCategory.PROFILE, 'Failed to load health profile', { error });
@@ -206,13 +207,7 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
 
       // Handle successful routing
       if (result.success) {
-        // Track analytics for successful search
-        trackClinicalTrialSearch({
-          query,
-          hasProfile: !!healthProfile,
-          resultsCount: result.matches?.length || 0,
-          success: true
-        });
+        // Analytics tracking removed - now handled at component level
         
         // Always update cache when we have trials (new search or filtered results)
         if (result.trials && effectiveChatId) {
@@ -244,14 +239,7 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
 
         return responseWithoutTrials;
       } else {
-        // Pipeline returned an error - track it
-        trackClinicalTrialSearch({
-          query,
-          hasProfile: !!healthProfile,
-          resultsCount: 0,
-          success: false,
-          error: result.error || 'Query processing failed'
-        });
+        // Pipeline returned an error
         
         return {
           success: false,
@@ -263,15 +251,6 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
       }
     } catch (error) {
       debug.log(DebugCategory.ERROR, 'Pipeline execution error', { error });
-      
-      // Track the error
-      trackClinicalTrialSearch({
-        query,
-        hasProfile: !!healthProfile,
-        resultsCount: 0,
-        success: false,
-        error: error instanceof Error ? error.message : 'Query processing failed'
-      });
       
       // Return clean error response
       return {
