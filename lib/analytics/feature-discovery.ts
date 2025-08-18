@@ -159,6 +159,19 @@ export class FeatureDiscovery {
   private static STORAGE_KEY = 'discovered_features';
   private static USAGE_KEY = 'feature_usage';
 
+  static track(featureId: FeatureId, metadata?: Record<string, any>): void {
+    // Mark as discovered
+    this.markDiscovered(featureId);
+    
+    // Increment usage
+    this.incrementUsage(featureId);
+    
+    // Log metadata if needed (for future analytics integration)
+    if (metadata && typeof window !== 'undefined') {
+      console.debug(`Feature tracked: ${featureId}`, metadata);
+    }
+  }
+
   static getDiscoveredFeatures(): Set<FeatureId> {
     if (typeof window === 'undefined') return new Set();
     
