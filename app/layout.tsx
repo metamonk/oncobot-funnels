@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     template: '%s | OncoBot',
     absolute: 'OncoBot',
   },
-  description: 'OncoBot is an AI-powered medical oncology assistant that helps patients and healthcare professionals find clinical trials, explore treatment options, and access evidence-based cancer care information.',
+  description: 'AI oncology assistant helping patients find clinical trials and treatment options.',
   icons: {
     icon: '/favicon.ico',
     apple: '/apple-icon.png',
