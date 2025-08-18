@@ -46,7 +46,7 @@ function initializeAnalytics(): AnalyticsClient {
  * Unified analytics hook
  */
 export function useUnifiedAnalytics() {
-  const analytics = useRef<AnalyticsClient>();
+  const analytics = useRef<AnalyticsClient | null>(null);
 
   useEffect(() => {
     analytics.current = initializeAnalytics();
