@@ -26,11 +26,14 @@ import {
   LogIn,
   PlusCircle,
   User,
+  ThumbsUp,
+  ThumbsDown,
 } from 'lucide-react';
 import { TextUIPart, ReasoningUIPart, ToolInvocationUIPart, SourceUIPart, StepStartUIPart } from '@ai-sdk/ui-utils';
 import { MarkdownRenderer, preprocessLaTeX } from '@/components/markdown';
 import { deleteTrailingMessages } from '@/app/actions';
 import { getErrorActions, getErrorIcon, isSignInRequired, isRateLimited } from '@/lib/errors';
+import { useAnalytics } from '@/hooks/use-analytics';
 
 // Define MessagePart type
 type MessagePart = TextUIPart | ReasoningUIPart | ToolInvocationUIPart | SourceUIPart | StepStartUIPart;
@@ -454,6 +457,10 @@ export const Message: React.FC<MessageProps> = ({
   const messageContentRef = React.useRef<HTMLDivElement>(null);
   // Mode state for editing
   const [mode, setMode] = useState<'view' | 'edit'>('view');
+  // Analytics hook - must be called unconditionally
+  const { trackEvent } = useAnalytics();
+  // Feedback state for assistant messages
+  const [feedbackGiven, setFeedbackGiven] = useState<'helpful' | 'not_helpful' | null>(null);
 
   // Check if message content exceeds max height
   React.useEffect(() => {
@@ -735,6 +742,22 @@ export const Message: React.FC<MessageProps> = ({
   if (message.role === 'assistant') {
     const isLastAssistantMessage = isLastMessage && message.role === 'assistant';
 
+    const handleFeedback = (type: 'helpful' | 'not_helpful') => {
+      // Prevent multiple feedback for same message
+      if (feedbackGiven) return;
+      
+      setFeedbackGiven(type);
+      trackEvent('AI Response Feedback', {
+        feedback_type: type,
+        message_id: message.id,
+        has_error: !!error,
+        response_length: message.content?.length || 0,
+      });
+      
+      // Show toast confirmation
+      toast.success(type === 'helpful' ? 'Thanks for your feedback!' : 'Thanks! We\'ll work on improving.');
+    };
+
     return (
       <div className={isLastAssistantMessage ? 'min-h-[calc(100vh-18rem)]' : ''}>
         {message.parts?.map((part: MessagePart, partIndex: number) =>
@@ -749,6 +772,43 @@ export const Message: React.FC<MessageProps> = ({
             user={user}
             selectedVisibilityType={selectedVisibilityType}
           />
+        )}
+
+        {/* Feedback UI - only show for messages with content and not streaming */}
+        {!error && status !== 'streaming' && message.parts?.some((p: any) => p.type === 'text' && p.text) && (
+          <div className="flex items-center gap-2 mt-3 mb-2">
+            <span className="text-xs text-muted-foreground">Was this helpful?</span>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleFeedback('helpful')}
+                disabled={feedbackGiven !== null}
+                className={`h-7 w-7 ${
+                  feedbackGiven === 'helpful' 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                aria-label="Helpful"
+              >
+                <ThumbsUp className="h-3.5 w-3.5" fill={feedbackGiven === 'helpful' ? 'currentColor' : 'none'} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleFeedback('not_helpful')}
+                disabled={feedbackGiven !== null}
+                className={`h-7 w-7 ${
+                  feedbackGiven === 'not_helpful' 
+                    ? 'text-red-600 dark:text-red-400' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                aria-label="Not helpful"
+              >
+                <ThumbsDown className="h-3.5 w-3.5" fill={feedbackGiven === 'not_helpful' ? 'currentColor' : 'none'} />
+              </Button>
+            </div>
+          </div>
         )}
 
         {suggestedQuestions.length > 0 && (user || selectedVisibilityType === 'private') && status !== 'streaming' && (

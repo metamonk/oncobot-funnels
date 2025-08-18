@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { useAnalytics } from '@/hooks/use-analytics';
 
 interface FullCriteria {
   raw: string;
@@ -55,6 +56,8 @@ export function ProgressiveCriteria({
   const [activeTab, setActiveTab] = useState('structured');
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState<number>(0);
+  const { trackEvent } = useAnalytics();
+  const [expansionCount, setExpansionCount] = useState(0);
 
   // Measure content height for smooth animation
   useEffect(() => {
@@ -69,10 +72,33 @@ export function ProgressiveCriteria({
       return () => resizeObserver.disconnect();
     }
   }, [isExpanded, fullCriteria]);
+  
+  // Track search usage (debounced)
+  useEffect(() => {
+    if (searchQuery.length > 2) {
+      const timer = setTimeout(() => {
+        trackEvent('Criteria Search Used', {
+          trial_id: nctId,
+          search_term_length: searchQuery.length,
+          has_results: true // We'd need to calculate this based on actual matches
+        });
+      }, 1000); // Wait 1 second after user stops typing
+      
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery, nctId, trackEvent]);
 
   const fetchFullCriteria = useCallback(async () => {
     if (fullCriteria) {
       setIsExpanded(true);
+      // Track re-expansion
+      trackEvent('Criteria Section Expanded', {
+        trial_id: nctId,
+        expansion_number: expansionCount + 1,
+        section_name: 'full_criteria',
+        already_loaded: true
+      });
+      setExpansionCount(prev => prev + 1);
       return;
     }
 
@@ -90,19 +116,43 @@ export function ProgressiveCriteria({
       const data = await response.json();
       setFullCriteria(data.fullCriteria);
       setIsExpanded(true);
+      
+      // Track successful expansion
+      trackEvent('Criteria Section Expanded', {
+        trial_id: nctId,
+        expansion_number: 1,
+        section_name: 'full_criteria',
+        already_loaded: false,
+        criteria_length: data.fullCriteria?.raw?.length || 0
+      });
+      setExpansionCount(1);
     } catch (err) {
       console.error('Error fetching full criteria:', err);
       setError(err instanceof Error ? err.message : 'Failed to load full criteria');
+      
+      // Track error
+      trackEvent('Criteria Load Error', {
+        trial_id: nctId,
+        error_message: err instanceof Error ? err.message : 'Unknown error'
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [nctId, fullCriteria]);
+  }, [nctId, fullCriteria, expansionCount, trackEvent]);
 
   const copyCriterion = useCallback((id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
-  }, []);
+    
+    // Track copy action
+    trackEvent('Criteria Copied', {
+      trial_id: nctId,
+      criterion_id: id,
+      text_length: text.length,
+      sections_expanded: expansionCount
+    });
+  }, [nctId, expansionCount, trackEvent]);
 
   const highlightText = (text: string, query: string) => {
     if (!query) return text;
