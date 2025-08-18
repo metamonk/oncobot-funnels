@@ -5,7 +5,7 @@
  * Server-side tracking should be done separately
  */
 
-import { AnalyticsProvider, AnalyticsEvent, UserTraits, SessionData } from '../core/types';
+import { AnalyticsProvider, AnalyticsEvent, UserTraits, SessionData, AttributionSource } from '../core/types';
 
 export class PostHogClientProvider implements AnalyticsProvider {
   public name = 'posthog';
@@ -87,13 +87,17 @@ export class PostHogClientProvider implements AnalyticsProvider {
 
     try {
       const sessionId = this.client.get_session_id();
-      const distinctId = this.client.get_distinct_id();
       
       return {
         id: sessionId || `session_${Date.now()}`,
         startTime: Date.now(),
-        userId: distinctId,
-        properties: {},
+        lastActivity: Date.now(),
+        pageViews: 0,
+        events: [],
+        source: AttributionSource.DIRECT, // PostHog doesn't provide attribution source directly
+        touchpoints: [],
+        conversions: [],
+        totalValue: 0,
       };
     } catch (error) {
       console.error('PostHog getSession error:', error);
