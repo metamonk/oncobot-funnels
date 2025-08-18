@@ -52,8 +52,7 @@ export default function TermsPage() {
             <motion.div variants={item} className="text-center">
               <h1 className="text-4xl font-bold tracking-tight">Terms of Service</h1>
               <p className="text-neutral-600 dark:text-neutral-400 mt-3">
-                Last updated:{' '}
-                {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                Last updated: August 18, 2025
               </p>
             </motion.div>
           </motion.div>
@@ -128,18 +127,24 @@ export default function TermsPage() {
             explicit permission.
           </p>
 
-          <h2>6. Third-Party Services</h2>
+          <h2>6. Third-Party Services and AI Technology</h2>
           <p>OncoBot relies on third-party services to provide its functionality:</p>
           <ul>
             <li>Our service is hosted on Vercel&apos;s infrastructure</li>
-            <li>We integrate with AI technology providers including OpenAI, Anthropic, xAI, and others</li>
+            <li>We integrate with AI technology providers including OpenAI, Anthropic, xAI, Google, Groq, and Mistral</li>
             <li>These third-party services have their own terms of service and privacy policies</li>
             <li>We are not responsible for the practices or policies of these third-party services</li>
           </ul>
           <p>
             By using OncoBot, you acknowledge and agree that your data may be processed by these third-party services
-            as described in our Privacy Policy.
+            as described in our Privacy Policy. Please note that:
           </p>
+          <ul>
+            <li>AI responses may contain inaccuracies and should be verified independently</li>
+            <li>We do not send health profile data to AI providers</li>
+            <li>Only anonymized queries are processed by AI services</li>
+            <li>AI providers do not retain your data beyond processing</li>
+          </ul>
 
           <h2>7. User Accounts and Authentication</h2>
           <p>
@@ -171,8 +176,15 @@ export default function TermsPage() {
             <Link href="/privacy-policy" className="underline">
               Privacy Policy
             </Link>
-            , which is incorporated into these Terms of Service by reference.
+            , which is incorporated into these Terms of Service by reference. Key privacy commitments include:
           </p>
+          <ul>
+            <li>We never sell your data to third parties</li>
+            <li>Health profiles are encrypted and automatically deleted after 90 days of inactivity</li>
+            <li>We respect Do Not Track browser settings</li>
+            <li>You can delete your account and all associated data at any time</li>
+            <li>We use privacy-focused analytics that don&apos;t track individual users</li>
+          </ul>
 
           <h2>10. Limitation of Liability</h2>
           <p>
