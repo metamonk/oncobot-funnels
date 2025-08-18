@@ -172,6 +172,21 @@ export class FeatureDiscovery {
     }
   }
 
+  static trackUsage(featureId: FeatureId, metadata?: Record<string, any>): void {
+    // Increment usage without marking as newly discovered
+    this.incrementUsage(featureId);
+    
+    // Log metadata if needed (for future analytics integration)
+    if (metadata && typeof window !== 'undefined') {
+      console.debug(`Feature usage tracked: ${featureId}`, metadata);
+    }
+  }
+
+  static getDiscoveryScore(): number {
+    const progress = this.getDiscoveryProgress();
+    return progress.percentage;
+  }
+
   static getDiscoveredFeatures(): Set<FeatureId> {
     if (typeof window === 'undefined') return new Set();
     
