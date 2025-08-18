@@ -43,7 +43,6 @@ export class PostHogClientProvider implements AnalyticsProvider {
     try {
       this.client.capture(event.name, {
         ...event.properties,
-        $set: event.userProperties,
         timestamp: event.timestamp,
         revenue: event.revenue?.amount,
         currency: event.revenue?.currency,
