@@ -255,7 +255,7 @@ export default function PrivacyPage() {
                 />
               </div>
               <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                © {new Date().getFullYear()} OncoBot by Zeno Shin
+                © {new Date().getFullYear()} OncoBot
               </div>
             </div>
             <div className="flex items-center gap-6 text-sm text-neutral-500 dark:text-neutral-400">
