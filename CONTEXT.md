@@ -1,35 +1,22 @@
-What's Left To Do:
+# OncoBot v3 Context
 
-Based on our implementation and the documentation, here's what remains:
+## Recent Updates
 
-1. Verify Analytics Implementation is Working
+### Bot Component
+- Created animated SVG bot component from oncobot.svg
+- Component located at `/components/bot.tsx`
+- Features:
+  - Responsive design with customizable error text
+  - Animated flashing text effect using Framer Motion
+  - Purple and blue color scheme with slate-600 text background
+  - Proper theme support for both light and dark modes
+  - Used in `/app/not-found.tsx` and `/app/global-error.tsx`
 
-- Test that events are being sent to both Plausible and PostHog
-- Verify health profile funnel tracking is capturing all steps
-- Check that clinical trials interactions are being tracked properly
+### Health Profile
+- Fixed roman numeral display issue (Stage IV now displays correctly)
+- Located at `/components/health-profile/HealthProfileSection.tsx`
 
-2. Configure Analytics Dashboards
-
-- Set up Plausible goals for key conversions
-- Configure PostHog funnels for health profile completion
-- Create dashboards for monitoring key metrics
-
-3. Minor Documentation Updates Needed
-
-The privacy doc could benefit from small updates:
-- Add mention of the Web Vitals Tracker component we created
-- Update the "Last Updated" date if we make changes
-- Consider adding specific event names for transparency
-
-4. Testing & Validation
-
-- Run the test-posthog-integration.ts script to verify PostHog is working
-- Test that Do Not Track is being respected
-- Verify that sensitive health data is being masked properly
-
-5. Future Enhancements (Optional)
-
-- Implement session recording with proper masking (currently disabled)
-- Add A/B testing capabilities
-- Create user cohorts for better insights
-- Add retention tracking for returning users
+## Project Status
+- Build successful with Next.js 15.4.2 (Turbopack)
+- All TypeScript errors resolved
+- Linting warnings present but non-critical (image optimization suggestions)

@@ -27,9 +27,9 @@ const TEXT_POSITION = {
 // Animation configuration
 const DEFAULT_ANIMATION = {
   duration: 1.5,
-  opacity: [1, 0.3, 1],
-  ease: "easeInOut",
-} as const;
+  opacity: [1, 0.3, 1] as number[],
+  ease: "easeInOut" as const,
+};
 
 export function Bot({ 
   className = '', 
