@@ -74,8 +74,8 @@ export function Bot({
         '--purple-color-dark': 'rgb(216 180 254)',
         '--white-color': 'rgb(255 255 255)',
         '--white-color-dark': 'rgb(255 255 255)',
-        '--outline-fill': 'rgb(30 41 59)',
-        '--outline-fill-dark': 'rgb(30 41 59)',
+        '--outline-fill': 'rgb(51 65 85)',
+        '--outline-fill-dark': 'rgb(51 65 85)',
         '--indigo-main': 'rgb(129 140 248)',  // Back to indigo
         '--indigo-main-dark': 'rgb(129 140 248)',
         '--indigo-dark': 'rgb(79 70 229)',  // Back to darker indigo
