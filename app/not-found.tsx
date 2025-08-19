@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { OncoBotError } from '@/components/logos/oncobot-error';
+import { Bot } from '@/components/bot';
 
 export default function NotFound() {
   return (
@@ -16,7 +16,7 @@ export default function NotFound() {
         className="text-center max-w-md"
       >
         <div className="mb-6 flex justify-center">
-          <OncoBotError maxWidth="280px" className="drop-shadow-lg w-full" />
+          <Bot maxWidth="280px" className="drop-shadow-lg w-full" errorText="404" />
         </div>
 
         <h1 className="text-4xl mb-4 text-neutral-800 dark:text-neutral-100 font-be-vietnam-pro">Page not found</h1>

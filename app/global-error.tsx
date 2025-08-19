@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { Bot } from '@/components/bot';
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -25,11 +26,12 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           <div style={{ textAlign: 'center', maxWidth: '400px' }}>
             <div
               style={{
-                fontSize: '64px',
                 marginBottom: '24px',
+                display: 'flex',
+                justifyContent: 'center',
               }}
             >
-              ⚠️
+              <Bot maxWidth="280px" errorText="ERROR!" />
             </div>
 
             <h1

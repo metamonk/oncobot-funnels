@@ -2,13 +2,14 @@
 
 import { motion } from 'framer-motion';
 
-interface OncoBotErrorProps {
+interface BotProps {
   className?: string;
   size?: number;
   maxWidth?: string;
+  errorText?: string;
 }
 
-export function OncoBotError({ className = '', size, maxWidth = '100%' }: OncoBotErrorProps) {
+export function Bot({ className = '', size, maxWidth = '100%', errorText = 'ERROR!' }: BotProps) {
   const viewBoxWidth = 2592;
   const viewBoxHeight = 2466;
   const aspectRatio = viewBoxWidth / viewBoxHeight;
@@ -147,12 +148,13 @@ export function OncoBotError({ className = '', size, maxWidth = '100%' }: OncoBo
         <path d="M1910.29 2270.08V2284.15C1910.29 2295.74 1919.71 2305.17 1931.3 2305.17H1975.62V2270.08H1910.29Z" 
           className="fill-indigo-600 dark:fill-indigo-700"/>
         
-        {/* Animated Error Circle */}
-        <motion.circle 
-          cx="1296" 
-          cy="839" 
-          r="349" 
-          className="fill-red-500 dark:fill-red-600"
+        {/* Animated Error Text - positioned where the circle was */}
+        <motion.text
+          x="1296"
+          y="855"
+          textAnchor="middle"
+          className="fill-red-500 dark:fill-red-600 font-bold"
+          style={{ fontSize: '280px', fontFamily: 'system-ui, -apple-system, sans-serif' }}
           animate={{
             opacity: [1, 0.3, 1],
           }}
@@ -161,7 +163,9 @@ export function OncoBotError({ className = '', size, maxWidth = '100%' }: OncoBo
             repeat: Infinity,
             ease: "easeInOut",
           }}
-        />
+        >
+          {errorText}
+        </motion.text>
       </g>
       <defs>
         <clipPath id="clip0_2341_468">
