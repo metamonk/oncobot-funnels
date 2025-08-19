@@ -64,6 +64,8 @@ export function Bot({
       xmlns="http://www.w3.org/2000/svg"
       className={`bot-svg ${className}`}
       preserveAspectRatio="xMidYMid meet"
+      stroke="none"
+      strokeWidth="0"
       style={{
         ...svgProps.style,
         '--shadow-color': 'rgb(203 213 225)',
@@ -86,6 +88,7 @@ export function Bot({
         '--text-color-dark': 'rgb(30 41 59)',
         'outline': 'none',
         'border': 'none',
+        'strokeWidth': '0',
       } as CSSProperties}
     >
       <style>{`
@@ -116,7 +119,7 @@ export function Bot({
         .bot-svg .text-fill { fill: var(--text-color); }
         .dark .bot-svg .text-fill { fill: var(--text-color-dark); }
       `}</style>
-      <g clipPath="url(#bot-clip)">
+      <g>
         {/* Shadow */}
         <path d="M2591.12 2331.97C2591.12 2405.57 2011.28 2465.25 1296 2465.25C580.719 2465.25 0.878906 2405.57 0.878906 2331.97C0.878906 2258.36 580.719 2198.69 1296 2198.69C2011.28 2198.69 2591.12 2258.36 2591.12 2331.97Z" 
           className="shadow"/>
@@ -159,11 +162,6 @@ export function Bot({
           {errorText}
         </motion.text>
       </g>
-      <defs>
-        <clipPath id="bot-clip">
-          <rect width={VIEWBOX.width} height={VIEWBOX.height} fill="white"/>
-        </clipPath>
-      </defs>
     </svg>
   );
 }
