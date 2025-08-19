@@ -5,23 +5,28 @@ import { motion } from 'framer-motion';
 interface OncoBotErrorProps {
   className?: string;
   size?: number;
+  maxWidth?: string;
 }
 
-export function OncoBotError({ className = '', size = 300 }: OncoBotErrorProps) {
+export function OncoBotError({ className = '', size, maxWidth = '100%' }: OncoBotErrorProps) {
   const viewBoxWidth = 2592;
   const viewBoxHeight = 2466;
   const aspectRatio = viewBoxWidth / viewBoxHeight;
-  const width = size;
-  const height = size / aspectRatio;
+
+  // If size is provided, use it for fixed dimensions
+  // Otherwise, use responsive sizing with maxWidth
+  const svgProps = size 
+    ? { width: size, height: size / aspectRatio }
+    : { width: '100%', height: 'auto', style: { maxWidth } };
 
   return (
     <svg 
-      width={width} 
-      height={height} 
+      {...svgProps}
       viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`} 
       fill="none" 
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      preserveAspectRatio="xMidYMid meet"
     >
       <g clipPath="url(#clip0_2341_468)">
         <path d="M2591.12 2331.97C2591.12 2405.57 2011.28 2465.25 1296 2465.25C580.719 2465.25 0.878906 2405.57 0.878906 2331.97C0.878906 2258.36 580.719 2198.69 1296 2198.69C2011.28 2198.69 2591.12 2258.36 2591.12 2331.97Z" fill="#A8BDE4"/>

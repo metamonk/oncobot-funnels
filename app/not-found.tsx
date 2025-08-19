@@ -16,7 +16,7 @@ export default function NotFound() {
         className="text-center max-w-md"
       >
         <div className="mb-6 flex justify-center">
-          <OncoBotError size={280} className="drop-shadow-lg" />
+          <OncoBotError maxWidth="280px" className="drop-shadow-lg w-full" />
         </div>
 
         <h1 className="text-4xl mb-4 text-neutral-800 dark:text-neutral-100 font-be-vietnam-pro">Page not found</h1>
