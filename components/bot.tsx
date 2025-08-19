@@ -74,8 +74,8 @@ export function Bot({
         '--purple-color-dark': 'rgb(216 180 254)',
         '--white-color': 'rgb(255 255 255)',
         '--white-color-dark': 'rgb(255 255 255)',
-        '--outline-color': 'rgb(30 41 59)',
-        '--outline-color-dark': 'rgb(30 41 59)',
+        '--outline-fill': 'rgb(30 41 59)',
+        '--outline-fill-dark': 'rgb(30 41 59)',
         '--indigo-main': 'rgb(129 140 248)',
         '--indigo-main-dark': 'rgb(129 140 248)',
         '--indigo-dark': 'rgb(79 70 229)',
@@ -92,7 +92,17 @@ export function Bot({
       } as CSSProperties}
     >
       <style>{`
-        .bot-svg * { stroke: none !important; stroke-width: 0 !important; }
+        .bot-svg * { 
+          stroke: none !important; 
+          stroke-width: 0 !important; 
+          outline: none !important;
+          border: none !important;
+        }
+        
+        .bot-svg g {
+          outline: none !important;
+          border: none !important;
+        }
         
         .bot-svg .shadow { fill: var(--shadow-color); }
         .dark .bot-svg .shadow { fill: var(--shadow-color-dark); }
@@ -103,8 +113,8 @@ export function Bot({
         .bot-svg .white { fill: var(--white-color); }
         .dark .bot-svg .white { fill: var(--white-color-dark); }
         
-        .bot-svg .outline { fill: var(--outline-color); }
-        .dark .bot-svg .outline { fill: var(--outline-color-dark); }
+        .bot-svg .outline { fill: var(--outline-fill); }
+        .dark .bot-svg .outline { fill: var(--outline-fill-dark); }
         
         .bot-svg .indigo-main { fill: var(--indigo-main); }
         .dark .bot-svg .indigo-main { fill: var(--indigo-main-dark); }
