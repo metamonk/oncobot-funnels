@@ -74,8 +74,10 @@ export function Bot({
         '--purple-color-dark': 'rgb(216 180 254)',
         '--white-color': 'rgb(255 255 255)',
         '--white-color-dark': 'rgb(255 255 255)',
-        '--outline-fill': 'rgb(148 163 184)',  // slate-400 - much lighter
-        '--outline-fill-dark': 'rgb(148 163 184)',
+        '--outline-fill': 'rgb(30 41 59)',  // Back to original dark for bot outline
+        '--outline-fill-dark': 'rgb(30 41 59)',
+        '--circle-bg': 'rgb(148 163 184)',  // Light slate for text background only
+        '--circle-bg-dark': 'rgb(148 163 184)',
         '--indigo-main': 'rgb(129 140 248)',  // Back to indigo
         '--indigo-main-dark': 'rgb(129 140 248)',
         '--indigo-dark': 'rgb(79 70 229)',  // Back to darker indigo
@@ -115,6 +117,9 @@ export function Bot({
         
         .bot-svg .outline { fill: var(--outline-fill); }
         .dark .bot-svg .outline { fill: var(--outline-fill-dark); }
+        
+        .bot-svg .circle-bg { fill: var(--circle-bg); }
+        .dark .bot-svg .circle-bg { fill: var(--circle-bg-dark); }
         
         .bot-svg .indigo-main { fill: var(--indigo-main); }
         .dark .bot-svg .indigo-main { fill: var(--indigo-main-dark); }
@@ -157,12 +162,12 @@ export function Bot({
         {/* Body Details */}
         <BotBodyDetails />
         
-        {/* Dark circle background for text */}
+        {/* Light circle background for text */}
         <circle
           cx={1296}
           cy={838}
           r="385"
-          className="outline"
+          className="circle-bg"
         />
         
         {/* Animated Text */}
