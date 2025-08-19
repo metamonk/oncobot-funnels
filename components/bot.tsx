@@ -84,8 +84,8 @@ export function Bot({
         '--cyan-main-dark': 'rgb(59 130 246)',
         '--cyan-light': 'rgb(147 197 253)',  // Changed to light blue
         '--cyan-light-dark': 'rgb(147 197 253)',
-        '--text-color': 'rgb(30 41 59)',
-        '--text-color-dark': 'rgb(30 41 59)',
+        '--text-color': 'rgb(241 245 249)',
+        '--text-color-dark': 'rgb(241 245 249)',
         'outline': 'none',
         'border': 'none',
         'strokeWidth': '0',
