@@ -21,7 +21,7 @@ const VIEWBOX = {
 // Text position (center of the circular area)
 const TEXT_POSITION = {
   x: 1296,
-  y: 870,  // Adjusted to better center vertically
+  y: 838,  // Centered with the circle
 } as const;
 
 // Animation configuration
@@ -159,9 +159,9 @@ export function Bot({
         
         {/* Dark circle background for text */}
         <circle
-          cx={TEXT_POSITION.x}
-          cy={TEXT_POSITION.y}
-          r="370"
+          cx={1296}
+          cy={838}
+          r="385"
           className="outline"
         />
         
