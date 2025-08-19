@@ -70,20 +70,20 @@ export function Bot({
         ...svgProps.style,
         '--shadow-color': 'rgb(203 213 225)',
         '--shadow-color-dark': 'rgb(203 213 225)',
-        '--purple-color': 'rgb(251 146 60)',  // Changed to orange
-        '--purple-color-dark': 'rgb(251 146 60)',
+        '--purple-color': 'rgb(216 180 254)',  // Back to purple
+        '--purple-color-dark': 'rgb(216 180 254)',
         '--white-color': 'rgb(255 255 255)',
         '--white-color-dark': 'rgb(255 255 255)',
         '--outline-fill': 'rgb(30 41 59)',
         '--outline-fill-dark': 'rgb(30 41 59)',
-        '--indigo-main': 'rgb(236 72 153)',  // Changed to pink
-        '--indigo-main-dark': 'rgb(236 72 153)',
-        '--indigo-dark': 'rgb(219 39 119)',  // Changed to darker pink
-        '--indigo-dark-dark': 'rgb(219 39 119)',
-        '--cyan-main': 'rgb(34 197 94)',  // Changed to green
-        '--cyan-main-dark': 'rgb(34 197 94)',
-        '--cyan-light': 'rgb(134 239 172)',  // Changed to light green
-        '--cyan-light-dark': 'rgb(134 239 172)',
+        '--indigo-main': 'rgb(129 140 248)',  // Back to indigo
+        '--indigo-main-dark': 'rgb(129 140 248)',
+        '--indigo-dark': 'rgb(79 70 229)',  // Back to darker indigo
+        '--indigo-dark-dark': 'rgb(79 70 229)',
+        '--cyan-main': 'rgb(59 130 246)',  // Changed to blue
+        '--cyan-main-dark': 'rgb(59 130 246)',
+        '--cyan-light': 'rgb(147 197 253)',  // Changed to light blue
+        '--cyan-light-dark': 'rgb(147 197 253)',
         '--text-color': 'rgb(30 41 59)',
         '--text-color-dark': 'rgb(30 41 59)',
         'outline': 'none',
