@@ -71,7 +71,7 @@ export function Bot({
         '--purple-color': 'rgb(216 180 254)',
         '--purple-color-dark': 'rgb(192 132 252)',
         '--white-color': 'rgb(255 255 255)',
-        '--white-color-dark': 'rgb(243 244 246)',
+        '--white-color-dark': 'rgb(30 41 59)',
         '--outline-color': 'rgb(30 41 59)',
         '--outline-color-dark': 'rgb(226 232 240)',
         '--indigo-main': 'rgb(129 140 248)',
@@ -84,6 +84,8 @@ export function Bot({
         '--cyan-light-dark': 'rgb(103 232 249)',
         '--text-color': 'rgb(30 41 59)',
         '--text-color-dark': 'rgb(241 245 249)',
+        'outline': 'none',
+        'border': 'none',
       } as CSSProperties}
     >
       <style>{`
