@@ -157,6 +157,14 @@ export function Bot({
         {/* Body Details */}
         <BotBodyDetails />
         
+        {/* Dark circle background for text */}
+        <circle
+          cx={TEXT_POSITION.x}
+          cy={TEXT_POSITION.y}
+          r="370"
+          className="outline"
+        />
+        
         {/* Animated Text */}
         <motion.text
           x={TEXT_POSITION.x}
