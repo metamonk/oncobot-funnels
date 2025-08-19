@@ -92,6 +92,8 @@ export function Bot({
       } as CSSProperties}
     >
       <style>{`
+        .bot-svg * { stroke: none !important; stroke-width: 0 !important; }
+        
         .bot-svg .shadow { fill: var(--shadow-color); }
         .dark .bot-svg .shadow { fill: var(--shadow-color-dark); }
         
@@ -120,10 +122,6 @@ export function Bot({
         .dark .bot-svg .text-fill { fill: var(--text-color-dark); }
       `}</style>
       <g>
-        {/* Shadow */}
-        <path d="M2591.12 2331.97C2591.12 2405.57 2011.28 2465.25 1296 2465.25C580.719 2465.25 0.878906 2405.57 0.878906 2331.97C0.878906 2258.36 580.719 2198.69 1296 2198.69C2011.28 2198.69 2591.12 2258.36 2591.12 2331.97Z" 
-          className="shadow"/>
-        
         {/* Eyes - Purple parts */}
         <path d="M1225.8 101.172C1225.8 140.199 1194.17 171.828 1155.14 171.828C1116.1 171.828 1084.47 140.199 1084.47 101.172C1084.47 91.4609 1086.42 82.2188 1089.97 73.8008C1100.66 48.3516 1125.81 30.5117 1155.14 30.5117C1184.46 30.5117 1209.61 48.3516 1220.3 73.8008C1223.85 82.2188 1225.8 91.4609 1225.8 101.172Z" 
           className="purple"/>

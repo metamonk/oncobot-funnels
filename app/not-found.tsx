@@ -16,7 +16,7 @@ export default function NotFound() {
         className="text-center max-w-md"
       >
         <div className="mb-6 flex justify-center">
-          <Bot maxWidth="280px" className="drop-shadow-lg w-full" errorText="404" />
+          <Bot maxWidth="280px" className="w-full" errorText="404" />
         </div>
 
         <h1 className="text-4xl mb-4 text-neutral-800 dark:text-neutral-100 font-be-vietnam-pro">Page not found</h1>
