@@ -76,8 +76,8 @@ export function Bot({
         '--white-color-dark': 'rgb(255 255 255)',
         '--outline-fill': 'rgb(30 41 59)',  // Back to original dark for bot outline
         '--outline-fill-dark': 'rgb(30 41 59)',
-        '--circle-bg': 'rgb(51 65 85)',  // Slightly lighter than outline (slate-700)
-        '--circle-bg-dark': 'rgb(51 65 85)',
+        '--circle-bg': 'rgb(100 116 139)',  // slate-500
+        '--circle-bg-dark': 'rgb(100 116 139)',
         '--indigo-main': 'rgb(129 140 248)',  // Back to indigo
         '--indigo-main-dark': 'rgb(129 140 248)',
         '--indigo-dark': 'rgb(79 70 229)',  // Back to darker indigo
