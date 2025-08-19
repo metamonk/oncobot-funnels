@@ -21,7 +21,7 @@ const VIEWBOX = {
 // Text position (center of the circular area)
 const TEXT_POSITION = {
   x: 1296,
-  y: 839,
+  y: 870,  // Adjusted to better center vertically
 } as const;
 
 // Animation configuration
