@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { OncoBotError } from '@/components/logos/oncobot-error';
 
 export default function NotFound() {
   return (
@@ -16,14 +16,7 @@ export default function NotFound() {
         className="text-center max-w-md"
       >
         <div className="mb-6 flex justify-center">
-          <Image
-            src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZDI1NDg1YzFjNDYzNDc1YTE0MzlmYzc5MDM4YWU0ZDc0ZTdlMGRjMiZlcD12MV9pbnRlcm5hbF9naWZzX2dpZklkJmN0PWc/xTiN0L7EW5trfOvEk0/giphy.gif"
-            alt="Lost in space"
-            width={300}
-            height={200}
-            className="rounded-lg"
-            unoptimized
-          />
+          <OncoBotError size={280} className="drop-shadow-lg" />
         </div>
 
         <h1 className="text-4xl mb-4 text-neutral-800 dark:text-neutral-100 font-be-vietnam-pro">Page not found</h1>

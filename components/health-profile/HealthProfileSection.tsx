@@ -135,7 +135,7 @@ export function HealthProfileSection({ user }: HealthProfileSectionProps) {
                 <div>
                   <span className="text-xs text-muted-foreground">Disease Stage</span>
                   <p className="text-sm font-medium">
-                    {profile.diseaseStage.replace('_', ' ')}
+                    {profile.diseaseStage.replace('_', ' ').replace(/\b(Stage\s+)([IVX]+)\b/gi, (match, stage, numeral) => stage + numeral.toUpperCase())}
                   </p>
                 </div>
               )}
