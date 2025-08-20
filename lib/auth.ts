@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { nextCookies } from 'better-auth/next-js';
+import { magicLink } from 'better-auth/plugins';
 import {
   user,
   session,
@@ -15,20 +16,19 @@ import {
 } from '@/lib/db/schema';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from '@/lib/db';
-import { config } from 'dotenv';
 import { serverEnv } from '@/env/server';
 import { checkout, polar, portal, usage, webhooks } from '@polar-sh/better-auth';
 import { Polar } from '@polar-sh/sdk';
 import { eq } from 'drizzle-orm';
-
-config({
-  path: '.env.local',
-});
+import { Resend } from 'resend';
+import { MagicLinkEmail } from '@/lib/email/templates/magic-link';
 
 const polarClient = new Polar({
   accessToken: process.env.POLAR_ACCESS_TOKEN,
   ...(process.env.NODE_ENV === 'production' ? {} : { server: 'sandbox' }),
 });
+
+const resend = new Resend(serverEnv.RESEND_API_KEY);
 
 export const auth = betterAuth({
   cookieCache: {
@@ -51,21 +51,66 @@ export const auth = betterAuth({
       healthProfileResponse,
     },
   }),
+  emailAndPassword: {
+    enabled: false, // We're using magic link instead
+  },
   socialProviders: {
-    github: {
-      clientId: serverEnv.GITHUB_CLIENT_ID,
-      clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
-    },
     google: {
       clientId: serverEnv.GOOGLE_CLIENT_ID,
       clientSecret: serverEnv.GOOGLE_CLIENT_SECRET,
     },
-    twitter: {
-      clientId: serverEnv.TWITTER_CLIENT_ID,
-      clientSecret: serverEnv.TWITTER_CLIENT_SECRET,
-    },
   },
   plugins: [
+    magicLink({
+      sendMagicLink: async ({ email, url, user }) => {
+        try {
+          // Determine the from address
+          // Use EMAIL_FROM if set and domain is verified, otherwise use Resend's test domain
+          const fromAddress = serverEnv.EMAIL_FROM || 'OncoBot <onboarding@resend.dev>';
+          
+          // Log the email details for debugging
+          console.log('📧 Attempting to send magic link email:', {
+            from: fromAddress,
+            to: email,
+            hasResendKey: !!serverEnv.RESEND_API_KEY,
+            keyPrefix: serverEnv.RESEND_API_KEY?.substring(0, 10) + '...',
+          });
+
+          // Send email using Resend
+          const { data, error } = await resend.emails.send({
+            from: fromAddress,
+            to: email,
+            subject: 'Sign in to OncoBot',
+            react: MagicLinkEmail({ magicLink: url, email }),
+          });
+
+          if (error) {
+            console.error('❌ Resend error:', error);
+            // If the error is about domain verification, provide helpful message
+            if (error.message?.includes('domain') || error.message?.includes('verify')) {
+              console.error('💡 Tip: Make sure your domain is verified in Resend dashboard or use "onboarding@resend.dev" for testing');
+            }
+            throw new Error(`Failed to send magic link email: ${error.message || JSON.stringify(error)}`);
+          }
+
+          console.log('✅ Magic link email sent successfully:', data);
+          return { success: true };
+        } catch (err) {
+          console.error('❌ Error in sendMagicLink:', err);
+          // Provide more helpful error messages
+          if (err instanceof Error) {
+            if (err.message.includes('401')) {
+              throw new Error('Invalid Resend API key. Please check your RESEND_API_KEY environment variable.');
+            }
+            if (err.message.includes('403')) {
+              throw new Error('Domain not verified in Resend. Please verify your domain or use "onboarding@resend.dev" for testing.');
+            }
+          }
+          throw err;
+        }
+      },
+      expiresIn: 60 * 10, // 10 minutes
+    }),
     polar({
       client: polarClient,
       createCustomerOnSignUp: true,
