@@ -213,7 +213,9 @@ function NCTBadge({ nctId }: { nctId: string }) {
     try {
       await navigator.clipboard.writeText(nctId);
       setCopied(true);
-      track('Trial NCT ID Copied', { nct_id: nctId });
+      track('Trial ID Copied', { 
+        trial_id: nctId
+      });
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
@@ -241,32 +243,15 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
   const [hasContactedTrial, setHasContactedTrial] = useState(false);
   const [hasViewedContact, setHasViewedContact] = useState(false);
   
-  // Track search results and trial matches
+  // Track search results
   useEffect(() => {
     if (action === 'search' && result.matches && result.matches.length > 0 && result.totalCount) {
-      // Use the new standardized trackSearch method
+      // Track the search with standardized method
       const searchQuery = result.searchCriteria?.condition || 'clinical trials';
-      const searchMode = 'health'; // Since we only have one mode currently
+      const searchMode = 'health'; // Currently only health mode
       trackSearch(searchQuery, searchMode, result.totalCount);
-      
-      // Track additional search metadata
-      track('Search Metadata', {
-        search_type: result.searchCriteria?.condition ? 'condition' : 'general',
-        has_cancer_type: !!result.searchCriteria?.cancerType,
-      });
-      
-      // Check if we have matched trials (with scores)
-      const hasMatchedTrials = result.matches.some(match => match.matchScore && match.matchScore > 0);
-      if (hasMatchedTrials) {
-        track('First Trial Match', {
-          total_matches: result.totalCount,
-          top_score: Math.max(...result.matches.map(m => m.matchScore || 0)),
-          has_cancer_type: !!result.searchCriteria?.cancerType,
-          search_condition: result.searchCriteria?.condition
-        });
-      }
     }
-  }, [action, result, track, trackSearch]);
+  }, [action, result, trackSearch]);
   
   // Track eligibility check - updated for new assessment structure
   useEffect(() => {
@@ -277,13 +262,15 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
       const score = assessment.userAssessment?.eligibilityScore 
         ? Math.round(assessment.userAssessment.eligibilityScore * 100)
         : 0;
-      track('Eligibility Check', {
+      // Track eligibility check as a conversion event with revenue
+      trackConversion('eligibility_check', 25, {
         trial_id: result.trialId,
         is_eligible: isEligible,
-        score: score
+        eligibility_score: score,
+        recommendation: assessment.userAssessment?.recommendation || 'unknown'
       });
     }
-  }, [action, result, track]);
+  }, [action, result, trackConversion]);
   if (!result.success) {
     return (
       <Card className="w-full my-4 border-red-200 dark:border-red-800">
@@ -543,12 +530,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                   <div className="mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-800"
                     onMouseEnter={() => {
                       if (!hasViewedContact) {
-                        trackTrialContact(trial.identificationModule.nctId, 'view', 'view');
-                        trackConversion('TRIAL_CONTACT_VIEWED', 50, {
-                          trial_id: trial.identificationModule.nctId,
-                          match_score: match?.matchScore,
-                          location: 'summary'
-                        });
+                        trackTrialContact(trial.identificationModule.nctId, 'contact_info', 'view');
                         setHasViewedContact(true);
                       }
                     }}
@@ -564,14 +546,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 trackTrialContact(trial.identificationModule.nctId, 'phone', 'click');
-                                
-                                // Track conversion for first contact
                                 if (!hasContactedTrial) {
-                                  trackConversion('TRIAL_CONTACT_CLICKED', 100, {
-                                    method: 'phone',
-                                    trial_id: trial.identificationModule.nctId,
-                                    match_score: match?.matchScore
-                                  });
                                   setHasContactedTrial(true);
                                 }
                               }}
@@ -587,14 +562,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 trackTrialContact(trial.identificationModule.nctId, 'email', 'click');
-                                
-                                // Track conversion for first contact
                                 if (!hasContactedTrial) {
-                                  trackConversion('TRIAL_CONTACT_CLICKED', 100, {
-                                    method: 'email',
-                                    trial_id: trial.identificationModule.nctId,
-                                    match_score: match?.matchScore
-                                  });
                                   setHasContactedTrial(true);
                                 }
                               }}
