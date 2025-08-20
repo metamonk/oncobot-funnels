@@ -237,17 +237,22 @@ function NCTBadge({ nctId }: { nctId: string }) {
 }
 
 export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) {
-  const { track, trackTrialView, trackTrialContact, trackConversion } = useUnifiedAnalytics();
+  const { track, trackSearch, trackTrialView, trackTrialContact, trackConversion, trackError } = useUnifiedAnalytics();
   const [hasContactedTrial, setHasContactedTrial] = useState(false);
   const [hasViewedContact, setHasViewedContact] = useState(false);
   
   // Track search results and trial matches
   useEffect(() => {
     if (action === 'search' && result.matches && result.matches.length > 0 && result.totalCount) {
-      track('Clinical Trial Search', {
+      // Use the new standardized trackSearch method
+      const searchQuery = result.searchCriteria?.condition || 'clinical trials';
+      const searchMode = 'health'; // Since we only have one mode currently
+      trackSearch(searchQuery, searchMode, result.totalCount);
+      
+      // Track additional search metadata
+      track('Search Metadata', {
         search_type: result.searchCriteria?.condition ? 'condition' : 'general',
         has_cancer_type: !!result.searchCriteria?.cancerType,
-        results_count: result.totalCount
       });
       
       // Check if we have matched trials (with scores)
@@ -261,7 +266,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
         });
       }
     }
-  }, [action, result, track]);
+  }, [action, result, track, trackSearch]);
   
   // Track eligibility check - updated for new assessment structure
   useEffect(() => {
