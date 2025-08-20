@@ -13,48 +13,36 @@ export default function TestAnalyticsPage() {
   const testEvents = [
     {
       name: 'Search Performed',
-      action: () => analytics.trackSearch('cancer treatment options', {
-        search_mode: 'health',
-        results_count: 10,
-        has_results: true,
-      }),
+      action: () => analytics.trackSearch('cancer treatment options', 'health', 10),
     },
     {
       name: 'Trial Viewed',
-      action: () => analytics.trackClinicalTrial('trial_viewed', {
-        trial_id: 'NCT123456',
-        match_score: 0.95,
-        position: 1,
-      }),
+      action: () => analytics.trackTrialView('NCT123456', 0.95, 1),
     },
     {
       name: 'Health Profile Started',
-      action: () => analytics.trackHealthProfile('started', {
+      action: () => analytics.trackHealthProfile('start', {
         source: 'search_prompt',
         trigger: 'button_click',
       }),
     },
     {
       name: 'Feature Discovered',
-      action: () => analytics.trackFeatureDiscovery('clinical_trials', {
-        feature_name: 'Clinical Trials Search',
+      action: () => analytics.trackFeatureDiscovery('clinical_trials', 'Clinical Trials Search', 1, {
         feature_category: 'search',
         is_first_discovery: true,
       }),
     },
     {
       name: 'Page View',
-      action: () => analytics.trackPageView('/test-analytics', {
+      action: () => analytics.track('Page Viewed', {
+        page_path: '/test-analytics',
         page_title: 'Analytics Test Page',
       }),
     },
     {
       name: 'Web Vital',
-      action: () => analytics.trackPerformance('web_vital', {
-        metric_name: 'FCP',
-        value: 1200,
-        rating: 'good',
-      }),
+      action: () => analytics.trackPerformance('FCP', 1200, 'good'),
     },
     {
       name: 'Conversion Event',
