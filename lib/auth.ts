@@ -62,7 +62,7 @@ export const auth = betterAuth({
   },
   plugins: [
     magicLink({
-      sendMagicLink: async ({ email, url, user }) => {
+      sendMagicLink: async ({ email, url }) => {
         try {
           // Determine the from address
           // Use EMAIL_FROM if set and domain is verified, otherwise use Resend's test domain
@@ -94,7 +94,6 @@ export const auth = betterAuth({
           }
 
           console.log('✅ Magic link email sent successfully:', data);
-          return { success: true };
         } catch (err) {
           console.error('❌ Error in sendMagicLink:', err);
           // Provide more helpful error messages
