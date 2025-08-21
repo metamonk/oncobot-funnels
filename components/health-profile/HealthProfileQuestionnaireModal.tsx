@@ -255,6 +255,23 @@ export function HealthProfileQuestionnaireModal({
       });
       return;
     }
+    
+    // Validate number input
+    if (currentQuestion.type === 'number') {
+      const value = parseInt(response as string, 10);
+      if (isNaN(value)) {
+        toast.error('Please enter a valid number');
+        return;
+      }
+      if (currentQuestion.min && value < currentQuestion.min) {
+        toast.error(`Please enter a value of at least ${currentQuestion.min}`);
+        return;
+      }
+      if (currentQuestion.max && value > currentQuestion.max) {
+        toast.error(`Please enter a value no more than ${currentQuestion.max}`);
+        return;
+      }
+    }
 
     const nextIndex = findNextValidQuestion(currentQuestionIndex);
     if (nextIndex === -1) {
@@ -497,7 +514,29 @@ export function HealthProfileQuestionnaireModal({
                 </div>
 
                 {/* Options */}
-                {currentQuestion.type === 'multiple_choice' ? (
+                {currentQuestion.type === 'number' ? (
+                  <div className="space-y-3">
+                    <input
+                      type="number"
+                      min={currentQuestion.min}
+                      max={currentQuestion.max}
+                      placeholder={currentQuestion.placeholder || 'Enter a number'}
+                      value={responses[currentQuestion.id] || ''}
+                      onChange={(e) => handleResponse(e.target.value)}
+                      className={cn(
+                        "w-full rounded-lg border px-4 py-3 text-base",
+                        "focus:outline-none focus:ring-2 focus:ring-primary",
+                        "bg-background text-foreground"
+                      )}
+                      autoFocus
+                    />
+                    {currentQuestion.min && currentQuestion.max && (
+                      <p className="text-sm text-muted-foreground">
+                        Please enter a value between {currentQuestion.min} and {currentQuestion.max}
+                      </p>
+                    )}
+                  </div>
+                ) : currentQuestion.type === 'multiple_choice' ? (
                   <div className="space-y-3">
                     {currentQuestion.options.map((option) => {
                       const isChecked = (responses[currentQuestion.id] || []).includes(option.value);
