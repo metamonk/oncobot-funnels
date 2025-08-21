@@ -49,6 +49,7 @@ export async function createHealthProfile(data: {
   primarySite?: string;
   cancerType?: string;
   diseaseStage?: string;
+  age?: number;
   treatmentHistory?: any;
   molecularMarkers?: any;
   performanceStatus?: string;
@@ -94,6 +95,7 @@ export async function updateHealthProfile(profileId: string, data: {
   primarySite?: string;
   cancerType?: string;
   diseaseStage?: string;
+  age?: number;
   treatmentHistory?: any;
   molecularMarkers?: any;
   performanceStatus?: string;

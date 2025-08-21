@@ -331,6 +331,7 @@ export function HealthProfileQuestionnaireModal({
                      responses.CNS_PRIMARY_LOCATION || responses.SKIN_PRIMARY_SITE ||
                      responses.SARCOMA_PRIMARY_LOCATION || responses.PEDIATRIC_PRIMARY_SITE,
         diseaseStage: responses.STAGE_DISEASE,
+        age: responses.AGE ? parseInt(responses.AGE as string, 10) : undefined,
         performanceStatus: responses.PERFORMANCE_STATUS,
         treatmentHistory: responses.TREATMENT_HISTORY || [],
         molecularMarkers: {

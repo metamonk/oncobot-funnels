@@ -1,0 +1,1 @@
+ALTER TABLE "health_profile" ADD COLUMN "age" integer;

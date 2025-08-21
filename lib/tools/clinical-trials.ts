@@ -168,6 +168,7 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
           primarySite: userHealthData.profile.primarySite,
           cancerType: userHealthData.profile.cancerType,
           diseaseStage: userHealthData.profile.diseaseStage,
+          age: userHealthData.profile.age,
           treatmentHistory: userHealthData.profile.treatmentHistory as string[] | undefined,
           molecularMarkers: userHealthData.profile.molecularMarkers as MolecularMarkers | undefined,
           performanceStatus: userHealthData.profile.performanceStatus,
@@ -176,16 +177,9 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
       }
       debug.log(DebugCategory.PROFILE, 'Health profile loaded', {
         hasProfile: !!healthProfile,
+        hasAge: !!healthProfile?.age,
         hasCancerType: !!healthProfile?.cancerType,
-        hasDiseaseStage: !!healthProfile?.diseaseStage,
-        diseaseStage: healthProfile?.diseaseStage,
-        fullProfile: healthProfile ? {
-          cancerType: healthProfile.cancerType,
-          diseaseStage: healthProfile.diseaseStage,
-          treatmentHistory: healthProfile.treatmentHistory,
-          performanceStatus: healthProfile.performanceStatus,
-          molecularMarkers: healthProfile.molecularMarkers
-        } : null
+        hasStage: !!healthProfile?.diseaseStage
       });
     } catch (error) {
       debug.log(DebugCategory.PROFILE, 'Failed to load health profile', { error });

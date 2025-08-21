@@ -222,13 +222,40 @@ export class EligibilityAnalyzer extends BaseOperator<ClinicalTrial, ClinicalTri
   ): void {
     const minAge = trial.protocolSection?.eligibilityModule?.minimumAge;
     const maxAge = trial.protocolSection?.eligibilityModule?.maximumAge;
+    const patientAge = profile.age;
     
-    if (minAge && minAge !== 'N/A') {
-      analysis.inclusionMatches.push(`Age requirement: ${minAge}+`);
-    }
+    // Convert age strings to numbers for comparison
+    const parseAge = (ageStr: string | undefined): number | null => {
+      if (!ageStr || ageStr === 'N/A') return null;
+      const match = ageStr.match(/(\d+)/);
+      return match ? parseInt(match[1], 10) : null;
+    };
     
-    if (maxAge && maxAge !== 'N/A' && maxAge !== '999 Years') {
-      analysis.inclusionMatches.push(`Age limit: up to ${maxAge}`);
+    const minAgeNum = parseAge(minAge);
+    const maxAgeNum = parseAge(maxAge);
+    
+    if (patientAge) {
+      // Check if patient meets age requirements
+      if (minAgeNum && patientAge >= minAgeNum) {
+        analysis.inclusionMatches.push(`Age ${patientAge} meets minimum requirement (${minAge})`);
+      } else if (minAgeNum && patientAge < minAgeNum) {
+        analysis.exclusionConcerns.push(`Age ${patientAge} below minimum requirement (${minAge})`);
+      }
+      
+      if (maxAgeNum && maxAgeNum < 999 && patientAge <= maxAgeNum) {
+        analysis.inclusionMatches.push(`Age ${patientAge} within maximum limit (${maxAge})`);
+      } else if (maxAgeNum && maxAgeNum < 999 && patientAge > maxAgeNum) {
+        analysis.exclusionConcerns.push(`Age ${patientAge} exceeds maximum limit (${maxAge})`);
+      }
+    } else {
+      // No age in profile, just show requirements
+      if (minAge && minAge !== 'N/A') {
+        analysis.inclusionMatches.push(`Age requirement: ${minAge}+`);
+      }
+      
+      if (maxAge && maxAge !== 'N/A' && maxAge !== '999 Years') {
+        analysis.inclusionMatches.push(`Age limit: up to ${maxAge}`);
+      }
     }
   }
   
@@ -303,14 +330,6 @@ export class EligibilityAnalyzer extends BaseOperator<ClinicalTrial, ClinicalTri
     analysis: EligibilityAnalysis
   ): void {
     const stage = profile.diseaseStage || profile.stage;
-    
-    // Debug logging to understand what data we're receiving
-    console.log('[EligibilityAnalyzer] Stage analysis:', {
-      profileDiseaseStage: profile.diseaseStage,
-      profileStage: profile.stage,
-      resolvedStage: stage,
-      profileKeys: Object.keys(profile)
-    });
     
     if (!stage) {
       analysis.missingInformation.push('Disease stage not specified in profile');

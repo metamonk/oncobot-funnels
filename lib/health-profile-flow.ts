@@ -49,6 +49,15 @@ export const universalQuestions: Question[] = [
     ],
   },
   {
+    id: 'AGE',
+    text: 'What is your current age?',
+    type: 'number',
+    category: 'demographics',
+    min: 18,
+    max: 120,
+    placeholder: 'Enter your age',
+  },
+  {
     id: 'MOLECULAR_TESTING',
     text: 'Have you had biomarker or molecular testing done?',
     type: 'single_choice',

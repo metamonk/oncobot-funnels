@@ -124,6 +124,7 @@ export const healthProfile = pgTable('health_profile', {
   primarySite: text('primary_site'),
   cancerType: text('cancer_type'),
   diseaseStage: text('disease_stage'),
+  age: integer('age'),
   treatmentHistory: json('treatment_history'),
   molecularMarkers: json('molecular_markers'),
   performanceStatus: text('performance_status'),
