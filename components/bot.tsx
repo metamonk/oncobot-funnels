@@ -18,10 +18,21 @@ const VIEWBOX = {
   height: 256,
 } as const;
 
-// Text position - center of the breastplate/chest area
+// Chest panel dimensions - the dark blue rectangular area on the robot's chest
+// Based on path: M87.336 146.606v-25.901 (meaning top is at 120.705, bottom at 146.606)
+const CHEST_PANEL = {
+  left: 87.336,
+  right: 168.663,
+  top: 120.705,
+  bottom: 146.606,
+  width: 81.327,
+  height: 25.901,
+} as const;
+
+// Calculate exact center of the chest panel
 const TEXT_POSITION = {
-  x: 128,  // Center horizontally
-  y: 145,  // Center of the chest/breastplate area (adjusted for better vertical centering)
+  x: (CHEST_PANEL.left + CHEST_PANEL.right) / 2,  // Horizontal center
+  y: (CHEST_PANEL.top + CHEST_PANEL.bottom) / 2,  // Vertical center
 } as const;
 
 // Animation configuration
@@ -127,7 +138,7 @@ export function Bot({
       <path className="st4" d="M110.787 235.574H86.196a2 2 0 0 1-2-2V214.39a2 2 0 0 1 2-2h24.591a2 2 0 0 1 2 2v19.185a2 2 0 0 1-2 1.999zm-22.591-4h20.591V216.39H88.196v15.184zM171.524 216.39h-28.032c-4.357 0-7.902-3.545-7.902-7.901v-6.878a2 2 0 0 1 2-2h39.836a2 2 0 0 1 2 2v6.878c0 4.356-3.545 7.901-7.902 7.901zm-31.934-12.78v4.878a3.906 3.906 0 0 0 3.902 3.901h28.032a3.905 3.905 0 0 0 3.901-3.901v-4.878H139.59z"/>
       <path className="st4" d="M112.508 216.39H84.476c-4.356 0-7.901-3.545-7.901-7.901v-6.878a2 2 0 0 1 2-2h39.836a2 2 0 0 1 2 2v6.878c-.001 4.356-3.546 7.901-7.903 7.901zm-31.934-12.78v4.878a3.905 3.905 0 0 0 3.901 3.901h28.032a3.906 3.906 0 0 0 3.902-3.901v-4.878H80.574zM163.745 153.524H92.254a6.927 6.927 0 0 1-6.918-6.918v-25.901a6.927 6.927 0 0 1 6.918-6.918h71.491a6.927 6.927 0 0 1 6.918 6.918v25.901a6.925 6.925 0 0 1-6.918 6.918zm-71.491-35.737a2.921 2.921 0 0 0-2.918 2.918v25.901a2.921 2.921 0 0 0 2.918 2.918h71.491a2.921 2.921 0 0 0 2.918-2.918v-25.901a2.921 2.921 0 0 0-2.918-2.918H92.254z"/>
       
-      {/* Animated Error Text - centered on the breastplate */}
+      {/* Animated Error Text - perfectly centered on the chest panel */}
       <motion.text
         x={TEXT_POSITION.x}
         y={TEXT_POSITION.y}
@@ -135,7 +146,7 @@ export function Bot({
         textAnchor="middle"
         className={textClassName || "error-text"}
         style={{ 
-          fontSize: '24px', 
+          fontSize: `${CHEST_PANEL.height * 0.6}px`, // Font size relative to panel height
           fontFamily: 'system-ui, -apple-system, sans-serif', 
           fontWeight: 'bold',
           fill: '#ffffff'
