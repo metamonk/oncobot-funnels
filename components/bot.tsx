@@ -29,10 +29,10 @@ const CHEST_PANEL = {
   height: 25.901,
 } as const;
 
-// Calculate exact center of the chest panel
+// Calculate center of the chest panel with slight visual adjustment
 const TEXT_POSITION = {
   x: (CHEST_PANEL.left + CHEST_PANEL.right) / 2,  // Horizontal center
-  y: (CHEST_PANEL.top + CHEST_PANEL.bottom) / 2,  // Vertical center
+  y: (CHEST_PANEL.top + CHEST_PANEL.bottom) / 2 + 2,  // Vertical center + slight offset for visual balance
 } as const;
 
 // Animation configuration
