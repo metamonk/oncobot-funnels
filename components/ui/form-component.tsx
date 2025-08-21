@@ -1444,7 +1444,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         }
       }, 100);
     },
-    [attachments.length, setAttachments, uploadFile, selectedModel, setSelectedModel, getFirstVisionModel, availableModels],
+    [attachments.length, setAttachments, uploadFile, selectedModel, setSelectedModel, getFirstVisionModel, availableModels, trackFeatureDiscovery],
   );
 
   const handlePaste = useCallback(

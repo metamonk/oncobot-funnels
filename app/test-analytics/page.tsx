@@ -151,11 +151,11 @@ export default function TestAnalyticsPage() {
         <Card className="p-6 mt-6">
           <h2 className="text-xl font-semibold mb-4">Instructions</h2>
           <div className="space-y-2 text-sm text-muted-foreground">
-            <p>1. Click "Test All Events" to send all test events</p>
+            <p>1. Click &quot;Test All Events&quot; to send all test events</p>
             <p>2. Or click individual event buttons to test specific events</p>
             <p>3. Open browser console to see debug logs (in development)</p>
             <p>4. Check PostHog dashboard for event tracking</p>
-            <p>5. Use "Flush Event Queue" to force send batched events</p>
+            <p>5. Use &quot;Flush Event Queue&quot; to force send batched events</p>
           </div>
         </Card>
       </div>
