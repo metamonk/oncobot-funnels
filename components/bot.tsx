@@ -21,7 +21,7 @@ const VIEWBOX = {
 // Text position - center of the breastplate/chest area
 const TEXT_POSITION = {
   x: 128,  // Center horizontally
-  y: 133,  // Center of the chest/breastplate area
+  y: 145,  // Center of the chest/breastplate area (adjusted for better vertical centering)
 } as const;
 
 // Animation configuration
