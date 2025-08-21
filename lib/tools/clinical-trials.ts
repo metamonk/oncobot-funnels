@@ -178,7 +178,14 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
         hasProfile: !!healthProfile,
         hasCancerType: !!healthProfile?.cancerType,
         hasDiseaseStage: !!healthProfile?.diseaseStage,
-        diseaseStage: healthProfile?.diseaseStage
+        diseaseStage: healthProfile?.diseaseStage,
+        fullProfile: healthProfile ? {
+          cancerType: healthProfile.cancerType,
+          diseaseStage: healthProfile.diseaseStage,
+          treatmentHistory: healthProfile.treatmentHistory,
+          performanceStatus: healthProfile.performanceStatus,
+          molecularMarkers: healthProfile.molecularMarkers
+        } : null
       });
     } catch (error) {
       debug.log(DebugCategory.PROFILE, 'Failed to load health profile', { error });

@@ -303,6 +303,15 @@ export class EligibilityAnalyzer extends BaseOperator<ClinicalTrial, ClinicalTri
     analysis: EligibilityAnalysis
   ): void {
     const stage = profile.diseaseStage || profile.stage;
+    
+    // Debug logging to understand what data we're receiving
+    console.log('[EligibilityAnalyzer] Stage analysis:', {
+      profileDiseaseStage: profile.diseaseStage,
+      profileStage: profile.stage,
+      resolvedStage: stage,
+      profileKeys: Object.keys(profile)
+    });
+    
     if (!stage) {
       analysis.missingInformation.push('Disease stage not specified in profile');
       return;
