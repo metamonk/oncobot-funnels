@@ -317,6 +317,9 @@ export class EligibilityAnalyzer extends BaseOperator<ClinicalTrial, ClinicalTri
       return;
     }
     
+    // Normalize stage format (convert STAGE_III to Stage III, etc.)
+    const normalizedStageDisplay = stage.replace(/STAGE_/i, 'Stage ').replace(/_/g, ' ');
+    
     const eligibility = trial.protocolSection?.eligibilityModule?.eligibilityCriteria || '';
     const summary = trial.protocolSection?.descriptionModule?.briefSummary || '';
     
@@ -324,7 +327,7 @@ export class EligibilityAnalyzer extends BaseOperator<ClinicalTrial, ClinicalTri
     
     if (eligibility.toLowerCase().includes(normalizedStage) || 
         summary.toLowerCase().includes(normalizedStage)) {
-      analysis.inclusionMatches.push(`${stage} matches trial stage requirements`);
+      analysis.inclusionMatches.push(`${normalizedStageDisplay} matches trial stage requirements`);
     }
     
     // Check for advanced/metastatic mentions
@@ -332,6 +335,11 @@ export class EligibilityAnalyzer extends BaseOperator<ClinicalTrial, ClinicalTri
         (eligibility.toLowerCase().includes('advanced') || 
          eligibility.toLowerCase().includes('metastatic'))) {
       analysis.inclusionMatches.push('Advanced/metastatic disease matches trial');
+    }
+    
+    // Add the stage to the inclusion matches for display
+    if (!analysis.inclusionMatches.some(match => match.includes('Stage'))) {
+      analysis.inclusionMatches.push(`Patient stage: ${normalizedStageDisplay}`);
     }
   }
   
