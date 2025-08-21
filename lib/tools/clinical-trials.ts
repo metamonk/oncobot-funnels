@@ -4,6 +4,7 @@
  */
 
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
+import { calculateAge } from '@/lib/utils/age';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { debug, DebugCategory } from './clinical-trials/debug';
@@ -160,6 +161,16 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
     try {
       const userHealthData = await getUserHealthProfile();
       if (userHealthData?.profile) {
+        // Calculate age from dateOfBirth if available
+        let calculatedAge: number | undefined;
+        if (userHealthData.profile.dateOfBirth) {
+          try {
+            calculatedAge = calculateAge(userHealthData.profile.dateOfBirth);
+          } catch (error) {
+            debug.log(DebugCategory.PROFILE, 'Failed to calculate age from DOB', { error });
+          }
+        }
+        
         healthProfile = {
           id: userHealthData.profile.id,
           createdAt: userHealthData.profile.createdAt,
@@ -168,7 +179,8 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
           primarySite: userHealthData.profile.primarySite,
           cancerType: userHealthData.profile.cancerType,
           diseaseStage: userHealthData.profile.diseaseStage,
-          age: userHealthData.profile.age,
+          dateOfBirth: userHealthData.profile.dateOfBirth || undefined,
+          age: calculatedAge,
           treatmentHistory: userHealthData.profile.treatmentHistory as string[] | undefined,
           molecularMarkers: userHealthData.profile.molecularMarkers as MolecularMarkers | undefined,
           performanceStatus: userHealthData.profile.performanceStatus,
@@ -177,7 +189,8 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
       }
       debug.log(DebugCategory.PROFILE, 'Health profile loaded', {
         hasProfile: !!healthProfile,
-        hasAge: !!healthProfile?.age,
+        hasDateOfBirth: !!healthProfile?.dateOfBirth,
+        calculatedAge: healthProfile?.age,
         hasCancerType: !!healthProfile?.cancerType,
         hasStage: !!healthProfile?.diseaseStage
       });

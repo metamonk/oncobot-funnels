@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, json, varchar, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, json, varchar, integer, date } from 'drizzle-orm/pg-core';
 import { generateId } from 'ai';
 import { InferSelectModel, relations } from 'drizzle-orm';
 
@@ -124,7 +124,7 @@ export const healthProfile = pgTable('health_profile', {
   primarySite: text('primary_site'),
   cancerType: text('cancer_type'),
   diseaseStage: text('disease_stage'),
-  age: integer('age'),
+  dateOfBirth: date('date_of_birth'),
   treatmentHistory: json('treatment_history'),
   molecularMarkers: json('molecular_markers'),
   performanceStatus: text('performance_status'),

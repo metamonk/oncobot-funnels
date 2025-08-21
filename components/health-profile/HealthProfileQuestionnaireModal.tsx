@@ -123,6 +123,25 @@ export function HealthProfileQuestionnaireModal({
     existingResponses.forEach(r => {
       initial[r.questionId] = r.response;
     });
+    
+    // Map profile fields to question IDs
+    if (existingProfile) {
+      // Map dateOfBirth to DATE_OF_BIRTH question
+      if (existingProfile.dateOfBirth) {
+        // Convert date to YYYY-MM-DD string format for the input
+        const dateStr = typeof existingProfile.dateOfBirth === 'string' 
+          ? existingProfile.dateOfBirth 
+          : existingProfile.dateOfBirth.toISOString().split('T')[0];
+        initial['DATE_OF_BIRTH'] = dateStr;
+      }
+      
+      // Map other profile fields that might not be in responses
+      if (existingProfile.cancerRegion) initial['CANCER_REGION'] = existingProfile.cancerRegion;
+      if (existingProfile.diseaseStage) initial['STAGE_DISEASE'] = existingProfile.diseaseStage;
+      if (existingProfile.performanceStatus) initial['PERFORMANCE_STATUS'] = existingProfile.performanceStatus;
+      if (existingProfile.treatmentHistory) initial['TREATMENT_HISTORY'] = existingProfile.treatmentHistory;
+    }
+    
     return initial;
   });
   
@@ -256,6 +275,23 @@ export function HealthProfileQuestionnaireModal({
       return;
     }
     
+    // Validate date input
+    if (currentQuestion.type === 'date') {
+      const dateValue = new Date(response as string);
+      if (isNaN(dateValue.getTime())) {
+        toast.error('Please enter a valid date');
+        return;
+      }
+      if (dateValue > new Date()) {
+        toast.error('Date cannot be in the future');
+        return;
+      }
+      if (dateValue < new Date('1900-01-01')) {
+        toast.error('Please enter a valid date');
+        return;
+      }
+    }
+    
     // Validate number input
     if (currentQuestion.type === 'number') {
       const value = parseInt(response as string, 10);
@@ -348,7 +384,7 @@ export function HealthProfileQuestionnaireModal({
                      responses.CNS_PRIMARY_LOCATION || responses.SKIN_PRIMARY_SITE ||
                      responses.SARCOMA_PRIMARY_LOCATION || responses.PEDIATRIC_PRIMARY_SITE,
         diseaseStage: responses.STAGE_DISEASE,
-        age: responses.AGE ? parseInt(responses.AGE as string, 10) : undefined,
+        dateOfBirth: responses.DATE_OF_BIRTH as string | undefined,
         performanceStatus: responses.PERFORMANCE_STATUS,
         treatmentHistory: responses.TREATMENT_HISTORY || [],
         molecularMarkers: {
@@ -514,7 +550,28 @@ export function HealthProfileQuestionnaireModal({
                 </div>
 
                 {/* Options */}
-                {currentQuestion.type === 'number' ? (
+                {currentQuestion.type === 'date' ? (
+                  <div className="space-y-3">
+                    <input
+                      type="date"
+                      value={responses[currentQuestion.id] || ''}
+                      onChange={(e) => handleResponse(e.target.value)}
+                      max={new Date().toISOString().split('T')[0]} // Can't be born in the future
+                      min="1900-01-01" // Reasonable minimum date
+                      className={cn(
+                        "w-full rounded-lg border px-4 py-3 text-base",
+                        "focus:outline-none focus:ring-2 focus:ring-primary",
+                        "bg-background text-foreground"
+                      )}
+                      autoFocus
+                    />
+                    {currentQuestion.helpText && (
+                      <p className="text-sm text-muted-foreground">
+                        {currentQuestion.helpText}
+                      </p>
+                    )}
+                  </div>
+                ) : currentQuestion.type === 'number' ? (
                   <div className="space-y-3">
                     <input
                       type="number"

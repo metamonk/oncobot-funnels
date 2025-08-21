@@ -49,7 +49,7 @@ export async function createHealthProfile(data: {
   primarySite?: string;
   cancerType?: string;
   diseaseStage?: string;
-  age?: number;
+  dateOfBirth?: Date | string;
   treatmentHistory?: any;
   molecularMarkers?: any;
   performanceStatus?: string;
@@ -61,12 +61,18 @@ export async function createHealthProfile(data: {
   }
 
   try {
-    // Create the health profile
+    // Create the health profile - convert Date to string if needed
     const profileId = generateId();
-    const [newProfile] = await db.insert(healthProfile).values({
+    const profileData = {
       id: profileId,
       ...data,
-    }).returning();
+      dateOfBirth: data.dateOfBirth 
+        ? (data.dateOfBirth instanceof Date 
+            ? data.dateOfBirth.toISOString().split('T')[0] 
+            : data.dateOfBirth)
+        : undefined,
+    };
+    const [newProfile] = await db.insert(healthProfile).values(profileData).returning();
 
     // Create the user-profile mapping
     await db.insert(userHealthProfile).values({
@@ -95,7 +101,7 @@ export async function updateHealthProfile(profileId: string, data: {
   primarySite?: string;
   cancerType?: string;
   diseaseStage?: string;
-  age?: number;
+  dateOfBirth?: Date | string;
   treatmentHistory?: any;
   molecularMarkers?: any;
   performanceStatus?: string;
@@ -120,12 +126,18 @@ export async function updateHealthProfile(profileId: string, data: {
       throw new Error('Profile not found or access denied');
     }
 
-    // Update the profile
+    // Update the profile - convert Date to string if needed
+    const updateData = {
+      ...data,
+      dateOfBirth: data.dateOfBirth 
+        ? (data.dateOfBirth instanceof Date 
+            ? data.dateOfBirth.toISOString().split('T')[0] 
+            : data.dateOfBirth)
+        : undefined,
+      updatedAt: new Date(),
+    };
     const [updatedProfile] = await db.update(healthProfile)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(healthProfile.id, profileId))
       .returning();
 

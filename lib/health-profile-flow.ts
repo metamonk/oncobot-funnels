@@ -4,7 +4,7 @@
 export interface Question {
   id: string;
   text: string;
-  type: 'single_choice' | 'multiple_choice' | 'yes_no' | 'text' | 'number';
+  type: 'single_choice' | 'multiple_choice' | 'yes_no' | 'text' | 'number' | 'date';
   options: Option[];
   category: string;
   dependsOn?: {
@@ -17,6 +17,10 @@ export interface Question {
   };
   allowMultiple?: boolean; // For checkbox-style questions
   allowOther?: boolean; // Allow "Other" option with text input
+  helpText?: string; // Optional helper text for additional context
+  min?: number; // For number type questions
+  max?: number; // For number type questions
+  placeholder?: string; // For text/number input placeholders
 }
 
 export interface Option {
@@ -49,13 +53,12 @@ export const universalQuestions: Question[] = [
     ],
   },
   {
-    id: 'AGE',
-    text: 'What is your current age?',
-    type: 'number',
+    id: 'DATE_OF_BIRTH',
+    text: 'What is your date of birth?',
+    type: 'date',
     category: 'demographics',
-    min: 18,
-    max: 120,
-    placeholder: 'Enter your age',
+    options: [], // Empty options array for date type
+    helpText: 'This information is used to determine your eligibility for clinical trials and is stored securely.',
   },
   {
     id: 'MOLECULAR_TESTING',
@@ -1240,7 +1243,9 @@ export function getQuestionsForRegion(region: string): Question[] {
     ...sharedQuestions.filter(q => q.type !== 'text'), // Filter out text questions for now
   ];
 
-  return questions.filter(q => q && q.options); // Ensure all questions are valid
+  // Only filter out questions that are malformed (no id or text)
+  // Don't require options since date/number/text types don't need them
+  return questions.filter(q => q && q.id && q.text);
 }
 
 export function getNextQuestion(

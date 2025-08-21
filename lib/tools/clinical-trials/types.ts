@@ -40,7 +40,8 @@ export interface HealthProfile {
   complications?: string[] | Complication[];
   questionnaireVersion?: number;
   // Additional demographic fields for better matching
-  age?: number;
+  dateOfBirth?: Date | string;
+  age?: number; // Calculated from dateOfBirth
   sex?: 'MALE' | 'FEMALE' | 'OTHER';
   race?: string;
   ethnicity?: string;
