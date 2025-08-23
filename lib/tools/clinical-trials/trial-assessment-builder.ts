@@ -91,7 +91,7 @@ export class TrialAssessmentBuilder {
     const nctId = trial.protocolSection?.identificationModule?.nctId || 'unknown';
     
     console.log('[TrialAssessmentBuilder] Parsing criteria for', nctId);
-    console.log('[TrialAssessmentBuilder] Full criteria text:', eligibilityCriteria);
+    // console.log('[TrialAssessmentBuilder] Full criteria text:', eligibilityCriteria);
     
     // Parse inclusion and exclusion criteria
     const lines = eligibilityCriteria.split('\n').map(line => line.trim()).filter(Boolean);
