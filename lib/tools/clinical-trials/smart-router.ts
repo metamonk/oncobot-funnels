@@ -126,8 +126,29 @@ export class SmartRouter {
     
     // 3. New searches
     
-    // Location-based search
-    const locationMatch = query.match(/trials?\s+(?:near|in|at|around)\s+([\w\s,]+?)(?:\.|,|\?|$)/i);
+    // Location-based search - enhanced pattern matching
+    // Pattern 1: "trials near [location]"
+    let locationMatch = query.match(/trials?\s+(?:near|in|at|around)\s+([\w\s,]+?)(?:\.|,|\?|$)/i);
+    if (locationMatch) {
+      return this.handleLocationSearch(query, locationMatch[1], context);
+    }
+    
+    // Pattern 2: "near me" queries
+    if (query.toLowerCase().includes('near me')) {
+      // Use user's coordinates if available
+      if (context.userCoordinates?.latitude && context.userCoordinates?.longitude) {
+        return this.handleLocationSearch(query, 'current location', context);
+      }
+      // Fallback to profile location if available
+      if (healthProfile?.location) {
+        return this.handleLocationSearch(query, healthProfile.location, context);
+      }
+      // Generic near me search
+      return this.handleLocationSearch(query, 'near me', context);
+    }
+    
+    // Pattern 3: Other location patterns (e.g., "available in Chicago")
+    locationMatch = query.match(/(?:available|recruiting)\s+(?:near|in|at|around)\s+([\w\s,]+?)(?:\.|,|\?|$)/i);
     if (locationMatch) {
       return this.handleLocationSearch(query, locationMatch[1], context);
     }
@@ -138,7 +159,7 @@ export class SmartRouter {
     }
     
     // General search (fallback)
-    return this.handleGeneralSearch(query, healthProfile || null, dataStream);
+    return this.handleGeneralSearch(query, healthProfile || null, dataStream, context);
   }
   
   /**
@@ -367,16 +388,45 @@ export class SmartRouter {
       query
     );
     
-    // Add location to search query for better API filtering
-    const locationTerms = locationService.filterTrialsByLocation([], location, false);
-    const enhancedQueries = searchStrategy.queries.map(q => 
-      `${q} ${location}`.trim()
-    );
+    // Special handling for "near me" or "current location"
+    let effectiveLocation = location;
+    if (location === 'near me' || location === 'current location') {
+      // Try to use coordinates to get actual location
+      if (context.locationContext?.userLocation?.city) {
+        effectiveLocation = context.locationContext.userLocation.city;
+      } else if (context.userCoordinates) {
+        // We have coordinates but no city name yet
+        const locationInfo = await locationService.reverseGeocode({
+          lat: context.userCoordinates.latitude!,
+          lng: context.userCoordinates.longitude!
+        });
+        if (locationInfo) {
+          effectiveLocation = `${locationInfo.city}, ${locationInfo.state}`;
+        }
+      }
+    }
     
-    // Use 'cond' field for condition searches
-    const searchFields = searchStrategy.queries.map(() => 'cond');
+    // For location searches, we need to search broadly and then filter
+    // If we don't have a specific location, search using health profile conditions
+    let searchQueries: string[];
+    let searchFields: string[];
+    
+    if (effectiveLocation && effectiveLocation !== 'near me' && effectiveLocation !== 'current location') {
+      // Search for the specific location
+      searchQueries = [effectiveLocation];
+      searchFields = ['locn'];
+    } else if (context.healthProfile) {
+      // Use health profile to search, then filter by location
+      searchQueries = searchStrategy.queries.length > 0 ? searchStrategy.queries : ['cancer'];
+      searchFields = searchQueries.map(() => 'cond');
+    } else {
+      // No location and no profile - search broadly for cancer trials
+      searchQueries = ['cancer'];
+      searchFields = ['cond'];
+    }
+    
     const searchResults = await this.searchExecutor.executeParallelSearches(
-      enhancedQueries,
+      searchQueries,
       searchFields,
       {
         maxResults: 200, // Get more results for location filtering
@@ -387,12 +437,18 @@ export class SmartRouter {
     const searchResult = searchResults[0];
     
     if (searchResult && !searchResult.error) {
-      // Filter by location with metro area support
-      const filtered = locationService.filterTrialsByLocation(
-        searchResult.studies,
-        location,
-        true // include metro areas
-      );
+      // If we searched by location field, we already have location-filtered results
+      // But we can still apply metro area expansion and proximity ranking
+      let filtered = searchResult.studies;
+      
+      // Apply additional location filtering if we have specific location criteria
+      if (effectiveLocation && effectiveLocation !== 'near me' && effectiveLocation !== '') {
+        filtered = locationService.filterTrialsByLocation(
+          searchResult.studies,
+          effectiveLocation,
+          true // include metro areas
+        );
+      }
       
       // Rank by proximity if we have coordinates
       let finalTrials: ClinicalTrial[] | TrialWithDistance[] = filtered;
@@ -531,7 +587,8 @@ export class SmartRouter {
   private async handleGeneralSearch(
     query: string,
     healthProfile: HealthProfile | null,
-    dataStream?: any
+    dataStream?: any,
+    context?: RouterContext
   ): Promise<RouterResult> {
     const interpretation = QueryInterpreter.interpret(query, healthProfile);
     const searchStrategy = QueryInterpreter.generateSearchStrategy(
@@ -552,13 +609,23 @@ export class SmartRouter {
     }
     
     // Filter out overly generic queries that the API won't understand
+    // BUT preserve location context
+    const hasLocationContext = query.toLowerCase().includes('near') || 
+                              query.toLowerCase().includes('in ') ||
+                              context?.locationContext?.userLocation;
+    
     const validQueries = searchStrategy.queries.filter(q => {
-      // Remove queries that are just generic questions
+      // If we have location context, don't filter out generic patterns
+      if (hasLocationContext) {
+        return true;
+      }
+      
+      // Remove queries that are just generic questions WITHOUT location
       const genericPatterns = [
-        /^what\s+trials?\s+are\s+available/i,
-        /^are\s+there\s+any\s+trials/i,
-        /^show\s+me\s+trials/i,
-        /^find\s+trials/i,
+        /^what\s+trials?\s+are\s+available$/i,
+        /^are\s+there\s+any\s+trials$/i,
+        /^show\s+me\s+trials$/i,
+        /^find\s+trials$/i,
         /^clinical\s+trials?\??$/i
       ];
       return !genericPatterns.some(pattern => pattern.test(q));

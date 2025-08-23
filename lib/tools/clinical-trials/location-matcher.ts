@@ -692,6 +692,14 @@ export class LocationMatcher {
   }
 
   /**
+   * Get location variations including metro area terms
+   * Public wrapper for generateLocationTerms
+   */
+  static getLocationVariations(location: string): Set<string> {
+    return this.generateLocationTerms(location);
+  }
+
+  /**
    * Check if two locations are in the same metro area
    */
   static isMetroArea(location1: string, location2: string): boolean {

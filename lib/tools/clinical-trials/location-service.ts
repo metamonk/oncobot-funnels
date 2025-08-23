@@ -206,7 +206,7 @@ export class LocationService {
                 location,
                 distance,
                 matchType: this.getMatchType(location, context),
-                isMetroArea: LocationMatcher.isMetroArea(location.city || '', context.userLocation.city || '')
+                isMetroArea: LocationMatcher.isMetroArea(location.city || '', context.userLocation?.city || '')
               });
             }
           }
@@ -245,9 +245,11 @@ export class LocationService {
     location: string,
     includeMetroAreas: boolean = true
   ): ClinicalTrial[] {
-    const expandedTerms = includeMetroAreas 
-      ? LocationMatcher.generateLocationTerms(location)
-      : [location.toLowerCase()];
+    // Get expanded location terms including metro areas if enabled
+    const locationLower = location.toLowerCase();
+    const expandedTerms: string[] = includeMetroAreas 
+      ? [...LocationMatcher.getLocationVariations(location)]
+      : [locationLower];
     
     return trials.filter(trial => {
       const locations = trial.protocolSection?.contactsLocationsModule?.locations || [];
@@ -257,7 +259,7 @@ export class LocationService {
         const state = loc.state?.toLowerCase() || '';
         const country = loc.country?.toLowerCase() || '';
         
-        return expandedTerms.some(term => 
+        return expandedTerms.some((term: string) => 
           city.includes(term) || 
           state.includes(term) || 
           country.includes(term)
