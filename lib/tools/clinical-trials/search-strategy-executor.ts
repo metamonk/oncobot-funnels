@@ -261,7 +261,7 @@ export class SearchStrategyExecutor {
     const { studies, totalCount } = await this.executeSingleSearch(
       broadQuery,
       'cond', // Use condition field for disease searches
-      { maxResults: 200 } // Get more results to filter
+      { maxResults: 100 } // Reduced from 200 to improve performance
     );
 
     debug.log(DebugCategory.SEARCH, 'Broad search results', {
@@ -292,9 +292,21 @@ export class SearchStrategyExecutor {
     // Step 5: Rank by relevance (eligibility score + other factors)
     const rankedTrials = this.rankByRelevance(assessedTrials, context);
 
+    // Step 5.5: Limit results to prevent token overflow
+    const MAX_RESULTS_FOR_AI = 20;  // Safe limit that won't exceed token limits
+    const limitedTrials = rankedTrials.slice(0, MAX_RESULTS_FOR_AI);
+    
+    debug.log(DebugCategory.SEARCH, 'Limiting profile-based results for token efficiency', {
+      afterFiltering: filteredTrials.length,
+      afterAssessment: assessedTrials.length,
+      afterRanking: rankedTrials.length,
+      finalLimit: limitedTrials.length,
+      maxAllowed: MAX_RESULTS_FOR_AI
+    });
+
     // Step 6: Create matches with full context and assessment
     const compressionContext = this.buildCompressionContext(context);
-    const matches = this.createEnhancedMatches(rankedTrials, context, compressionContext);
+    const matches = this.createEnhancedMatches(limitedTrials, context, compressionContext);
 
     return {
       success: true,
@@ -330,7 +342,7 @@ export class SearchStrategyExecutor {
     const { studies, totalCount } = await this.executeSingleSearch(
       locationQuery,
       '_fulltext',
-      { maxResults: 100 }
+      { maxResults: 50 }  // Reduced from 100 to prevent token overflow
     );
 
     // Apply distance-based ranking
@@ -351,8 +363,19 @@ export class SearchStrategyExecutor {
       // rankTrialsByProximity already sorts by distance
     }
 
+    // Limit results to prevent token overflow while preserving the most relevant trials
+    const MAX_RESULTS_FOR_AI = 20;  // Safe limit that won't exceed token limits
+    const limitedTrials = rankedTrials.slice(0, MAX_RESULTS_FOR_AI);
+    
+    debug.log(DebugCategory.SEARCH, 'Limiting location results for token efficiency', {
+      totalRetrieved: studies.length,
+      afterRanking: rankedTrials.length,
+      finalLimit: limitedTrials.length,
+      maxAllowed: MAX_RESULTS_FOR_AI
+    });
+
     const compressionContext = this.buildCompressionContext(context);
-    let matches = this.createMatchesWithContext(rankedTrials, context, compressionContext);
+    let matches = this.createMatchesWithContext(limitedTrials, context, compressionContext);
 
     // Apply contextual profile enhancement for location queries
     const { ProfileInfluence } = await import('./query-context');
@@ -365,7 +388,7 @@ export class SearchStrategyExecutor {
         profileInfluence: context.profileInfluence.reason
       });
       
-      matches = await this.applyUniversalProfileEnhancement(rankedTrials, context, matches);
+      matches = await this.applyUniversalProfileEnhancement(limitedTrials, context, matches);
     }
 
     return {
@@ -403,11 +426,21 @@ export class SearchStrategyExecutor {
     const { studies, totalCount } = await this.executeSingleSearch(
       searchQuery,
       'cond',
-      { maxResults: 100 }
+      { maxResults: 50 }  // Reduced from 100 to prevent token overflow
     );
 
+    // Limit results to prevent token overflow while preserving the most relevant trials
+    const MAX_RESULTS_FOR_AI = 20;  // Safe limit that won't exceed token limits
+    const limitedStudies = studies.slice(0, MAX_RESULTS_FOR_AI);
+    
+    debug.log(DebugCategory.SEARCH, 'Limiting condition results for token efficiency', {
+      totalRetrieved: studies.length,
+      finalLimit: limitedStudies.length,
+      maxAllowed: MAX_RESULTS_FOR_AI
+    });
+
     const compressionContext = this.buildCompressionContext(context);
-    let matches = this.createMatchesWithContext(studies, context, compressionContext);
+    let matches = this.createMatchesWithContext(limitedStudies, context, compressionContext);
 
     // Apply universal profile enhancement for condition queries
     const { ProfileInfluence } = await import('./query-context');
@@ -420,7 +453,7 @@ export class SearchStrategyExecutor {
         profileInfluence: context.profileInfluence.reason
       });
       
-      matches = await this.applyUniversalProfileEnhancement(studies, context, matches);
+      matches = await this.applyUniversalProfileEnhancement(limitedStudies, context, matches);
     }
 
     return {
@@ -444,11 +477,21 @@ export class SearchStrategyExecutor {
     const { studies, totalCount } = await this.executeSingleSearch(
       searchQuery,
       'term',
-      { maxResults: 100 }
+      { maxResults: 50 }  // Reduced from 100 to prevent token overflow
     );
 
+    // Limit results to prevent token overflow while preserving the most relevant trials
+    const MAX_RESULTS_FOR_AI = 20;  // Safe limit that won't exceed token limits
+    const limitedStudies = studies.slice(0, MAX_RESULTS_FOR_AI);
+    
+    debug.log(DebugCategory.SEARCH, 'Limiting broad search results for token efficiency', {
+      totalRetrieved: studies.length,
+      finalLimit: limitedStudies.length,
+      maxAllowed: MAX_RESULTS_FOR_AI
+    });
+
     const compressionContext = this.buildCompressionContext(context);
-    let matches = this.createMatchesWithContext(studies, context, compressionContext);
+    let matches = this.createMatchesWithContext(limitedStudies, context, compressionContext);
 
     // Apply background profile hints for broad queries
     const { ProfileInfluence } = await import('./query-context');
@@ -461,7 +504,7 @@ export class SearchStrategyExecutor {
         profileInfluence: context.profileInfluence.reason
       });
       
-      matches = await this.applyUniversalProfileEnhancement(studies, context, matches);
+      matches = await this.applyUniversalProfileEnhancement(limitedStudies, context, matches);
     }
 
     return {
