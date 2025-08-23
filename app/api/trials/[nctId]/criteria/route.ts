@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { NCTFetcher } from '@/lib/tools/clinical-trials/pipeline/operators/fetchers/nct-fetcher';
+import { SearchExecutor } from '@/lib/tools/clinical-trials/search-executor';
 import { trialAssessmentBuilder } from '@/lib/tools/clinical-trials/trial-assessment-builder';
 import type { ClinicalTrial } from '@/lib/tools/clinical-trials/types';
 
@@ -23,19 +23,18 @@ export async function GET(
       );
     }
 
-    // Fetch the full trial data
-    const fetcher = new NCTFetcher({ 
-      batch: false,
-      parallel: false 
-    });
+    // Fetch the full trial data using SearchExecutor
+    const searchExecutor = new SearchExecutor();
     
-    const context = {
-      userQuery: nctId,
-      nctIds: [nctId.toUpperCase()],
-      intent: 'lookup' as const
-    };
+    // Use executeParallelSearches to fetch by NCT ID
+    const results = await searchExecutor.executeParallelSearches(
+      [nctId.toUpperCase()],
+      ['filter.ids'],
+      { maxResults: 1 }
+    );
     
-    const trials = await fetcher.execute([], context);
+    const result = results[0];
+    const trials = result?.studies || [];
     
     if (!trials || trials.length === 0) {
       return NextResponse.json(

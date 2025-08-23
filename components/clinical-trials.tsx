@@ -192,7 +192,7 @@ function ToggleableCriteria({
       </button>
       {isExpanded && (
         <ul className="space-y-1 mt-2">
-          {criteria.map((criterion) => (
+          {criteria.map((criterion: CriteriaItem) => (
             <li key={criterion.id} className="text-xs text-neutral-600 dark:text-neutral-400">
               • {criterion.text}
             </li>
@@ -312,7 +312,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
             
             <div className="space-y-2">
               <p className="text-sm font-medium">Alternative options:</p>
-              {result.alternativeActions.map((action, index) => (
+              {result.alternativeActions.map((action: AlternativeAction, index: number) => (
                 <div key={index}>
                   {action.url ? (
                     <a
@@ -339,7 +339,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
               <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-800">
                 <p className="text-sm font-medium mb-2">Additional Resources:</p>
                 <div className="space-y-1">
-                  {result.resources.map((resource, index) => (
+                  {result.resources.map((resource: any, index: number) => (
                     <a
                       key={index}
                       href={resource.url}
@@ -358,29 +358,32 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
       );
     }
 
-    // Handle empty results with message and suggestions
+    // Handle empty results with message and suggestions - using informational styling
     if (!matches || matches.length === 0) {
       return (
-        <Card className="w-full my-4 border-amber-200 dark:border-amber-800">
+        <Card className="w-full my-4 bg-muted/30 border-muted-foreground/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2 text-amber-600 dark:text-amber-400">
-              <AlertCircle className="h-4 w-4" />
-              {result.message || 'No Clinical Trials Found'}
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-foreground">{result.message || 'No Clinical Trials Found'}</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            <p className="text-sm text-muted-foreground">
               {result.message || 'No clinical trials matched your search criteria. Try adjusting your search parameters or consult with your healthcare provider.'}
             </p>
             
             {result.suggestedActions && (
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Try these suggestions:</p>
-                <ul className="list-disc list-inside text-sm text-neutral-600 dark:text-neutral-400">
+              <div className="space-y-2 pt-1">
+                <p className="text-sm font-medium text-foreground">What you can try:</p>
+                <div className="space-y-1.5">
                   {result.suggestedActions.map((action: string, index: number) => (
-                    <li key={index}>{action}</li>
+                    <div key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                      <span>{action}</span>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
           </CardContent>
@@ -427,14 +430,15 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
 
         {/* Trial Results */}
         <div className="space-y-3">
-          {matches.map((match, index) => {
+          {matches.map((match: any, index: number) => {
             // Defensive check for malformed data
             if (!match || !match.trial || !match.trial.protocolSection) {
               return null;
             }
             
             const trial = match.trial.protocolSection;
-            const assessment = match.eligibilityAssessment;
+            // Use full assessment if available (for UI display), otherwise fall back to compressed
+            const assessment = (match as any)._fullAssessment || match.eligibilityAssessment;
             const hasProfile = assessment?.userAssessment?.hasProfile;
             const isEligible = assessment?.userAssessment?.recommendation === 'likely' || 
                                assessment?.userAssessment?.recommendation === 'possible';
@@ -516,7 +520,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                       Recommendations:
                     </p>
                     <ul className="space-y-0.5">
-                      {match.recommendations.slice(0, 2).map((rec, i) => (
+                      {match.recommendations.slice(0, 2).map((rec: string, i: number) => (
                         <li key={i} className="text-xs text-blue-600 dark:text-blue-400">
                           • {rec}
                         </li>
@@ -638,7 +642,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                               </p>
                               {assessment.searchRelevance.matchedTerms.length > 0 && (
                                 <div className="flex flex-wrap gap-1">
-                                  {assessment.searchRelevance.matchedTerms.map((term, i) => (
+                                  {assessment.searchRelevance.matchedTerms.map((term: string, i: number) => (
                                     <Badge key={i} variant="secondary" className="text-xs">
                                       {term}
                                     </Badge>
@@ -720,7 +724,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                                         ✓ You meet these criteria:
                                       </p>
                                       <ul className="space-y-0.5">
-                                        {assessment.userAssessment.inclusionMatches!.slice(0, 3).map((match, i) => (
+                                        {assessment.userAssessment.inclusionMatches!.slice(0, 3).map((match: string, i: number) => (
                                           <li key={i} className="text-xs text-neutral-600 dark:text-neutral-400">
                                             • {match}
                                           </li>
@@ -741,7 +745,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                                         ✗ Potential concerns:
                                       </p>
                                       <ul className="space-y-0.5">
-                                        {assessment.userAssessment.exclusionConcerns!.slice(0, 2).map((concern, i) => (
+                                        {assessment.userAssessment.exclusionConcerns!.slice(0, 2).map((concern: string, i: number) => (
                                           <li key={i} className="text-xs text-neutral-600 dark:text-neutral-400">
                                             • {concern}
                                           </li>
@@ -763,7 +767,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                                     Additional Information Needed:
                                   </p>
                                   <ul className="space-y-0.5">
-                                    {assessment.userAssessment.missingData.map((item, i) => (
+                                    {assessment.userAssessment.missingData.map((item: string, i: number) => (
                                       <li key={i} className="text-xs text-neutral-600 dark:text-neutral-400">
                                         • {item}
                                       </li>

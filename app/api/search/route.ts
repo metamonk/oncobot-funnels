@@ -112,7 +112,14 @@ export async function POST(req: Request) {
 
   const requestStartTime = Date.now();
   const { messages, model, group, timezone, id, selectedVisibilityType } = await req.json();
-  const { latitude, longitude } = geolocation(req);
+  let { latitude, longitude } = geolocation(req);
+  
+  // Development fallback for geolocation (Chicago coordinates)
+  if (process.env.NODE_ENV === 'development' && !latitude && !longitude) {
+    latitude = '41.8781';  // Chicago latitude
+    longitude = '-87.6298'; // Chicago longitude
+    console.log('📍 Using development fallback location: Chicago, IL');
+  }
 
   console.log('--------------------------------');
   console.log('Location: ', latitude, longitude);

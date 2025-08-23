@@ -3,7 +3,7 @@
  * Provides geocoding, distance calculation, and proximity matching
  */
 
-import { LocationMatcher } from './location-matcher';
+// LocationMatcher functionality is now integrated into this service
 import type { ClinicalTrial, StudyLocation } from './types';
 
 export interface Coordinates {
@@ -206,7 +206,7 @@ export class LocationService {
                 location,
                 distance,
                 matchType: this.getMatchType(location, context),
-                isMetroArea: LocationMatcher.isMetroArea(location.city || '', context.userLocation?.city || '')
+                isMetroArea: this.isMetroArea(location.city || '', context.userLocation?.city || '')
               });
             }
           }
@@ -248,7 +248,7 @@ export class LocationService {
     // Get expanded location terms including metro areas if enabled
     const locationLower = location.toLowerCase();
     const expandedTerms: string[] = includeMetroAreas 
-      ? [...LocationMatcher.getLocationVariations(location)]
+      ? [...this.getLocationVariations(location)]
       : [locationLower];
     
     return trials.filter(trial => {
@@ -272,7 +272,7 @@ export class LocationService {
    * Get location summary for a trial
    */
   getLocationSummary(trial: ClinicalTrial): string {
-    const summaryArray = LocationMatcher.getLocationSummary(trial);
+    const summaryArray = this.getLocationSummaryArray(trial);
     
     if (summaryArray.length === 0) {
       return 'No locations specified';
@@ -306,7 +306,7 @@ export class LocationService {
       return 'exact';
     }
     
-    if (userCity && locCity && LocationMatcher.isMetroArea(location.city || '', context.userLocation.city || '')) {
+    if (userCity && locCity && this.isMetroArea(location.city || '', context.userLocation.city || '')) {
       return 'metro';
     }
     
@@ -319,6 +319,225 @@ export class LocationService {
     }
     
     return 'country';
+  }
+  
+  /**
+   * Check if two cities are in the same metro area
+   */
+  isMetroArea(city1: string, city2: string): boolean {
+    const metroAreas: Record<string, string[]> = {
+      'New York': ['New York', 'Manhattan', 'Newark', 'Jersey City', 'Yonkers', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island'],
+      'Los Angeles': ['Los Angeles', 'Long Beach', 'Anaheim', 'Santa Ana', 'Irvine', 'Glendale', 'Pasadena'],
+      'Chicago': ['Chicago', 'Aurora', 'Rockford', 'Joliet', 'Naperville', 'Evanston', 'Elgin'],
+      'Houston': ['Houston', 'The Woodlands', 'Sugar Land', 'Pasadena', 'Pearland'],
+      'Philadelphia': ['Philadelphia', 'Camden', 'Wilmington', 'Cherry Hill'],
+      'Phoenix': ['Phoenix', 'Mesa', 'Scottsdale', 'Glendale', 'Tempe', 'Chandler'],
+      'San Francisco': ['San Francisco', 'Oakland', 'San Jose', 'Berkeley', 'Palo Alto', 'Mountain View'],
+      'Boston': ['Boston', 'Cambridge', 'Quincy', 'Newton', 'Somerville'],
+      'Seattle': ['Seattle', 'Tacoma', 'Bellevue', 'Everett', 'Kent', 'Renton'],
+      'Miami': ['Miami', 'Fort Lauderdale', 'West Palm Beach', 'Pompano Beach', 'Miami Beach'],
+      'Atlanta': ['Atlanta', 'Sandy Springs', 'Roswell', 'Alpharetta', 'Marietta'],
+      'Dallas': ['Dallas', 'Fort Worth', 'Arlington', 'Plano', 'Irving', 'Garland']
+    };
+    
+    const c1Lower = city1.toLowerCase();
+    const c2Lower = city2.toLowerCase();
+    
+    for (const [metro, cities] of Object.entries(metroAreas)) {
+      const citiesLower = cities.map(c => c.toLowerCase());
+      if (citiesLower.includes(c1Lower) && citiesLower.includes(c2Lower)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  /**
+   * Get location variations including metro areas and state names
+   */
+  getLocationVariations(location: string): string[] {
+    const variations = new Set<string>();
+    const locationLower = location.toLowerCase();
+    variations.add(locationLower);
+    
+    // Metro area expansions
+    const metroExpansions: Record<string, string[]> = {
+      'new york': ['nyc', 'manhattan', 'brooklyn', 'queens', 'bronx', 'staten island'],
+      'los angeles': ['la', 'hollywood', 'beverly hills', 'santa monica'],
+      'san francisco': ['sf', 'bay area', 'silicon valley', 'oakland', 'san jose'],
+      'washington': ['dc', 'washington dc', 'district of columbia'],
+      'boston': ['cambridge', 'somerville', 'brookline'],
+      'chicago': ['chicagoland', 'windy city'],
+      'philadelphia': ['philly', 'phila'],
+      'miami': ['south florida', 'miami-dade'],
+      'dallas': ['dfw', 'dallas-fort worth'],
+      'seattle': ['puget sound', 'greater seattle']
+    };
+    
+    for (const [city, expansions] of Object.entries(metroExpansions)) {
+      if (locationLower.includes(city)) {
+        expansions.forEach(exp => variations.add(exp));
+      }
+      // Also check reverse - if location is an expansion, add the main city
+      if (expansions.some(exp => locationLower.includes(exp))) {
+        variations.add(city);
+      }
+    }
+    
+    // State expansions
+    const stateExpansions: Record<string, string[]> = {
+      'california': ['ca', 'calif'],
+      'new york': ['ny'],
+      'texas': ['tx'],
+      'florida': ['fl'],
+      'illinois': ['il'],
+      'pennsylvania': ['pa', 'penn'],
+      'massachusetts': ['ma', 'mass'],
+      'georgia': ['ga'],
+      'north carolina': ['nc'],
+      'virginia': ['va']
+    };
+    
+    for (const [state, abbrevs] of Object.entries(stateExpansions)) {
+      if (locationLower.includes(state)) {
+        abbrevs.forEach(abbr => variations.add(abbr));
+      }
+      if (abbrevs.some(abbr => locationLower === abbr || locationLower.endsWith(`, ${abbr}`))) {
+        variations.add(state);
+      }
+    }
+    
+    return Array.from(variations);
+  }
+  
+  /**
+   * Get location summary for a trial (returns array of locations)
+   */
+  getLocationSummaryArray(trial: ClinicalTrial): string[] {
+    const locations = trial.protocolSection?.contactsLocationsModule?.locations || [];
+    
+    if (locations.length === 0) {
+      return [];
+    }
+    
+    // Group locations by state/country for summarization
+    const locationGroups = new Map<string, Set<string>>();
+    
+    for (const loc of locations) {
+      if (!loc.city) continue;
+      
+      const key = loc.country === 'United States' || !loc.country
+        ? (loc.state || 'US')
+        : (loc.country || 'Unknown');
+      
+      if (!locationGroups.has(key)) {
+        locationGroups.set(key, new Set());
+      }
+      locationGroups.get(key)!.add(loc.city);
+    }
+    
+    // Create summary array
+    const summary: string[] = [];
+    
+    for (const [region, cities] of locationGroups.entries()) {
+      if (cities.size === 1) {
+        const city = cities.values().next().value;
+        summary.push(`${city}, ${region}`);
+      } else {
+        summary.push(`${cities.size} locations in ${region}`);
+      }
+    }
+    
+    return summary.slice(0, 5); // Limit to 5 for brevity
+  }
+  
+  /**
+   * Get metro area for a city
+   */
+  getMetroArea(city: string): string {
+    const metroAreas: Record<string, string> = {
+      'new york': 'New York Metro',
+      'brooklyn': 'New York Metro',
+      'queens': 'New York Metro',
+      'bronx': 'New York Metro',
+      'staten island': 'New York Metro',
+      'newark': 'New York Metro',
+      'jersey city': 'New York Metro',
+      'los angeles': 'Los Angeles Metro',
+      'long beach': 'Los Angeles Metro',
+      'anaheim': 'Los Angeles Metro',
+      'santa ana': 'Los Angeles Metro',
+      'chicago': 'Chicago Metro',
+      'aurora': 'Chicago Metro',
+      'naperville': 'Chicago Metro',
+      'houston': 'Houston Metro',
+      'the woodlands': 'Houston Metro',
+      'sugar land': 'Houston Metro',
+      'philadelphia': 'Philadelphia Metro',
+      'camden': 'Philadelphia Metro',
+      'san francisco': 'Bay Area',
+      'oakland': 'Bay Area',
+      'san jose': 'Bay Area',
+      'berkeley': 'Bay Area',
+      'palo alto': 'Bay Area',
+      'boston': 'Boston Metro',
+      'cambridge': 'Boston Metro',
+      'quincy': 'Boston Metro',
+      'seattle': 'Seattle Metro',
+      'tacoma': 'Seattle Metro',
+      'bellevue': 'Seattle Metro',
+      'miami': 'Miami Metro',
+      'fort lauderdale': 'Miami Metro',
+      'west palm beach': 'Miami Metro',
+      'atlanta': 'Atlanta Metro',
+      'sandy springs': 'Atlanta Metro',
+      'dallas': 'Dallas-Fort Worth',
+      'fort worth': 'Dallas-Fort Worth',
+      'arlington': 'Dallas-Fort Worth',
+      'plano': 'Dallas-Fort Worth'
+    };
+    
+    const cityLower = city.toLowerCase();
+    return metroAreas[cityLower] || city;
+  }
+  
+  /**
+   * Check if a trial matches a location (including metro areas)
+   */
+  matchesLocation(trial: ClinicalTrial, location: string): boolean {
+    const locations = trial.protocolSection?.contactsLocationsModule?.locations || [];
+    
+    if (locations.length === 0) {
+      return false;
+    }
+    
+    const locationLower = location.toLowerCase();
+    const locationVariations = this.getLocationVariations(location);
+    
+    return locations.some(loc => {
+      const city = loc.city?.toLowerCase() || '';
+      const state = loc.state?.toLowerCase() || '';
+      const country = loc.country?.toLowerCase() || '';
+      const facility = loc.facility?.toLowerCase() || '';
+      
+      // Check direct matches
+      if (locationVariations.some(variation => 
+        city.includes(variation) ||
+        state.includes(variation) ||
+        country.includes(variation) ||
+        facility.includes(variation)
+      )) {
+        return true;
+      }
+      
+      // Check metro area matches
+      if (loc.city && this.isMetroArea(loc.city, location)) {
+        return true;
+      }
+      
+      return false;
+    });
   }
   
   /**
@@ -345,7 +564,7 @@ export class LocationService {
       if (location) {
         context.userLocation.city = location.city;
         context.userLocation.state = location.state;
-        context.userLocation.metroArea = LocationMatcher.getMetroArea(location.city);
+        context.userLocation.metroArea = this.getMetroArea(location.city);
       }
     }
     
@@ -372,7 +591,7 @@ export class LocationService {
           context.userLocation.city = queryLocation;
         }
         
-        context.userLocation.metroArea = LocationMatcher.getMetroArea(context.userLocation.city);
+        context.userLocation.metroArea = this.getMetroArea(context.userLocation.city);
       }
     }
     

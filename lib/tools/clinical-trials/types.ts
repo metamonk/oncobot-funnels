@@ -320,7 +320,7 @@ export interface TrialMatch {
   lastUpdateDate?: string;
   matchReason?: string;
   relevanceScore?: number;
-  trial: ClinicalTrial;
+  trial: ClinicalTrial | any; // Should be CompressedTrial for token efficiency
   filterLocation?: string;
   // Eligibility scoring enhancements
   recommendations?: string[];

@@ -132,8 +132,8 @@ describe('Clinical Trials Tool Integration', () => {
 
   describe('Query Processing', () => {
     it('should process NCT ID queries', async () => {
-      const { smartRouter } = await import('../smart-router');
-      (smartRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const { clinicalTrialsRouter } = await import('../router');
+      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [{
@@ -168,7 +168,7 @@ describe('Clinical Trials Tool Integration', () => {
       expect(result.success).toBe(true);
       expect(result.matches).toHaveLength(1);
       expect(result.matches[0].nctId).toBe('NCT12345678');
-      expect(smartRouter.route).toHaveBeenCalledWith({
+      expect(clinicalTrialsRouter.route).toHaveBeenCalledWith({
         query: 'What are the details for NCT12345678?',
         chatId: 'test-chat-123',
         healthProfile: null,
@@ -183,8 +183,8 @@ describe('Clinical Trials Tool Integration', () => {
         profile: mockHealthProfile
       });
 
-      const { smartRouter } = await import('../smart-router');
-      (smartRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const { clinicalTrialsRouter } = await import('../router');
+      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -197,7 +197,7 @@ describe('Clinical Trials Tool Integration', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(smartRouter.route).toHaveBeenCalledWith(
+      expect(clinicalTrialsRouter.route).toHaveBeenCalledWith(
         expect.objectContaining({
           healthProfile: expect.objectContaining({
             cancerType: 'Non-Small Cell Lung Cancer',
@@ -208,8 +208,8 @@ describe('Clinical Trials Tool Integration', () => {
     });
 
     it('should handle location-based queries', async () => {
-      const { smartRouter } = await import('../smart-router');
-      (smartRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const { clinicalTrialsRouter } = await import('../router');
+      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -226,8 +226,8 @@ describe('Clinical Trials Tool Integration', () => {
     });
 
     it('should detect continuation queries', async () => {
-      const { smartRouter } = await import('../smart-router');
-      (smartRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const { clinicalTrialsRouter } = await import('../router');
+      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [],
         matches: [],
@@ -248,8 +248,8 @@ describe('Clinical Trials Tool Integration', () => {
 
   describe('Caching', () => {
     it('should cache search results', async () => {
-      const { smartRouter } = await import('../smart-router');
-      (smartRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const { clinicalTrialsRouter } = await import('../router');
+      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -263,15 +263,15 @@ describe('Clinical Trials Tool Integration', () => {
       await tool.execute({ query: 'Show more results' });
 
       // The router should be called with cachedTrials on second call
-      const secondCall = (smartRouter.route as ReturnType<typeof vi.fn>).mock.calls[1];
+      const secondCall = (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mock.calls[1];
       expect(secondCall[0].cachedTrials).toBeDefined();
     });
 
     it('should respect cache TTL', async () => {
       // This would require mocking Date.now() to test TTL expiration
       // For brevity, we'll just verify the cache structure exists
-      const { smartRouter } = await import('../smart-router');
-      (smartRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const { clinicalTrialsRouter } = await import('../router');
+      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -287,8 +287,8 @@ describe('Clinical Trials Tool Integration', () => {
 
   describe('Error Handling', () => {
     it('should handle router errors gracefully', async () => {
-      const { smartRouter } = await import('../smart-router');
-      (smartRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const { clinicalTrialsRouter } = await import('../router');
+      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: false,
         error: 'API connection failed',
         message: 'Unable to search for trials',
@@ -311,8 +311,8 @@ describe('Clinical Trials Tool Integration', () => {
         new Error('Database error')
       );
 
-      const { smartRouter } = await import('../smart-router');
-      (smartRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const { clinicalTrialsRouter } = await import('../router');
+      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -325,7 +325,7 @@ describe('Clinical Trials Tool Integration', () => {
 
       // Should still work but without health profile
       expect(result.success).toBe(true);
-      expect(smartRouter.route).toHaveBeenCalledWith(
+      expect(clinicalTrialsRouter.route).toHaveBeenCalledWith(
         expect.objectContaining({
           healthProfile: null
         })
@@ -333,8 +333,8 @@ describe('Clinical Trials Tool Integration', () => {
     });
 
     it('should handle unexpected errors', async () => {
-      const { smartRouter } = await import('../smart-router');
-      (smartRouter.route as ReturnType<typeof vi.fn>).mockRejectedValue(
+      const { clinicalTrialsRouter } = await import('../router');
+      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('Unexpected error')
       );
 
@@ -350,8 +350,8 @@ describe('Clinical Trials Tool Integration', () => {
 
   describe('Eligibility Streaming', () => {
     it('should stream eligibility criteria when appropriate', async () => {
-      const { smartRouter } = await import('../smart-router');
-      (smartRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const { clinicalTrialsRouter } = await import('../router');
+      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [{
@@ -391,8 +391,8 @@ describe('Clinical Trials Tool Integration', () => {
     });
 
     it('should not stream eligibility for non-eligibility queries', async () => {
-      const { smartRouter } = await import('../smart-router');
-      (smartRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const { clinicalTrialsRouter } = await import('../router');
+      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -414,8 +414,8 @@ describe('Clinical Trials Tool Integration', () => {
 
   describe('Model-Agnostic Operation', () => {
     it('should work without complex ID tracking', async () => {
-      const { smartRouter } = await import('../smart-router');
-      (smartRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const { clinicalTrialsRouter } = await import('../router');
+      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -436,7 +436,7 @@ describe('Clinical Trials Tool Integration', () => {
       }
 
       // Verify no complex ID passing required
-      const calls = (smartRouter.route as ReturnType<typeof vi.fn>).mock.calls;
+      const calls = (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mock.calls;
       calls.forEach(call => {
         expect(call[0].chatId).toBe('test-chat-123'); // Same chat ID throughout
       });

@@ -7,6 +7,7 @@
 
 // DataStreamWriter type removed - using any for data stream parameter
 import type { ClinicalTrial } from './types';
+import { trialStatusService, type SearchContext } from './services/trial-status-service';
 
 interface SearchQuery {
   query: string;
@@ -57,10 +58,16 @@ export class SearchExecutor {
   ): Promise<{ success: boolean; studies: ClinicalTrial[]; totalCount: number; error?: string; message?: string }[]> {
     const {
       maxResults = 25,
-      includeStatuses = ['RECRUITING', 'ACTIVE_NOT_RECRUITING', 'ENROLLING_BY_INVITATION'],
+      includeStatuses,
       dataStream,
       cacheKey
     } = options;
+    
+    // Use trial status service for intelligent status filtering
+    const searchContext: SearchContext = {
+      // Could be enhanced with more context
+    };
+    const statuses = includeStatuses || trialStatusService.getInitialSearchStatuses(searchContext);
 
     // Create search batches for rate limiting
     const searchBatches: SearchQuery[][] = [];
@@ -99,7 +106,7 @@ export class SearchExecutor {
         this.executeSingleSearch(
           searchQuery,
           maxResults,
-          includeStatuses,
+          statuses,
           dataStream,
           cacheKey
         )
@@ -145,7 +152,7 @@ export class SearchExecutor {
   private async executeSingleSearch(
     searchQuery: SearchQuery,
     maxResults: number,
-    includeStatuses: string[],
+    statuses: string[],
     dataStream?: any,
     cacheKey?: string
   ): Promise<SearchResult> {
@@ -183,18 +190,25 @@ export class SearchExecutor {
     // Build API parameters
     const params = new URLSearchParams({
       pageSize: maxResults.toString(),
-      countTotal: 'true',
-      'filter.overallStatus': includeStatuses.join(','),
-      // Return all fields needed by the application, including eligibility criteria
-      // Note: Without the fields parameter, the API returns all fields by default
-      // We'll remove the fields parameter to get complete trial data
+      countTotal: 'true'
     });
+    
+    // Only apply status filter if NOT searching by NCT ID
+    // When users search by NCT ID, they want those specific trials regardless of status
+    if (searchQuery.field !== 'filter.ids') {
+      params.append('filter.overallStatus', statuses.join(','));
+    }
 
     // Add the query to the appropriate field
-    // The ClinicalTrials.gov API expects the field name to be prefixed with 'query.'
-    const queryField = searchQuery.field.startsWith('query.') 
-      ? searchQuery.field 
-      : `query.${searchQuery.field}`;
+    // Special handling for different field types:
+    // - filter.* fields are used as-is (e.g., filter.ids for NCT ID lookups)
+    // - Other fields get prefixed with 'query.' (e.g., cond becomes query.cond)
+    let queryField: string;
+    if (searchQuery.field.startsWith('filter.') || searchQuery.field.startsWith('query.')) {
+      queryField = searchQuery.field;
+    } else {
+      queryField = `query.${searchQuery.field}`;
+    }
     params.append(queryField, searchQuery.query);
 
     // Execute with retry logic
@@ -378,10 +392,16 @@ export class SearchExecutor {
     maxResults: number = 100
   ): Promise<SearchResult> {
     // First, search without location to get comprehensive results
+    // Use trial status service for statuses
+    const searchContext: SearchContext = {
+      // Could be enhanced with location context
+    };
+    const statuses = trialStatusService.getInitialSearchStatuses(searchContext);
+    
     const broadSearch = await this.executeSingleSearch(
       { query, field: 'query.term', description: `Broad search: ${query}` },
       maxResults,
-      ['RECRUITING', 'ACTIVE_NOT_RECRUITING', 'ENROLLING_BY_INVITATION']
+      statuses
     );
 
     // If we have location, we'll filter locally instead of using API location filter

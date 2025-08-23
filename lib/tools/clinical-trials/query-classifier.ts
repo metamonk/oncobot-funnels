@@ -47,6 +47,7 @@ export interface ClassifiedQuery {
     location?: string;
     radius?: number;
     nctId?: string;
+    nctIds?: string[];  // Support multiple NCT IDs for batch lookups
     mutations?: string[];
     stage?: string;
     phase?: string;
@@ -85,7 +86,8 @@ export class QueryClassifier {
     ],
     condition_primary: [
       { pattern: /^(lung|breast|colon|pancreatic|prostate)\s+cancer/i, weight: 0.9 },
-      { pattern: /^(KRAS|EGFR|ALK|BRAF|HER2|BRCA)/i, weight: 0.95 },
+      // Mutations at start (any gene-like pattern)
+      { pattern: /^([A-Z]{2,5}[0-9]{0,3}(?:[-_]?[A-Z0-9]+)?)/i, weight: 0.95 },
       { pattern: /for\s+(lung|breast|colon)\s+cancer/i, weight: 0.85 },
       { pattern: /stage\s+(I{1,3}V?|[1-4])/i, weight: 0.8 },
       { pattern: /^(cancer|carcinoma|melanoma|lymphoma)/i, weight: 0.8 }
@@ -114,7 +116,9 @@ export class QueryClassifier {
    */
   private readonly COMPONENT_PATTERNS = {
     nctId: /\bNCT\d{8}\b/gi,
-    mutations: /\b(KRAS|EGFR|ALK|ROS1|BRAF|MET|RET|NTRK|HER2|PIK3CA|FGFR|IDH[12]|BRCA[12]|MSI-H|TMB-H|PD-?L1)\b/gi,
+    // Pattern for genetic mutations: gene names (2-5 letters) often followed by numbers/letters
+    // This will match KRAS, EGFR, ALK, BRAF, HER2, BRCA1/2, and any other gene mutations
+    mutations: /\b([A-Z]{2,5}[0-9]{0,3}(?:[-_]?[A-Z0-9]+)?)\b/g,
     stage: /\bstage\s*(I{1,3}V?|[1-4][ABC]?|IV)\b/gi,
     phase: /\bphase\s*([1-4]|I{1,3}V?)\b/gi,
     radius: /(\d+)\s*(miles?|kilometers?|km)/i
@@ -129,7 +133,7 @@ export class QueryClassifier {
     // 1. Check for NCT ID first (highest priority)
     const nctMatch = query.match(this.COMPONENT_PATTERNS.nctId);
     if (nctMatch) {
-      return this.buildNCTLookupQuery(query, nctMatch[0]);
+      return this.buildNCTLookupQuery(query, nctMatch);
     }
 
     // 2. Check if this is a continuation query
@@ -206,10 +210,16 @@ export class QueryClassifier {
   private extractComponents(query: string): ClassifiedQuery['components'] {
     const components: ClassifiedQuery['components'] = {};
 
-    // Extract NCT ID
-    const nctMatch = query.match(this.COMPONENT_PATTERNS.nctId);
-    if (nctMatch) {
-      components.nctId = nctMatch[0].toUpperCase();
+    // Extract NCT IDs (support multiple)
+    const nctMatches = query.match(this.COMPONENT_PATTERNS.nctId);
+    if (nctMatches) {
+      // If multiple NCT IDs, store them in a special field
+      if (nctMatches.length > 1) {
+        components.nctIds = nctMatches.map(id => id.toUpperCase());
+        components.nctId = nctMatches[0].toUpperCase(); // Keep first for backward compatibility
+      } else {
+        components.nctId = nctMatches[0].toUpperCase();
+      }
     }
 
     // Extract mutations
@@ -249,6 +259,16 @@ export class QueryClassifier {
    * Extract location from query
    */
   private extractLocation(query: string): string | undefined {
+    // Handle "near me" pattern explicitly
+    if (/\bnear\s+me\b/i.test(query) || /\bmy\s+(location|area)\b/i.test(query)) {
+      return 'NEAR_ME'; // Special marker for current location
+    }
+    
+    // Handle "nearby" or "closest" without specific location
+    if (/\b(nearby|closest|nearest)\b/i.test(query) && !/\b(to|from)\s+\w+/i.test(query)) {
+      return 'NEAR_ME';
+    }
+    
     // Use LocationService's existing extraction logic
     const location = this.locationService.extractLocationFromQuery(query);
     if (location) return location;
@@ -261,7 +281,7 @@ export class QueryClassifier {
 
     for (const pattern of patterns) {
       const match = query.match(pattern);
-      if (match) {
+      if (match && match[1] && match[1].toLowerCase() !== 'me') {
         return match[1];
       }
     }
@@ -271,20 +291,40 @@ export class QueryClassifier {
 
   /**
    * Extract medical condition from query
+   * Works with ANY cancer type or medical condition dynamically
    */
   private extractCondition(query: string): string | undefined {
-    // Common cancer types
+    // Pattern for [organ/body part] + cancer/carcinoma/tumor
     const cancerMatch = query.match(
-      /\b(lung|breast|colon|colorectal|pancreatic|prostate|ovarian|bladder|kidney|liver)\s*(cancer|carcinoma)?/i
+      /\b([a-z]+(?:\s+[a-z]+)*)\s*(cancer|carcinoma|tumor|tumour|neoplasm|malignancy)\b/i
     );
     if (cancerMatch) {
       return cancerMatch[0];
     }
 
-    // Abbreviated cancer types
-    const abbrevMatch = query.match(/\b(NSCLC|SCLC|CRC|HCC|RCC|AML|CLL|ALL|CML|DLBCL|TNBC)\b/i);
+    // Pattern for medical abbreviations (2-6 uppercase letters, possibly with numbers)
+    // This will catch NSCLC, SCLC, CRC, HCC, RCC, AML, CLL, ALL, CML, DLBCL, TNBC, and any others
+    const abbrevMatch = query.match(/\b[A-Z]{2,6}[0-9]{0,2}\b/);
     if (abbrevMatch) {
-      return abbrevMatch[0];
+      // Verify it's likely medical (not common words like 'THE', 'AND', etc.)
+      const commonWords = ['THE', 'AND', 'FOR', 'WITH', 'FROM', 'THIS', 'THAT', 'WHAT', 'WHERE', 'WHEN', 'HOW', 'WHY'];
+      if (!commonWords.includes(abbrevMatch[0])) {
+        return abbrevMatch[0];
+      }
+    }
+
+    // Pattern for conditions ending in -oma, -emia, -osis, -itis (medical suffixes)
+    const medicalSuffixMatch = query.match(/\b\w+(oma|emia|osis|itis|pathy)\b/i);
+    if (medicalSuffixMatch) {
+      return medicalSuffixMatch[0];
+    }
+
+    // Pattern for "[adjective] [type] [organ] cancer" like "triple negative breast cancer"
+    const complexCancerMatch = query.match(
+      /\b(\w+\s+)?(positive|negative|stage|grade|metastatic|advanced|early|recurrent)\s+(\w+\s+)*(cancer|carcinoma)\b/i
+    );
+    if (complexCancerMatch) {
+      return complexCancerMatch[0];
     }
 
     return undefined;
@@ -484,14 +524,31 @@ export class QueryClassifier {
   /**
    * Build specialized query objects
    */
-  private buildNCTLookupQuery(query: string, nctId: string): ClassifiedQuery {
+  private buildNCTLookupQuery(query: string, nctMatches: RegExpMatchArray): ClassifiedQuery {
+    const components: ClassifiedQuery['components'] = {};
+    
+    // Handle single or multiple NCT IDs
+    if (nctMatches.length > 1) {
+      components.nctIds = nctMatches.map(id => id.toUpperCase());
+      components.nctId = nctMatches[0].toUpperCase(); // Keep first for backward compatibility
+    } else {
+      components.nctId = nctMatches[0].toUpperCase();
+    }
+    
+    // ALSO extract location if mentioned (e.g., "Are these trials in Chicago?")
+    // This is important for location-aware compression
+    const location = this.extractLocation(query);
+    if (location) {
+      components.location = location;
+    }
+    
     return {
       intent: QueryIntent.NCT_LOOKUP,
       strategy: SearchStrategy.NCT_DIRECT,
-      components: { nctId },
-      weights: { location: 0, condition: 0 },
+      components,
+      weights: { location: location ? 0.3 : 0, condition: 0 },
       confidence: 1.0,
-      reasoning: `Direct NCT lookup for ${nctId}`
+      reasoning: `Direct NCT lookup for ${nctMatches.length > 1 ? nctMatches.length + ' trials' : nctMatches[0]}${location ? ` with location context: ${location}` : ''}`
     };
   }
 

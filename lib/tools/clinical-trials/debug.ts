@@ -48,6 +48,7 @@ export const debug = {
 export const DebugCategory = {
   QUERY_INTERPRET: 'QueryInterpreter',
   SEARCH_EXEC: 'SearchExecutor',
+  SEARCH: 'Search',
   LOCATION: 'LocationMatcher',
   SCORING: 'RelevanceScorer',
   CACHE: 'Cache',

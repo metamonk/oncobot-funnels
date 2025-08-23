@@ -9,66 +9,12 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { debug, DebugCategory } from './clinical-trials/debug';
 import { ClinicalTrial, HealthProfile, TrialMatch, CachedSearch, MolecularMarkers, StudyLocation } from './clinical-trials/types';
-import { smartRouter } from './clinical-trials/smart-router';
+import { clinicalTrialsRouter } from './clinical-trials/router';
+import { cacheService } from './clinical-trials/services/cache-service';
 import { locationService } from './clinical-trials/location-service';
 
-// Enhanced chat-based cache for search results
-const searchCache = new Map<string, CachedSearch>();
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
-
-// Helper to get cached search by chat ID
-function getCachedSearchByChat(chatId: string): CachedSearch | null {
-  if (!chatId) return null;
-  
-  const key = `chat_${chatId}`;
-  const cached = searchCache.get(key);
-  
-  if (cached) {
-    // Check if cache is still valid
-    if (Date.now() - cached.timestamp < CACHE_TTL) {
-      debug.log(DebugCategory.CACHE, 'Cache hit', { 
-        chatId, 
-        trialCount: cached.trials.length,
-        age: Math.round((Date.now() - cached.timestamp) / 1000) + 's'
-      });
-      return cached;
-    }
-    // Remove expired cache
-    debug.log(DebugCategory.CACHE, 'Cache expired', { chatId });
-    searchCache.delete(key);
-  }
-  
-  return null;
-}
-
-// Helper to update cache for chat
-function updateCacheForChat(
-  chatId: string, 
-  trials: ClinicalTrial[], 
-  healthProfile: HealthProfile | null,
-  query: string
-): void {
-  if (!chatId || !trials || trials.length === 0) return;
-  
-  const key = `chat_${chatId}`;
-  const existing = searchCache.get(key);
-  
-  const newCache: CachedSearch = {
-    chatId,
-    trials,
-    healthProfile,
-    searchQueries: existing ? [...existing.searchQueries, query] : [query],
-    timestamp: Date.now(),
-    lastOffset: 0
-  };
-  
-  searchCache.set(key, newCache);
-  debug.log(DebugCategory.CACHE, 'Cache updated', {
-    chatId,
-    trialCount: trials.length,
-    queryCount: newCache.searchQueries.length
-  });
-}
+// Use centralized cache service instead of local cache
+// The cache service handles all caching logic
 
 // Helper to create match objects
 function createMatchObjects(
@@ -221,17 +167,17 @@ export const clinicalTrialsTool = (
     
     // Get cached results if available and this is a continuation
     const cachedSearch = (effectiveChatId && isContinuation) ? 
-      getCachedSearchByChat(effectiveChatId) : null;
+      cacheService.getCachedSearch(effectiveChatId) : null;
     
     try {
-      // Use smart router for model-agnostic query processing
-      const result = await smartRouter.route({
+      // Use new clean router for model-agnostic query processing
+      const result = await clinicalTrialsRouter.route({
         query,
-        chatId: effectiveChatId,
         healthProfile,
+        userCoordinates: coordinates,
         cachedTrials: cachedSearch?.trials,
-        dataStream,
-        userCoordinates: coordinates
+        chatId: effectiveChatId,
+        dataStream
       });
 
       // Handle successful routing
@@ -240,7 +186,7 @@ export const clinicalTrialsTool = (
         
         // Always update cache when we have trials (new search or filtered results)
         if (result.trials && effectiveChatId) {
-          updateCacheForChat(effectiveChatId, result.trials, healthProfile, query);
+          cacheService.updateCache(effectiveChatId, result.trials, healthProfile, query);
         }
 
         // Stream eligibility criteria if appropriate (but don't include in main response)
@@ -253,6 +199,25 @@ export const clinicalTrialsTool = (
         // Remove the full trials array from the result to save tokens
         // The matches array already contains all necessary information
         const { trials, ...responseWithoutTrials } = result;
+        
+        // Further compress eligibility assessments for AI (keep full for UI)
+        if (responseWithoutTrials.matches) {
+          const { AssessmentCompressor } = await import('./clinical-trials/assessment-compressor');
+          
+          // Create two versions: one for UI (full), one for AI (compressed)
+          responseWithoutTrials.matches = responseWithoutTrials.matches.map(match => {
+            // Store full assessment for UI to access
+            const fullAssessment = match.eligibilityAssessment;
+            
+            // Replace with compressed version for AI tokens
+            return {
+              ...match,
+              eligibilityAssessment: AssessmentCompressor.compressAssessment(fullAssessment),
+              // Store full assessment in a separate field that UI can access
+              _fullAssessment: fullAssessment
+            };
+          });
+        }
         
         // Log token savings
         if (trials && result.matches) {

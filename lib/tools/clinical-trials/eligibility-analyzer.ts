@@ -2,9 +2,26 @@
  * Eligibility Analyzer Operator - Analyzes eligibility for trials
  */
 
-import { BaseOperator } from '../../base-operator';
-import type { ClinicalTrial, HealthProfile } from '../../../types';
-import type { OperatorContext } from '../../types';
+// BaseOperator functionality inlined since pipeline is being removed
+import type { ClinicalTrial, HealthProfile } from './types';
+
+// OperatorContext type definition (from pipeline/types.ts)
+export interface OperatorContext {
+  healthProfile?: HealthProfile | null;
+  userQuery?: string;
+  intent?: 'eligibility' | 'discovery' | 'comparison' | 'status' | 'lookup';
+  location?: string;
+  locations?: string[];
+  statusFilter?: string[];
+  limit?: number;
+  offset?: number;
+  sortBy?: 'relevance' | 'date' | 'location' | 'phase';
+  dataStream?: any;
+  chatId?: string;
+  cacheKey?: string;
+  nctIds?: string[];
+  locationContext?: any;
+}
 
 export interface EligibilityAnalyzerConfig {
   /**
@@ -42,14 +59,15 @@ interface EligibilityAnalysis {
   };
 }
 
-export class EligibilityAnalyzer extends BaseOperator<ClinicalTrial, ClinicalTrial> {
+export class EligibilityAnalyzer {
   name = 'eligibility-analyzer';
   canStream = true;
   
   private config: EligibilityAnalyzerConfig;
+  private metadata: any = null;
+  private startTime: number = 0;
   
   constructor(config: EligibilityAnalyzerConfig = {}) {
-    super();
     this.config = {
       detailed: true,
       extractCriteria: true,
@@ -448,5 +466,42 @@ export class EligibilityAnalyzer extends BaseOperator<ClinicalTrial, ClinicalTri
         t._eligibilityAnalysis.structuredCriteria
       ).length
     };
+  }
+
+  // Helper methods from BaseOperator
+  protected startExecution(inputCount: number): void {
+    this.startTime = Date.now();
+    this.metadata = {
+      operatorName: this.name,
+      inputCount,
+      outputCount: 0,
+      processingTime: 0
+    };
+  }
+
+  protected endExecution(outputCount: number): void {
+    if (this.metadata) {
+      this.metadata.outputCount = outputCount;
+      this.metadata.processingTime = Date.now() - this.startTime;
+    }
+  }
+
+  protected addMetadata(key: string, value: any): void {
+    if (this.metadata) {
+      this.metadata[key] = value;
+    }
+  }
+
+  protected logWarning(message: string): void {
+    console.warn(`[${this.name}] ${message}`);
+  }
+
+  protected async streamData(data: any, type: string, context: OperatorContext): Promise<void> {
+    if (context.dataStream) {
+      context.dataStream.writeMessageAnnotation({
+        type: `eligibility_${type}`,
+        data
+      });
+    }
   }
 }

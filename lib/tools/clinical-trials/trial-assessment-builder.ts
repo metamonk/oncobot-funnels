@@ -7,8 +7,8 @@
 
 import type { ClinicalTrial, HealthProfile, TrialMatch } from './types';
 import { EligibilityScorer } from './eligibility-scorer';
-import { EligibilityAnalyzer } from './pipeline/operators/analyzers/eligibility-analyzer';
-import type { OperatorContext } from './pipeline/types';
+import { EligibilityAnalyzer } from './eligibility-analyzer';
+import type { OperatorContext } from './eligibility-analyzer';
 
 /**
  * UI-expected assessment structure
