@@ -14,7 +14,7 @@ import { QueryInterpreter } from './query-interpreter';
 import { EligibilityScorer } from './eligibility-scorer';
 import { trialAssessmentBuilder } from './trial-assessment-builder';
 import { TrialCompressor } from './trial-compressor';
-import { LocationMatcher } from './location-matcher';
+import { locationService, type LocationContext, type TrialWithDistance } from './location-service';
 import type { ClinicalTrial, HealthProfile, TrialMatch } from './types';
 import type { OperatorContext } from './pipeline/types';
 // DataStreamWriter type removed - using any for data stream parameter
@@ -58,6 +58,8 @@ interface RouterContext {
   healthProfile?: HealthProfile | null;
   cachedTrials?: ClinicalTrial[];
   dataStream?: any;
+  userCoordinates?: { latitude?: number; longitude?: number };
+  locationContext?: LocationContext;
 }
 
 /**
@@ -77,12 +79,23 @@ export class SmartRouter {
    * Main routing method - handles all query types intelligently
    */
   async route(context: RouterContext): Promise<RouterResult> {
-    const { query, cachedTrials, healthProfile, dataStream } = context;
+    const { query, cachedTrials, healthProfile, dataStream, userCoordinates } = context;
     const queryLower = query.toLowerCase();
+    
+    // Build location context from all available sources
+    const locationContext = await locationService.buildLocationContext(
+      query,
+      userCoordinates,
+      healthProfile
+    );
+    
+    // Add location context to router context
+    context.locationContext = locationContext;
     
     debug.log(DebugCategory.TOOL, 'Smart router processing', {
       hasCache: !!cachedTrials?.length,
       hasProfile: !!healthProfile,
+      hasLocation: !!locationContext.userLocation,
       queryLength: query.length
     });
     
@@ -229,25 +242,46 @@ export class SmartRouter {
     location: string,
     context: RouterContext
   ): Promise<RouterResult> {
-    const locationLower = location.trim().toLowerCase();
+    // Use location service for intelligent filtering with metro area support
+    const filtered = locationService.filterTrialsByLocation(
+      cachedTrials,
+      location,
+      true // include metro areas
+    );
     
-    const filtered = cachedTrials.filter(trial => {
-      const locations = trial.protocolSection?.contactsLocationsModule?.locations || [];
-      return locations.some(loc => 
-        loc.city?.toLowerCase().includes(locationLower) || 
-        loc.state?.toLowerCase().includes(locationLower) ||
-        loc.country?.toLowerCase().includes(locationLower)
+    // If we have user coordinates, rank by proximity
+    let finalTrials: ClinicalTrial[] | TrialWithDistance[] = filtered;
+    if (context.locationContext?.userLocation?.coordinates) {
+      finalTrials = await locationService.rankTrialsByProximity(
+        filtered,
+        context.locationContext
       );
+    }
+    
+    const matches = await this.createMatches(finalTrials, context.healthProfile);
+    
+    // Add distance and location info to matches if available
+    const enhancedMatches = matches.map((match, index) => {
+      const trialWithDistance = finalTrials[index] as TrialWithDistance;
+      return {
+        ...match,
+        distance: trialWithDistance.distance,
+        closestLocation: trialWithDistance.closestLocation,
+        locationSummary: locationService.getLocationSummary(trialWithDistance)
+      };
     });
     
-    const matches = await this.createMatches(filtered, context.healthProfile);
     return {
       success: true,
-      trials: filtered,
-      matches,
-      totalCount: filtered.length,
-      message: `Found ${filtered.length} trials near ${location}`,
-      metadata: { filterLocation: location }
+      trials: finalTrials,
+      matches: enhancedMatches,
+      totalCount: finalTrials.length,
+      message: `Found ${finalTrials.length} trials near ${location}${context.locationContext?.searchRadius ? ` within ${context.locationContext.searchRadius} miles` : ''}`,
+      metadata: { 
+        filterLocation: location,
+        includesMetroArea: true,
+        hasDistanceData: !!context.locationContext?.userLocation?.coordinates
+      }
     };
   }
   
@@ -316,6 +350,15 @@ export class SmartRouter {
     location: string,
     context: RouterContext
   ): Promise<RouterResult> {
+    // Build or update location context
+    if (!context.locationContext) {
+      context.locationContext = await locationService.buildLocationContext(
+        query,
+        context.userCoordinates,
+        context.healthProfile
+      );
+    }
+    
     // First do a general search
     const interpretation = QueryInterpreter.interpret(query, context.healthProfile);
     const searchStrategy = QueryInterpreter.generateSearchStrategy(
@@ -324,13 +367,19 @@ export class SmartRouter {
       query
     );
     
+    // Add location to search query for better API filtering
+    const locationTerms = locationService.filterTrialsByLocation([], location, false);
+    const enhancedQueries = searchStrategy.queries.map(q => 
+      `${q} ${location}`.trim()
+    );
+    
     // Use 'cond' field for condition searches
     const searchFields = searchStrategy.queries.map(() => 'cond');
     const searchResults = await this.searchExecutor.executeParallelSearches(
-      searchStrategy.queries,
+      enhancedQueries,
       searchFields,
       {
-        maxResults: 100,
+        maxResults: 200, // Get more results for location filtering
         dataStream: context.dataStream
       }
     );
@@ -338,24 +387,47 @@ export class SmartRouter {
     const searchResult = searchResults[0];
     
     if (searchResult && !searchResult.error) {
-      // Then filter by location
-      const locationLower = location.trim().toLowerCase();
-      const filtered = searchResult.studies.filter(trial => {
-        const locations = trial.protocolSection?.contactsLocationsModule?.locations || [];
-        return locations.some(loc => 
-          loc.city?.toLowerCase().includes(locationLower) || 
-          loc.state?.toLowerCase().includes(locationLower) ||
-          loc.country?.toLowerCase().includes(locationLower)
+      // Filter by location with metro area support
+      const filtered = locationService.filterTrialsByLocation(
+        searchResult.studies,
+        location,
+        true // include metro areas
+      );
+      
+      // Rank by proximity if we have coordinates
+      let finalTrials: ClinicalTrial[] | TrialWithDistance[] = filtered;
+      if (context.locationContext?.userLocation?.coordinates) {
+        finalTrials = await locationService.rankTrialsByProximity(
+          filtered,
+          context.locationContext
         );
+      }
+      
+      const matches = await this.createMatches(finalTrials, context.healthProfile);
+      
+      // Enhance matches with location data
+      const enhancedMatches = matches.map((match, index) => {
+        const trialWithDistance = finalTrials[index] as TrialWithDistance;
+        return {
+          ...match,
+          distance: trialWithDistance.distance,
+          closestLocation: trialWithDistance.closestLocation,
+          locationSummary: locationService.getLocationSummary(trialWithDistance)
+        };
       });
       
-      const matches = await this.createMatches(filtered, context.healthProfile);
       return {
         success: true,
-        trials: filtered,
-        matches,
-        totalCount: filtered.length,
-        message: `Found ${filtered.length} trials near ${location}`
+        trials: finalTrials,
+        matches: enhancedMatches,
+        totalCount: finalTrials.length,
+        message: `Found ${finalTrials.length} trials near ${location}${context.locationContext?.searchRadius ? ` within ${context.locationContext.searchRadius} miles` : ''}`,
+        metadata: {
+          searchLocation: location,
+          includesMetroArea: true,
+          hasDistanceData: !!context.locationContext?.userLocation?.coordinates,
+          totalSearchResults: searchResult.studies.length
+        }
       };
     } else {
       return {
@@ -560,12 +632,7 @@ export class SmartRouter {
       }
       
       // Generate location summary for efficient display
-      const locationSummaryArray = LocationMatcher.getLocationSummary(trial);
-      const locationSummary = locationSummaryArray.length > 0 
-        ? locationSummaryArray.length === 1 
-          ? locationSummaryArray[0]
-          : `${locationSummaryArray[0]} + ${locationSummaryArray.length - 1} more location${locationSummaryArray.length - 1 > 1 ? 's' : ''}`
-        : undefined;
+      const locationSummary = locationService.getLocationSummary(trial);
 
       const match: TrialMatch = {
         nctId: trial.protocolSection?.identificationModule?.nctId || '',

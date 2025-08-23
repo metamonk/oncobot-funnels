@@ -667,4 +667,53 @@ export class LocationMatcher {
 
     return Array.from(uniqueLocations).slice(0, 5); // Return top 5 locations
   }
+
+  /**
+   * Get the metropolitan area for a city
+   */
+  static getMetroArea(city: string): string | undefined {
+    if (!city) return undefined;
+    
+    const cityLower = city.toLowerCase();
+    
+    for (const metroArea of this.metroAreas) {
+      // Check if city is in the metro area's cities list
+      if (metroArea.cities.some(c => c.toLowerCase() === cityLower)) {
+        return metroArea.name;
+      }
+      
+      // Check if city is the center
+      if (metroArea.center.toLowerCase() === cityLower) {
+        return metroArea.name;
+      }
+    }
+    
+    return undefined;
+  }
+
+  /**
+   * Check if two locations are in the same metro area
+   */
+  static isMetroArea(location1: string, location2: string): boolean {
+    if (!location1 || !location2) return false;
+    
+    const loc1Lower = location1.toLowerCase();
+    const loc2Lower = location2.toLowerCase();
+    
+    // Check each metro area
+    for (const metroArea of this.metroAreas) {
+      const cities = metroArea.cities.map(c => c.toLowerCase());
+      const facilities = metroArea.majorFacilities.map(f => f.toLowerCase());
+      const allTerms = [...cities, ...facilities, metroArea.center.toLowerCase()];
+      
+      const loc1InMetro = allTerms.some(term => loc1Lower.includes(term));
+      const loc2InMetro = allTerms.some(term => loc2Lower.includes(term));
+      
+      if (loc1InMetro && loc2InMetro) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
 }

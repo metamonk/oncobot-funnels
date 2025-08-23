@@ -307,6 +307,13 @@ export interface TrialMatch {
     status: string;
   }>;
   locationSummary?: string;
+  distance?: number; // Distance in miles from user location
+  closestLocation?: {
+    location: StudyLocation;
+    distance?: number;
+    isMetroArea?: boolean;
+    matchType?: 'exact' | 'metro' | 'state' | 'country';
+  };
   enrollmentCount?: number;
   studyType?: string;
   phases?: string[];

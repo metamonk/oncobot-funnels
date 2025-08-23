@@ -134,7 +134,11 @@ function streamEligibilityCriteria(
 }
 
 // Clean, minimal tool export
-export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
+export const clinicalTrialsTool = (
+  chatId?: string, 
+  dataStream?: any,
+  userCoordinates?: { latitude?: number; longitude?: number }
+) => tool({
   description: `Search and analyze clinical trials. Simply pass the user's natural language query.
   
   The tool automatically:
@@ -150,11 +154,19 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
   - "Are there trials for my cancer?"`,
   
   parameters: z.object({
-    query: z.string().describe('The user\'s natural language query about clinical trials')
+    query: z.string().describe('The user\'s natural language query about clinical trials'),
+    userLatitude: z.number().optional().describe('User\'s latitude for proximity matching'),
+    userLongitude: z.number().optional().describe('User\'s longitude for proximity matching')
   }),
   
-  execute: async ({ query }) => {
+  execute: async ({ query, userLatitude, userLongitude }) => {
     const effectiveChatId = chatId;
+    
+    // Build user coordinates if provided
+    const coordinates = (userLatitude !== undefined && userLongitude !== undefined) ? {
+      latitude: userLatitude,
+      longitude: userLongitude
+    } : userCoordinates;
     
     // Load health profile if available
     let healthProfile: HealthProfile | null = null;
@@ -216,7 +228,8 @@ export const clinicalTrialsTool = (chatId?: string, dataStream?: any) => tool({
         chatId: effectiveChatId,
         healthProfile,
         cachedTrials: cachedSearch?.trials,
-        dataStream
+        dataStream,
+        userCoordinates: coordinates
       });
 
       // Handle successful routing
