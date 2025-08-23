@@ -121,7 +121,16 @@ export function HealthProfileQuestionnaireModal({
   const [responses, setResponses] = useState<Record<string, any>>(() => {
     const initial: Record<string, any> = {};
     existingResponses.forEach(r => {
-      initial[r.questionId] = r.response;
+      // Ensure multiple choice responses are arrays
+      const question = questionnaire.questions.find(q => q.id === r.questionId);
+      if (question?.type === 'multiple_choice') {
+        // Convert to array if it's not already
+        initial[r.questionId] = Array.isArray(r.response) 
+          ? r.response 
+          : (r.response ? [r.response] : []);
+      } else {
+        initial[r.questionId] = r.response;
+      }
     });
     
     // Map profile fields to question IDs
@@ -139,7 +148,17 @@ export function HealthProfileQuestionnaireModal({
       if (existingProfile.cancerRegion) initial['CANCER_REGION'] = existingProfile.cancerRegion;
       if (existingProfile.diseaseStage) initial['STAGE_DISEASE'] = existingProfile.diseaseStage;
       if (existingProfile.performanceStatus) initial['PERFORMANCE_STATUS'] = existingProfile.performanceStatus;
-      if (existingProfile.treatmentHistory) initial['TREATMENT_HISTORY'] = existingProfile.treatmentHistory;
+      if (existingProfile.treatmentHistory) {
+        // Ensure treatment history is an array for multiple choice
+        const treatmentQuestion = questionnaire.questions.find(q => q.id === 'TREATMENT_HISTORY');
+        if (treatmentQuestion?.type === 'multiple_choice') {
+          initial['TREATMENT_HISTORY'] = Array.isArray(existingProfile.treatmentHistory) 
+            ? existingProfile.treatmentHistory 
+            : [existingProfile.treatmentHistory];
+        } else {
+          initial['TREATMENT_HISTORY'] = existingProfile.treatmentHistory;
+        }
+      }
     }
     
     return initial;
@@ -254,7 +273,12 @@ export function HealthProfileQuestionnaireModal({
   };
 
   const handleMultipleChoiceToggle = (optionValue: string) => {
-    const currentValues = (responses[currentQuestion.id] || []) as string[];
+    // Ensure current response is an array
+    const currentResponse = responses[currentQuestion.id];
+    const currentValues = Array.isArray(currentResponse) 
+      ? currentResponse 
+      : (currentResponse ? [currentResponse] : []);
+    
     const newValues = currentValues.includes(optionValue)
       ? currentValues.filter(v => v !== optionValue)
       : [...currentValues, optionValue];
@@ -596,7 +620,12 @@ export function HealthProfileQuestionnaireModal({
                 ) : currentQuestion.type === 'multiple_choice' ? (
                   <div className="space-y-3">
                     {currentQuestion.options.map((option) => {
-                      const isChecked = (responses[currentQuestion.id] || []).includes(option.value);
+                      // Ensure response is an array for multiple choice questions
+                      const currentResponse = responses[currentQuestion.id];
+                      const responseArray = Array.isArray(currentResponse) 
+                        ? currentResponse 
+                        : (currentResponse ? [currentResponse] : []);
+                      const isChecked = responseArray.includes(option.value);
                       return (
                         <label
                           key={option.value}
