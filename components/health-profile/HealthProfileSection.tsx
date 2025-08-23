@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { calculateProgress } from '@/lib/health-profile-flow';
 import { HealthProfileQuestionnaireModal } from './HealthProfileQuestionnaireModal';
+import { calculateAge } from '@/lib/utils/age';
 import type { User } from '@/lib/db/schema';
 
 interface HealthProfileSectionProps {
@@ -122,6 +123,21 @@ export function HealthProfileSection({ user }: HealthProfileSectionProps) {
             </h4>
             
             <div className="grid gap-3">
+              {profile.dateOfBirth && (
+                <div>
+                  <span className="text-xs text-muted-foreground">Age</span>
+                  <p className="text-sm font-medium">
+                    {(() => {
+                      try {
+                        return `${calculateAge(profile.dateOfBirth)} years`;
+                      } catch {
+                        return 'Unknown';
+                      }
+                    })()}
+                  </p>
+                </div>
+              )}
+
               {profile.cancerRegion && (
                 <div>
                   <span className="text-xs text-muted-foreground">Cancer Region</span>
