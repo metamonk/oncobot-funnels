@@ -676,9 +676,9 @@ export class LocationMatcher {
     
     const cityLower = city.toLowerCase();
     
-    for (const metroArea of this.metroAreas) {
+    for (const metroArea of this.METRO_AREAS) {
       // Check if city is in the metro area's cities list
-      if (metroArea.cities.some(c => c.toLowerCase() === cityLower)) {
+      if (metroArea.cities.some((c: string) => c.toLowerCase() === cityLower)) {
         return metroArea.name;
       }
       
@@ -701,9 +701,9 @@ export class LocationMatcher {
     const loc2Lower = location2.toLowerCase();
     
     // Check each metro area
-    for (const metroArea of this.metroAreas) {
-      const cities = metroArea.cities.map(c => c.toLowerCase());
-      const facilities = metroArea.majorFacilities.map(f => f.toLowerCase());
+    for (const metroArea of this.METRO_AREAS) {
+      const cities = metroArea.cities.map((c: string) => c.toLowerCase());
+      const facilities = metroArea.majorFacilities.map((f: string) => f.toLowerCase());
       const allTerms = [...cities, ...facilities, metroArea.center.toLowerCase()];
       
       const loc1InMetro = allTerms.some(term => loc1Lower.includes(term));

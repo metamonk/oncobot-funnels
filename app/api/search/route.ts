@@ -423,7 +423,10 @@ export async function POST(req: Request) {
           youtube_search: youtubeSearchTool,
           reddit_search: redditSearchTool,
           retrieve: retrieveTool,
-          clinical_trials: clinicalTrialsTool(id, dataStream, { latitude, longitude }),
+          clinical_trials: clinicalTrialsTool(id, dataStream, { 
+            latitude: latitude ? parseFloat(latitude) : undefined, 
+            longitude: longitude ? parseFloat(longitude) : undefined 
+          }),
           clinical_trials_info: clinicalTrialsInfoTool(dataStream),
           health_profile: healthProfileTool(dataStream),
 
