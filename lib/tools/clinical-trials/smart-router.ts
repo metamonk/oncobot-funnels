@@ -68,11 +68,15 @@ interface RouterContext {
 export class SmartRouter {
   private searchExecutor: SearchExecutor;
   private eligibilityScorer: EligibilityScorer;
+  private queryClassifier: QueryClassifier;
+  private strategyExecutor: SearchStrategyExecutor;
   private readonly NCT_PATTERN = /\bNCT\d{8}\b/gi;
   
   constructor() {
     this.searchExecutor = new SearchExecutor();
     this.eligibilityScorer = new EligibilityScorer();
+    this.queryClassifier = new QueryClassifier();
+    this.strategyExecutor = new SearchStrategyExecutor();
   }
   
   /**
@@ -80,7 +84,6 @@ export class SmartRouter {
    */
   async route(context: RouterContext): Promise<RouterResult> {
     const { query, cachedTrials, healthProfile, dataStream, userCoordinates } = context;
-    const queryLower = query.toLowerCase();
     
     // Build location context from all available sources
     const locationContext = await locationService.buildLocationContext(
@@ -97,6 +100,43 @@ export class SmartRouter {
       hasProfile: !!healthProfile,
       hasLocation: !!locationContext.userLocation,
       queryLength: query.length
+    });
+    
+    // NEW: Classify the query using intent-based system
+    const classificationContext: ClassificationContext = {
+      healthProfile,
+      userCoordinates,
+      hasCachedResults: !!cachedTrials?.length,
+      previousQuery: undefined // Could track this in future
+    };
+    
+    const classification = this.queryClassifier.classify(query, classificationContext);
+    
+    debug.log(DebugCategory.ROUTER, 'Query classification', {
+      intent: classification.intent,
+      strategy: classification.strategy,
+      confidence: classification.confidence,
+      components: classification.components
+    });
+    
+    // NEW: Execute the selected strategy
+    const executionContext: ExecutionContext = {
+      ...classificationContext,
+      chatId: context.chatId,
+      dataStream,
+      cachedTrials
+    };
+    
+    // Use the new strategy executor for intent-based routing
+    const result = await this.strategyExecutor.execute(classification, executionContext);
+    
+    if (result.success) {
+      return result;
+    }
+    
+    // Fallback to old logic if new system fails (temporary safety net)
+    debug.log(DebugCategory.ERROR, 'Intent-based routing failed, using fallback', {
+      error: result.error
     });
     
     // 1. Check for NCT ID lookups (highest priority)
