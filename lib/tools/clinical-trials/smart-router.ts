@@ -11,6 +11,8 @@ import { LocationFilter } from './pipeline/operators/filters/location-filter';
 import { EligibilityAnalyzer } from './pipeline/operators/analyzers/eligibility-analyzer';
 import { SearchExecutor } from './search-executor';
 import { QueryInterpreter } from './query-interpreter';
+import { QueryClassifier, type ClassifiedQuery, type ClassificationContext } from './query-classifier';
+import { SearchStrategyExecutor, type ExecutionContext } from './search-strategy-executor';
 import { EligibilityScorer } from './eligibility-scorer';
 import { trialAssessmentBuilder } from './trial-assessment-builder';
 import { TrialCompressor } from './trial-compressor';
@@ -84,6 +86,7 @@ export class SmartRouter {
    */
   async route(context: RouterContext): Promise<RouterResult> {
     const { query, cachedTrials, healthProfile, dataStream, userCoordinates } = context;
+    const queryLower = query.toLowerCase();
     
     // Build location context from all available sources
     const locationContext = await locationService.buildLocationContext(

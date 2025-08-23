@@ -55,5 +55,6 @@ export const DebugCategory = {
   TOOL: 'Tool',
   NCT_LOOKUP: 'NCTLookup',
   PROFILE: 'HealthProfile',
-  ERROR: 'Error'
+  ERROR: 'Error',
+  ROUTER: 'Router'
 } as const;
