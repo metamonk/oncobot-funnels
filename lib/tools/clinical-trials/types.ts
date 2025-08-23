@@ -334,6 +334,15 @@ export interface TrialMatch {
   };
   // UI-expected assessment structure
   eligibilityAssessment?: {
+    // From EligibilityAnalyzer
+    likelyEligible?: boolean;
+    score?: number;
+    inclusionMatches?: string[];
+    exclusionConcerns?: string[];
+    uncertainFactors?: string[];
+    missingInformation?: string[];
+    
+    // Original structure (kept for compatibility)
     trialCriteria?: {
       parsed: boolean;
       inclusion: Array<{

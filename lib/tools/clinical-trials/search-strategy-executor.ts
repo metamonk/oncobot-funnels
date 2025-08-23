@@ -3,6 +3,8 @@
  * 
  * Executes different search strategies based on classified query intent
  * Leverages existing cache, compression, and streaming infrastructure
+ * 
+ * ENHANCED: Now uses QueryContext to preserve all information throughout execution
  */
 
 import { SearchExecutor } from './search-executor';
@@ -20,6 +22,11 @@ import {
   SearchStrategy,
   type ClassificationContext 
 } from './query-classifier';
+import { 
+  QueryContext, 
+  preserveContext,
+  UserLocation
+} from './query-context';
 
 export interface ExecutionContext extends ClassificationContext {
   chatId?: string;
@@ -36,7 +43,9 @@ export interface RouterResult {
   matches?: TrialMatch[];
   error?: string;
   message?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> & {
+    queryContext?: QueryContext;
+  };
   totalCount?: number;
   hasMore?: boolean;
   currentOffset?: number;
@@ -45,12 +54,763 @@ export interface RouterResult {
 export class SearchStrategyExecutor {
   private searchExecutor: SearchExecutor;
   private locationService: LocationService;
-  private compressor: TrialCompressor;
   
   constructor() {
     this.searchExecutor = new SearchExecutor();
     this.locationService = LocationService.getInstance();
-    this.compressor = new TrialCompressor();
+    // TrialCompressor uses static methods, no instance needed
+  }
+
+  /**
+   * NEW: Execute search with full QueryContext preservation
+   * This is the primary entry point that ensures no information is lost
+   */
+  async executeWithContext(queryContext: QueryContext): Promise<RouterResult> {
+    const startTime = Date.now();
+    
+    debug.log(DebugCategory.TOOL, 'Executing with QueryContext', {
+      contextId: queryContext.tracking.contextId,
+      primaryStrategy: queryContext.executionPlan.primaryStrategy,
+      enrichments: queryContext.enrichments,
+      hasProfile: !!queryContext.user.healthProfile,
+      hasLocation: !!queryContext.user.location
+    });
+
+    // Track this execution
+    queryContext.metadata.searchStrategiesUsed.push(queryContext.executionPlan.primaryStrategy);
+    queryContext.tracking.decisionsMade.push({
+      component: 'SearchStrategyExecutor',
+      decision: `Executing ${queryContext.executionPlan.primaryStrategy} strategy`,
+      confidence: queryContext.inferred.confidence,
+      reasoning: `Based on ${queryContext.inferred.primaryGoal} goal with ${queryContext.inferred.specificity} specificity`
+    });
+
+    try {
+      let result: RouterResult;
+
+      // Execute primary strategy with full context
+      switch (queryContext.executionPlan.primaryStrategy) {
+        case 'nct_direct':
+          result = await this.executeNCTDirectWithContext(queryContext);
+          break;
+        
+        case 'profile_based':
+          result = await this.executeProfileBasedWithContext(queryContext);
+          break;
+        
+        case 'location_based':
+          result = await this.executeLocationBasedWithContext(queryContext);
+          break;
+        
+        case 'condition_based':
+          result = await this.executeConditionBasedWithContext(queryContext);
+          break;
+        
+        case 'broad':
+        default:
+          result = await this.executeBroadSearchWithContext(queryContext);
+          break;
+      }
+
+      // If primary strategy didn't yield enough results, try fallbacks
+      if (result.matches && result.matches.length < 5 && queryContext.executionPlan.fallbackStrategies.length > 0) {
+        debug.log(DebugCategory.TOOL, 'Primary strategy yielded few results, trying fallbacks', {
+          primaryResults: result.matches.length,
+          fallbacks: queryContext.executionPlan.fallbackStrategies
+        });
+
+        for (const fallback of queryContext.executionPlan.fallbackStrategies) {
+          queryContext.metadata.searchStrategiesUsed.push(fallback);
+          const fallbackResult = await this.executeFallbackStrategy(fallback, queryContext);
+          
+          if (fallbackResult.success && fallbackResult.matches) {
+            // Merge results, avoiding duplicates
+            const existingIds = new Set(result.matches.map(m => m.trial.nctId));
+            const newMatches = fallbackResult.matches.filter(m => !existingIds.has(m.trial.nctId));
+            result.matches.push(...newMatches);
+            
+            if (result.matches.length >= 10) break; // Enough results
+          }
+        }
+      }
+
+      // Apply compression with full context
+      if (result.success && result.matches) {
+        result.matches = await this.compressMatchesWithContext(result.matches, queryContext);
+      }
+
+      // Update context with execution time
+      queryContext.metadata.processingTime = Date.now() - startTime;
+
+      return result;
+
+    } catch (error) {
+      debug.log(DebugCategory.ERROR, 'Context-aware execution failed', { 
+        error,
+        contextId: queryContext.tracking.contextId 
+      });
+
+      queryContext.tracking.decisionsMade.push({
+        component: 'SearchStrategyExecutor',
+        decision: 'Execution failed',
+        confidence: 0,
+        reasoning: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Search execution failed',
+        message: 'Unable to complete search. Please try a different query.',
+        matches: [],
+        totalCount: 0
+      };
+    }
+  }
+
+  /**
+   * Execute NCT Direct lookup with context
+   */
+  private async executeNCTDirectWithContext(context: QueryContext): Promise<RouterResult> {
+    const nctIds = context.extracted.nctIds;
+    
+    if (nctIds.length === 0) {
+      return {
+        success: false,
+        error: 'No NCT IDs found in query',
+        matches: [],
+        totalCount: 0
+      };
+    }
+
+    // Execute parallel lookups for all NCT IDs
+    const queries = nctIds.map(id => id);  // Just use the NCT ID directly
+    const results = await this.searchExecutor.executeParallelSearches(
+      queries,
+      queries.map(() => 'filter.ids'),
+      { maxResults: nctIds.length }
+    );
+
+    // Combine results
+    const allTrials: ClinicalTrial[] = [];
+    for (const result of results) {
+      if (result.studies) {
+        allTrials.push(...result.studies);
+      }
+    }
+
+    // Create matches with context-aware compression hints
+    const compressionContext = this.buildCompressionContext(context);
+    const matches = this.createMatchesWithContext(allTrials, context, compressionContext);
+
+    return {
+      success: true,
+      matches,
+      totalCount: allTrials.length,
+      metadata: {
+        nctIds,
+        contextId: context.tracking.contextId
+      }
+    };
+  }
+
+  /**
+   * Execute profile-based search with context
+   * ENHANCED: Now uses broad search → filter → assess approach
+   */
+  private async executeProfileBasedWithContext(context: QueryContext): Promise<RouterResult> {
+    const profile = context.user.healthProfile;
+    
+    if (!profile) {
+      // Fallback to broad search if no profile
+      return this.executeBroadSearchWithContext(context);
+    }
+
+    // ADAPTIVE STRATEGY: Start with broad disease search to cast wide net
+    const cancerType = profile.cancerType || profile.cancer_type || '';
+    const cancerRegion = profile.cancerRegion || profile.cancer_region || '';
+    
+    // Get search terms based on cancer type or region
+    let searchTerms: string[] = [];
+    if (cancerType && cancerType !== 'OTHER') {
+      // Map cancer type to region and get terms
+      const typeRegion = CancerTypeMapper.getRegionForType(cancerType);
+      searchTerms = CancerTypeMapper.getSearchTermsForRegion(typeRegion);
+      // Also add the specific cancer type if not in the list
+      if (!searchTerms.some(t => t.toLowerCase() === cancerType.toLowerCase())) {
+        searchTerms.unshift(cancerType);
+      }
+    } else if (cancerRegion) {
+      searchTerms = CancerTypeMapper.getSearchTermsForRegion(cancerRegion);
+    } else {
+      // Fallback to generic cancer search
+      searchTerms = ['cancer'];
+    }
+    
+    // Build broad query with just disease terms (not mutations yet)
+    const broadQuery = searchTerms.slice(0, 5).join(' OR '); // Limit to top 5 terms
+    
+    debug.log(DebugCategory.SEARCH, 'Profile-based broad search', {
+      strategy: 'broad-then-filter',
+      broadQuery,
+      cancerType,
+      hasLocation: !!context.user.location,
+      hasMutations: !!profile.molecularMarkers || !!profile.mutations
+    });
+
+    // Step 1: Broad search to get comprehensive results
+    const { studies, totalCount } = await this.executeSingleSearch(
+      broadQuery,
+      'cond', // Use condition field for disease searches
+      { maxResults: 200 } // Get more results to filter
+    );
+
+    debug.log(DebugCategory.SEARCH, 'Broad search results', {
+      retrieved: studies.length,
+      totalAvailable: totalCount
+    });
+
+    // Step 2: Filter by profile criteria
+    let filteredTrials = await this.filterByHealthProfile(studies, profile, context);
+    
+    debug.log(DebugCategory.SEARCH, 'After profile filtering', {
+      beforeFilter: studies.length,
+      afterFilter: filteredTrials.length,
+      filterRatio: filteredTrials.length / Math.max(1, studies.length)
+    });
+
+    // Step 3: Apply location filtering if specified
+    if (context.user.location && context.user.location.coordinates) {
+      filteredTrials = await this.applyLocationFiltering(filteredTrials, context.user.location);
+      debug.log(DebugCategory.SEARCH, 'After location filtering', {
+        trialsWithLocation: filteredTrials.length
+      });
+    }
+
+    // Step 4: Perform eligibility assessment
+    const assessedTrials = await this.assessEligibility(filteredTrials, profile, context);
+
+    // Step 5: Rank by relevance (eligibility score + other factors)
+    const rankedTrials = this.rankByRelevance(assessedTrials, context);
+
+    // Step 6: Create matches with full context and assessment
+    const compressionContext = this.buildCompressionContext(context);
+    const matches = this.createEnhancedMatches(rankedTrials, context, compressionContext);
+
+    return {
+      success: true,
+      matches,
+      totalCount,
+      metadata: {
+        strategy: 'adaptive-broad-filter',
+        broadQuery,
+        retrievedCount: studies.length,
+        filteredCount: filteredTrials.length,
+        assessedCount: assessedTrials.length,
+        profileUsed: true,
+        contextId: context.tracking.contextId
+      }
+    };
+  }
+
+  /**
+   * Execute location-based search with context
+   */
+  private async executeLocationBasedWithContext(context: QueryContext): Promise<RouterResult> {
+    const location = context.user.location || this.extractLocationFromContext(context);
+    
+    if (!location) {
+      // Fallback to broad search
+      return this.executeBroadSearchWithContext(context);
+    }
+
+    // Build location-aware search query
+    const baseQuery = context.executionPlan.searchParams.enrichedQuery || context.originalQuery;
+    const locationQuery = this.buildLocationQuery(location, baseQuery, context);
+
+    const { studies, totalCount } = await this.executeSingleSearch(
+      locationQuery,
+      '_fulltext',
+      { maxResults: 100 }
+    );
+
+    // Apply distance-based ranking
+    let rankedTrials = studies;
+    if (location.coordinates) {
+      const locationContext = {
+        userLocation: {
+          coordinates: {
+            lat: location.coordinates.latitude,
+            lng: location.coordinates.longitude
+          },
+          city: location.city,
+          state: location.state
+        },
+        searchRadius: location.searchRadius
+      };
+      rankedTrials = await this.locationService.rankTrialsByProximity(studies, locationContext);
+      // rankTrialsByProximity already sorts by distance
+    }
+
+    const compressionContext = this.buildCompressionContext(context);
+    let matches = this.createMatchesWithContext(rankedTrials, context, compressionContext);
+
+    // Apply contextual profile enhancement for location queries
+    const { ProfileInfluence } = await import('./query-context');
+    if (context.user.healthProfile && 
+        context.profileInfluence.level === ProfileInfluence.CONTEXTUAL &&
+        !context.profileInfluence.disableProfile) {
+      
+      debug.log(DebugCategory.SEARCH, 'Applying contextual profile to location search', {
+        beforeEnhancement: matches.length,
+        profileInfluence: context.profileInfluence.reason
+      });
+      
+      matches = await this.applyUniversalProfileEnhancement(rankedTrials, context, matches);
+    }
+
+    return {
+      success: true,
+      matches,
+      totalCount,
+      metadata: {
+        location: location.city || 'User location',
+        contextId: context.tracking.contextId,
+        profileApplied: context.profileInfluence.level !== ProfileInfluence.DISABLED
+      }
+    };
+  }
+
+  /**
+   * Execute condition-based search with context
+   */
+  private async executeConditionBasedWithContext(context: QueryContext): Promise<RouterResult> {
+    // Build condition-focused query
+    const conditions = [
+      ...context.extracted.conditions,
+      ...context.extracted.cancerTypes
+    ];
+
+    if (conditions.length === 0 && context.user.healthProfile?.cancerType) {
+      conditions.push(context.user.healthProfile.cancerType);
+    }
+
+    if (conditions.length === 0) {
+      return this.executeBroadSearchWithContext(context);
+    }
+
+    const searchQuery = this.buildConditionQuery(conditions, context);
+
+    const { studies, totalCount } = await this.executeSingleSearch(
+      searchQuery,
+      'cond',
+      { maxResults: 100 }
+    );
+
+    const compressionContext = this.buildCompressionContext(context);
+    let matches = this.createMatchesWithContext(studies, context, compressionContext);
+
+    // Apply universal profile enhancement for condition queries
+    const { ProfileInfluence } = await import('./query-context');
+    if (context.user.healthProfile && 
+        context.profileInfluence.level === ProfileInfluence.ENHANCED &&
+        !context.profileInfluence.disableProfile) {
+      
+      debug.log(DebugCategory.SEARCH, 'Applying enhanced profile to condition search', {
+        beforeEnhancement: matches.length,
+        profileInfluence: context.profileInfluence.reason
+      });
+      
+      matches = await this.applyUniversalProfileEnhancement(studies, context, matches);
+    }
+
+    return {
+      success: true,
+      matches,
+      totalCount,
+      metadata: {
+        conditions,
+        contextId: context.tracking.contextId,
+        profileApplied: context.profileInfluence.level !== ProfileInfluence.DISABLED
+      }
+    };
+  }
+
+  /**
+   * Execute broad search with context
+   */
+  private async executeBroadSearchWithContext(context: QueryContext): Promise<RouterResult> {
+    const searchQuery = context.executionPlan.searchParams.enrichedQuery || context.originalQuery;
+
+    const { studies, totalCount } = await this.executeSingleSearch(
+      searchQuery,
+      'term',
+      { maxResults: 100 }
+    );
+
+    const compressionContext = this.buildCompressionContext(context);
+    let matches = this.createMatchesWithContext(studies, context, compressionContext);
+
+    // Apply background profile hints for broad queries
+    const { ProfileInfluence } = await import('./query-context');
+    if (context.user.healthProfile && 
+        context.profileInfluence.level === ProfileInfluence.BACKGROUND &&
+        !context.profileInfluence.disableProfile) {
+      
+      debug.log(DebugCategory.SEARCH, 'Adding background profile hints to broad search', {
+        beforeEnhancement: matches.length,
+        profileInfluence: context.profileInfluence.reason
+      });
+      
+      matches = await this.applyUniversalProfileEnhancement(studies, context, matches);
+    }
+
+    return {
+      success: true,
+      matches,
+      totalCount,
+      metadata: {
+        searchType: 'broad',
+        contextId: context.tracking.contextId,
+        profileApplied: context.profileInfluence.level !== ProfileInfluence.DISABLED
+      }
+    };
+  }
+
+  /**
+   * Helper: Build compression context from QueryContext
+   */
+  private buildCompressionContext(context: QueryContext): any {
+    const compressionContext: any = {};
+
+    // Add location context for compression
+    if (context.user.location) {
+      compressionContext.targetLocation = {
+        city: context.user.location.city,
+        state: context.user.location.state,
+        country: context.user.location.country || 'United States',
+        coordinates: context.user.location.coordinates
+      };
+      compressionContext.searchRadius = context.user.location.searchRadius;
+    }
+
+    // Add any extracted locations as well
+    if (context.extracted.locations.length > 0) {
+      const primaryLocation = context.extracted.locations[0];
+      if (primaryLocation === 'NEAR_ME' && context.user.location) {
+        // Already handled above
+      } else if (primaryLocation && primaryLocation !== 'NEAR_ME') {
+        // Parse the location string to get city/state
+        const locationParts = this.parseLocationString(primaryLocation);
+        compressionContext.targetLocation = {
+          ...compressionContext.targetLocation,
+          ...locationParts
+        };
+      }
+    }
+
+    return compressionContext;
+  }
+
+  /**
+   * Helper: Create matches with full context
+   */
+  private createMatchesWithContext(
+    trials: ClinicalTrial[], 
+    context: QueryContext,
+    compressionContext: any
+  ): TrialMatch[] {
+    return trials.map(trial => {
+      // Compress trial with context
+      const compressedTrial = TrialCompressor.compressTrial(trial, compressionContext);
+      
+      // Extract locations from compressed trial
+      const locations = compressedTrial.protocolSection?.contactsLocationsModule?.locations || [];
+      
+      // Build proper TrialMatch structure
+      const match: TrialMatch = {
+        nctId: compressedTrial.protocolSection?.identificationModule?.nctId || '',
+        title: compressedTrial.protocolSection?.identificationModule?.briefTitle || '',
+        summary: compressedTrial.protocolSection?.descriptionModule?.briefSummary || '',
+        conditions: compressedTrial.protocolSection?.conditionsModule?.conditions || [],
+        interventions: compressedTrial.protocolSection?.armsInterventionsModule?.interventions?.map(
+          (i: any) => i.name || ''
+        ) || [],
+        locations: locations.map((loc: any) => ({
+          facility: loc.facility || '',
+          city: loc.city || '',
+          state: loc.state || '',
+          country: loc.country || '',
+          status: loc.status || ''
+        })),
+        locationSummary: compressedTrial.protocolSection?.contactsLocationsModule?.locationSummary,
+        phases: compressedTrial.protocolSection?.designModule?.phases || [],
+        studyType: compressedTrial.protocolSection?.designModule?.studyType,
+        enrollmentCount: compressedTrial.protocolSection?.designModule?.enrollmentInfo?.count,
+        lastUpdateDate: compressedTrial.protocolSection?.statusModule?.lastUpdatePostDateStruct?.date || '',
+        matchReason: this.generateMatchReason(trial, context),
+        relevanceScore: this.calculateRelevanceScore(trial, context),
+        trial: compressedTrial,
+        distance: (trial as any).distance
+      };
+      
+      return match;
+    });
+  }
+
+  /**
+   * Helper: Calculate relevance score based on context
+   */
+  private calculateRelevanceScore(trial: ClinicalTrial, context: QueryContext): number {
+    let score = 0.5; // Base score
+
+    // Boost for NCT ID match
+    if (context.extracted.nctIds.includes(trial.nctId)) {
+      score = 1.0;
+    }
+
+    // Boost for mutation matches
+    const trialText = JSON.stringify(trial).toLowerCase();
+    context.extracted.mutations.forEach(mutation => {
+      if (trialText.includes(mutation.toLowerCase())) {
+        score += 0.1;
+      }
+    });
+
+    // Boost for condition matches
+    context.extracted.conditions.forEach(condition => {
+      if (trialText.includes(condition.toLowerCase())) {
+        score += 0.1;
+      }
+    });
+
+    // Boost for location match
+    if (context.user.location && trial.locations) {
+      const hasLocalTrial = trial.locations.some(loc => 
+        this.isLocationMatch(loc, context.user.location!)
+      );
+      if (hasLocalTrial) score += 0.2;
+    }
+
+    return Math.min(score, 1.0);
+  }
+
+  /**
+   * Helper: Generate match reason based on context
+   */
+  private generateMatchReason(trial: ClinicalTrial, context: QueryContext): string {
+    const reasons: string[] = [];
+
+    if (context.extracted.nctIds.includes(trial.nctId)) {
+      reasons.push('Direct NCT ID match');
+    }
+
+    if (context.user.healthProfile?.cancerType) {
+      reasons.push(`Matches ${context.user.healthProfile.cancerType}`);
+    }
+
+    if (context.extracted.mutations.length > 0) {
+      reasons.push(`Relevant to ${context.extracted.mutations.join(', ')}`);
+    }
+
+    if (context.user.location) {
+      reasons.push('Available in your area');
+    }
+
+    return reasons.length > 0 ? reasons.join('; ') : 'Potential match based on search criteria';
+  }
+
+  /**
+   * Helper methods for building queries and filtering
+   */
+  private buildProfileSearchQuery(profile: HealthProfile, context: QueryContext): string {
+    const parts: string[] = [];
+
+    // Add cancer type
+    if (profile.cancerType || profile.cancer_type) {
+      const cancerType = profile.cancerType || profile.cancer_type;
+      // Get search terms for the cancer type
+      let searchTerms: string[] = [];
+      if (cancerType && cancerType !== 'OTHER') {
+        const typeRegion = CancerTypeMapper.getRegionForType(cancerType);
+        searchTerms = CancerTypeMapper.getSearchTermsForRegion(typeRegion);
+        if (!searchTerms.some(t => t.toLowerCase() === cancerType.toLowerCase())) {
+          searchTerms.unshift(cancerType);
+        }
+      } else {
+        searchTerms = ['cancer'];
+      }
+      parts.push(searchTerms.join(' OR '));
+    }
+
+    // Add positive mutations
+    if (profile.molecularMarkers) {
+      const positiveMarkers = Object.entries(profile.molecularMarkers)
+        .filter(([_, value]) => value === 'POSITIVE')
+        .map(([marker, _]) => marker.replace(/_/g, ' '));
+      
+      if (positiveMarkers.length > 0) {
+        parts.push(positiveMarkers.join(' '));
+      }
+    }
+
+    // Add any additional extracted entities
+    if (context.extracted.drugs.length > 0) {
+      parts.push(context.extracted.drugs.join(' OR '));
+    }
+
+    return parts.join(' ');
+  }
+
+  private buildLocationQuery(location: UserLocation, baseQuery: string, context: QueryContext): string {
+    const parts: string[] = [baseQuery];
+
+    if (location.city) {
+      parts.push(location.city);
+    }
+    if (location.state) {
+      parts.push(location.state);
+    }
+
+    // Add cancer type if available
+    if (context.user.healthProfile?.cancerType) {
+      parts.push(context.user.healthProfile.cancerType);
+    }
+
+    return parts.join(' ');
+  }
+
+  private buildConditionQuery(conditions: string[], context: QueryContext): string {
+    const parts: string[] = [...conditions];
+
+    // Add mutations if available
+    if (context.extracted.mutations.length > 0) {
+      parts.push(...context.extracted.mutations);
+    }
+
+    // Add stage if available
+    if (context.extracted.stages.length > 0) {
+      parts.push(...context.extracted.stages);
+    }
+
+    return parts.join(' ');
+  }
+
+  private extractLocationFromContext(context: QueryContext): UserLocation | null {
+    if (context.extracted.locations.length === 0) {
+      return null;
+    }
+
+    const primaryLocation = context.extracted.locations[0];
+    
+    if (primaryLocation === 'NEAR_ME') {
+      return context.user.location || null;
+    }
+
+    const parsed = this.parseLocationString(primaryLocation);
+    return {
+      city: parsed.city,
+      state: parsed.state,
+      country: 'United States',
+      explicitlyRequested: true
+    };
+  }
+
+  private parseLocationString(location: string): { city?: string; state?: string } {
+    // Handle "City, State" format
+    const parts = location.split(',').map(p => p.trim());
+    
+    if (parts.length === 2) {
+      return { city: parts[0], state: parts[1] };
+    }
+    
+    // Handle known cities
+    const knownCities = {
+      'Chicago': 'Illinois',
+      'Boston': 'Massachusetts',
+      'New York': 'New York',
+      'Los Angeles': 'California',
+      'Houston': 'Texas'
+    };
+
+    if (knownCities[location as keyof typeof knownCities]) {
+      return {
+        city: location,
+        state: knownCities[location as keyof typeof knownCities]
+      };
+    }
+
+    return { city: location };
+  }
+
+  private isLocationMatch(trialLocation: any, userLocation: UserLocation): boolean {
+    if (!trialLocation) return false;
+
+    if (userLocation.city && trialLocation.city) {
+      if (trialLocation.city.toLowerCase().includes(userLocation.city.toLowerCase())) {
+        return true;
+      }
+    }
+
+    if (userLocation.state && trialLocation.state) {
+      if (trialLocation.state.toLowerCase() === userLocation.state.toLowerCase()) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private async applyLocationFiltering(
+    trials: ClinicalTrial[], 
+    location: UserLocation
+  ): Promise<ClinicalTrial[]> {
+    if (!location.coordinates) {
+      // Filter by city/state text match
+      return trials.filter(trial => {
+        if (!trial.locations) return false;
+        return trial.locations.some(loc => this.isLocationMatch(loc, location));
+      });
+    }
+
+    // Calculate distances and filter by radius
+    const locationContext = {
+      userLocation: {
+        coordinates: {
+          lat: location.coordinates.latitude,
+          lng: location.coordinates.longitude
+        },
+        city: location.city,
+        state: location.state
+      },
+      searchRadius: location.searchRadius || 100 // Default 100 miles
+    };
+    
+    // rankTrialsByProximity already filters by radius if specified
+    const trialsWithDistance = await this.locationService.rankTrialsByProximity(trials, locationContext);
+    return trialsWithDistance;
+  }
+
+  private async executeFallbackStrategy(strategy: string, context: QueryContext): Promise<RouterResult> {
+    // Simple mapping to reuse existing methods
+    switch (strategy) {
+      case 'condition_based':
+        return this.executeConditionBasedWithContext(context);
+      case 'location_based':
+        return this.executeLocationBasedWithContext(context);
+      case 'broad':
+        return this.executeBroadSearchWithContext(context);
+      default:
+        return { success: false, matches: [], totalCount: 0 };
+    }
+  }
+
+  private async compressMatchesWithContext(matches: TrialMatch[], context: QueryContext): Promise<TrialMatch[]> {
+    const compressionContext = this.buildCompressionContext(context);
+    
+    return matches.map(match => ({
+      ...match,
+      trial: TrialCompressor.compressTrial(match.trial, compressionContext)
+    }));
   }
   
   /**
@@ -1442,5 +2202,538 @@ export class SearchStrategyExecutor {
     }
     
     return parts.join(' ');
+  }
+
+  /**
+   * Filter trials by health profile criteria
+   * Part of the adaptive broad → filter → assess strategy
+   */
+  private async filterByHealthProfile(
+    trials: ClinicalTrial[], 
+    profile: HealthProfile,
+    context: QueryContext
+  ): Promise<ClinicalTrial[]> {
+    return trials.filter(trial => {
+      // Check cancer type match
+      const conditions = trial.protocolSection?.conditionsModule?.conditions || [];
+      const summary = trial.protocolSection?.descriptionModule?.briefSummary || '';
+      const eligibility = trial.protocolSection?.eligibilityModule?.eligibilityCriteria || '';
+      
+      const trialText = [...conditions, summary, eligibility].join(' ').toLowerCase();
+      
+      // Filter by cancer type
+      const cancerType = (profile.cancerType || profile.cancer_type || '').toLowerCase();
+      if (cancerType && !trialText.includes(cancerType.replace(/_/g, ' '))) {
+        // Check for alternative names
+        // Get search terms for the cancer type
+      let searchTerms: string[] = [];
+      if (cancerType && cancerType !== 'OTHER') {
+        const typeRegion = CancerTypeMapper.getRegionForType(cancerType);
+        searchTerms = CancerTypeMapper.getSearchTermsForRegion(typeRegion);
+        if (!searchTerms.some(t => t.toLowerCase() === cancerType.toLowerCase())) {
+          searchTerms.unshift(cancerType);
+        }
+      } else {
+        searchTerms = ['cancer'];
+      }
+        const hasMatch = searchTerms.some(term => 
+          trialText.includes(term.toLowerCase())
+        );
+        if (!hasMatch) return false;
+      }
+      
+      // Filter by molecular markers if present
+      if (profile.molecularMarkers) {
+        const positiveMarkers = Object.entries(profile.molecularMarkers)
+          .filter(([_, status]) => status === 'POSITIVE' || status === 'HIGH')
+          .map(([marker, _]) => marker);
+        
+        // If trial specifically mentions a marker, it should match profile
+        for (const marker of positiveMarkers) {
+          const markerName = marker.replace(/_/g, ' ').toLowerCase();
+          if (trialText.includes(markerName)) {
+            // Trial mentions this marker, good match
+            return true;
+          }
+        }
+      }
+      
+      // Check stage if available
+      const stage = profile.diseaseStage || profile.stage;
+      if (stage) {
+        const normalizedStage = stage.toLowerCase().replace(/_/g, ' ');
+        // Advanced/metastatic trials often accept stage IV
+        if (normalizedStage.includes('iv') || normalizedStage.includes('4')) {
+          if (trialText.includes('advanced') || trialText.includes('metastatic')) {
+            return true;
+          }
+        }
+      }
+      
+      return true; // Include by default if no specific exclusion
+    });
+  }
+
+  /**
+   * Assess eligibility for filtered trials
+   * Uses the existing EligibilityAnalyzer
+   */
+  private async assessEligibility(
+    trials: ClinicalTrial[],
+    profile: HealthProfile,
+    context: QueryContext
+  ): Promise<ClinicalTrial[]> {
+    // Import EligibilityAnalyzer if not already imported
+    const { EligibilityAnalyzer } = await import('./eligibility-analyzer');
+    
+    const analyzer = new EligibilityAnalyzer({
+      detailed: true,
+      extractCriteria: true,
+      maxDetailedAnalysis: Math.min(20, trials.length),
+      streamFullCriteria: !!context.dataStream
+    });
+    
+    const assessedTrials = await analyzer.execute(trials, {
+      healthProfile: profile,
+      userQuery: context.originalQuery,
+      intent: context.inferred.primaryGoal === 'find_eligible_trials' ? 'eligibility' : 'discovery',
+      dataStream: context.dataStream,
+      chatId: context.tracking.contextId
+    });
+    
+    return assessedTrials;
+  }
+
+  /**
+   * Rank trials by relevance including eligibility scores
+   */
+  private rankByRelevance(
+    trials: ClinicalTrial[],
+    context: QueryContext
+  ): ClinicalTrial[] {
+    return trials.sort((a, b) => {
+      // Get eligibility scores if available
+      const scoreA = (a as any)._eligibilityAnalysis?.eligibilityScore || 0.5;
+      const scoreB = (b as any)._eligibilityAnalysis?.eligibilityScore || 0.5;
+      
+      // Consider likelihood of eligibility
+      const eligibleA = (a as any)._eligibilityAnalysis?.likelyEligible ? 1 : 0;
+      const eligibleB = (b as any)._eligibilityAnalysis?.likelyEligible ? 1 : 0;
+      
+      // Primary sort by likely eligibility, then by score
+      if (eligibleA !== eligibleB) {
+        return eligibleB - eligibleA;
+      }
+      
+      return scoreB - scoreA;
+    });
+  }
+
+  /**
+   * Create enhanced matches with eligibility assessment data
+   */
+  private createEnhancedMatches(
+    trials: ClinicalTrial[],
+    context: QueryContext,
+    compressionContext: any
+  ): TrialMatch[] {
+    return trials.map(trial => {
+      const compressedTrial = TrialCompressor.compressTrial(trial, compressionContext);
+      const eligibilityAnalysis = (trial as any)._eligibilityAnalysis;
+      
+      // Extract locations from compressed trial
+      const locations = compressedTrial.protocolSection?.contactsLocationsModule?.locations || [];
+      
+      // Build enhanced match with eligibility data
+      const match: TrialMatch = {
+        nctId: compressedTrial.protocolSection?.identificationModule?.nctId || '',
+        title: compressedTrial.protocolSection?.identificationModule?.briefTitle || '',
+        summary: compressedTrial.protocolSection?.descriptionModule?.briefSummary || '',
+        conditions: compressedTrial.protocolSection?.conditionsModule?.conditions || [],
+        interventions: compressedTrial.protocolSection?.armsInterventionsModule?.interventions?.map(
+          (i: any) => i.name || ''
+        ) || [],
+        locations: locations.map((loc: any) => ({
+          facility: loc.facility || '',
+          city: loc.city || '',
+          state: loc.state || '',
+          country: loc.country || '',
+          status: loc.status || ''
+        })),
+        locationSummary: compressedTrial.protocolSection?.contactsLocationsModule?.locationSummary,
+        phases: compressedTrial.protocolSection?.designModule?.phases || [],
+        studyType: compressedTrial.protocolSection?.designModule?.studyType,
+        enrollmentCount: compressedTrial.protocolSection?.designModule?.enrollmentInfo?.count,
+        lastUpdateDate: compressedTrial.protocolSection?.statusModule?.lastUpdatePostDateStruct?.date || '',
+        matchReason: this.generateEnhancedMatchReason(trial, context, eligibilityAnalysis),
+        relevanceScore: eligibilityAnalysis?.eligibilityScore || this.calculateRelevanceScore(trial, context),
+        trial: compressedTrial,
+        distance: (trial as any).distance,
+        // Create three-layer assessment structure that UI expects
+        eligibilityAssessment: eligibilityAnalysis ? this.createThreeLayerAssessment(
+          trial,
+          eligibilityAnalysis,
+          context
+        ) : undefined
+      };
+      
+      return match;
+    });
+  }
+
+  /**
+   * Create the three-layer assessment structure that the UI expects
+   */
+  private createThreeLayerAssessment(
+    trial: ClinicalTrial,
+    eligibilityAnalysis: any,
+    context: QueryContext
+  ): any {
+    const hasProfile = !!context.user.healthProfile;
+    
+    // Layer 1: Search Relevance (why this trial appeared)
+    const searchRelevance = {
+      matchedTerms: this.extractMatchedTerms(trial, context),
+      relevanceScore: eligibilityAnalysis?.eligibilityScore || 0.5,
+      searchStrategy: context.executionPlan.primaryStrategy,
+      reasoning: this.generateSearchReasoning(trial, context)
+    };
+    
+    // Layer 2: Trial Criteria (the trial's requirements)
+    const trialCriteria = this.extractTrialCriteria(trial);
+    
+    // Layer 3: User Assessment (only if profile exists)
+    const userAssessment = hasProfile && eligibilityAnalysis ? {
+      hasProfile: true,
+      eligibilityScore: eligibilityAnalysis.eligibilityScore,
+      confidence: this.determineConfidence(eligibilityAnalysis),
+      recommendation: this.determineRecommendation(eligibilityAnalysis),
+      inclusionMatches: eligibilityAnalysis.inclusionMatches || [],
+      exclusionConcerns: eligibilityAnalysis.exclusionConcerns || [],
+      missingData: eligibilityAnalysis.missingInformation || [],
+      matches: {
+        inclusion: (eligibilityAnalysis.inclusionMatches || []).map((text: string) => ({
+          text,
+          matchType: 'inferred' as const,
+          confidence: 0.7,
+          reasoning: text
+        })),
+        exclusion: (eligibilityAnalysis.exclusionConcerns || []).map((text: string) => ({
+          text,
+          matchType: 'inferred' as const,
+          confidence: 0.7,
+          reasoning: text
+        }))
+      }
+    } : hasProfile ? {
+      hasProfile: true,
+      missingData: ['Unable to perform eligibility assessment'],
+      matches: { inclusion: [], exclusion: [] }
+    } : undefined;
+    
+    return {
+      searchRelevance,
+      trialCriteria,
+      userAssessment
+    };
+  }
+
+  /**
+   * Extract matched search terms
+   */
+  private extractMatchedTerms(trial: ClinicalTrial, context: QueryContext): string[] {
+    const terms: string[] = [];
+    const queryLower = context.originalQuery.toLowerCase();
+    const conditions = trial.protocolSection?.conditionsModule?.conditions || [];
+    
+    // Check for condition matches
+    conditions.forEach(condition => {
+      if (queryLower.includes(condition.toLowerCase()) || 
+          condition.toLowerCase().includes(queryLower)) {
+        terms.push(condition);
+      }
+    });
+    
+    // Check for cancer type matches - handle both cancerType and cancer_type
+    const profile = context.user.healthProfile;
+    const cancerType = profile?.cancerType || (profile as any)?.cancer_type;
+    if (cancerType) {
+      if (conditions.some(c => c.toLowerCase().includes(cancerType.toLowerCase()))) {
+        terms.push(cancerType);
+      }
+    }
+    
+    // Check for mutation matches
+    if (profile?.molecularMarkers) {
+      Object.entries(profile.molecularMarkers).forEach(([marker, status]) => {
+        if (status === 'POSITIVE' || status === 'HIGH') {
+          const markerName = marker.replace(/_/g, ' ');
+          if (trial.protocolSection?.descriptionModule?.briefSummary?.includes(markerName)) {
+            terms.push(markerName);
+          }
+        }
+      });
+    }
+    
+    return [...new Set(terms)]; // Remove duplicates
+  }
+
+  /**
+   * Generate search reasoning
+   */
+  private generateSearchReasoning(trial: ClinicalTrial, context: QueryContext): string {
+    const reasons: string[] = [];
+    
+    if (context.inferred?.primaryGoal === 'find_eligible_trials') {
+      reasons.push('Matched your health profile criteria');
+    }
+    
+    if (context.user?.location) {
+      reasons.push(`Located in ${context.user.location.city || 'your area'}`);
+    }
+    
+    if (context.inferred?.conditions && context.inferred.conditions.length > 0) {
+      reasons.push(`Studying ${context.inferred.conditions.join(', ')}`);
+    }
+    
+    return reasons.join('. ') || 'Matched search criteria';
+  }
+
+  /**
+   * Extract and structure trial criteria
+   */
+  private extractTrialCriteria(trial: ClinicalTrial): any {
+    const eligibilityCriteria = trial.protocolSection?.eligibilityModule?.eligibilityCriteria;
+    
+    if (!eligibilityCriteria) {
+      return {
+        parsed: false,
+        inclusion: [],
+        exclusion: [],
+        demographics: {},
+        parseConfidence: 0,
+        rawText: 'Eligibility criteria not available'
+      };
+    }
+    
+    // Simple parsing - in production, use TrialAssessmentBuilder for better parsing
+    const lines = eligibilityCriteria.split('\n').filter(line => line?.trim());
+    const inclusion: any[] = [];
+    const exclusion: any[] = [];
+    
+    let currentSection: 'inclusion' | 'exclusion' | null = null;
+    let id = 0;
+    
+    lines.forEach(line => {
+      if (!line) return;
+      const lineLower = line.toLowerCase();
+      
+      if (lineLower.includes('inclusion')) {
+        currentSection = 'inclusion';
+      } else if (lineLower.includes('exclusion')) {
+        currentSection = 'exclusion';
+      } else if (currentSection && line.trim().length > 5) {
+        const criterion = {
+          id: `criterion-${id++}`,
+          text: line.trim().replace(/^[-*•]\s*/, ''),
+          category: 'general',
+          required: true
+        };
+        
+        if (currentSection === 'inclusion') {
+          inclusion.push(criterion);
+        } else {
+          exclusion.push(criterion);
+        }
+      }
+    });
+    
+    // Safely parse age values
+    const minimumAge = trial.protocolSection?.eligibilityModule?.minimumAge;
+    const maximumAge = trial.protocolSection?.eligibilityModule?.maximumAge;
+    
+    return {
+      parsed: true,
+      inclusion: inclusion.slice(0, 5), // Limit for UI display
+      exclusion: exclusion.slice(0, 5), // Limit for UI display
+      demographics: {
+        ageRange: minimumAge ? 
+          [parseInt(minimumAge) || 0, 
+           parseInt(maximumAge || '120') || 120] : undefined,
+        sex: trial.protocolSection?.eligibilityModule?.sex,
+        healthyVolunteers: trial.protocolSection?.eligibilityModule?.healthyVolunteers
+      },
+      parseConfidence: 0.7,
+      rawText: eligibilityCriteria ? eligibilityCriteria.substring(0, 500) : '' // Truncate for UI
+    };
+  }
+
+  /**
+   * Determine confidence level from analysis
+   */
+  private determineConfidence(analysis: any): 'high' | 'medium' | 'low' {
+    if (analysis.eligibilityScore >= 0.8) return 'high';
+    if (analysis.eligibilityScore >= 0.5) return 'medium';
+    return 'low';
+  }
+
+  /**
+   * Determine recommendation from analysis
+   */
+  private determineRecommendation(analysis: any): 'likely' | 'possible' | 'unlikely' {
+    if (analysis.likelyEligible && analysis.eligibilityScore >= 0.7) return 'likely';
+    if (analysis.eligibilityScore >= 0.4) return 'possible';
+    return 'unlikely';
+  }
+
+  /**
+   * Apply universal profile enhancement based on influence level
+   * This is the core method that enables profile-by-default behavior
+   */
+  private async applyUniversalProfileEnhancement(
+    trials: ClinicalTrial[],
+    context: QueryContext,
+    currentMatches: TrialMatch[]
+  ): Promise<TrialMatch[]> {
+    const profile = context.user.healthProfile;
+    const { ProfileInfluence } = await import('./query-context');
+    
+    // Check if profile should be disabled
+    if (!profile || context.profileInfluence.disableProfile) {
+      return currentMatches;
+    }
+
+    const influence = context.profileInfluence.level;
+    const compressionContext = this.buildCompressionContext(context);
+    
+    debug.log(DebugCategory.TOOL, 'Applying universal profile enhancement', {
+      influenceLevel: influence,
+      reason: context.profileInfluence.reason,
+      trialsCount: trials.length
+    });
+    
+    // Apply graduated enhancement based on influence level
+    switch(influence) {
+      case ProfileInfluence.PRIMARY:
+        // Already handled by profile_based strategy
+        return currentMatches;
+        
+      case ProfileInfluence.ENHANCED: {
+        // Apply filter + assess + rank for condition queries
+        const filtered = await this.filterByHealthProfile(trials, profile, context);
+        const assessed = await this.assessEligibility(filtered, profile, context);
+        const ranked = this.rankByRelevance(assessed, context);
+        
+        debug.log(DebugCategory.TOOL, 'Enhanced profile application', {
+          original: trials.length,
+          filtered: filtered.length,
+          assessed: assessed.length
+        });
+        
+        return this.createEnhancedMatches(ranked, context, compressionContext);
+      }
+      
+      case ProfileInfluence.CONTEXTUAL: {
+        // Assess eligibility and add indicators for location queries
+        const assessed = await this.assessEligibility(trials, profile, context);
+        
+        // Create matches with eligibility data but preserve location-based ordering
+        const enhancedMatches = this.createEnhancedMatches(assessed, context, compressionContext);
+        
+        // Add profile relevance indicators
+        return enhancedMatches.map(match => ({
+          ...match,
+          profileRelevance: this.calculateProfileRelevance(match, profile)
+        }));
+      }
+      
+      case ProfileInfluence.BACKGROUND: {
+        // Just add relevance hints for broad queries
+        return currentMatches.map(match => ({
+          ...match,
+          profileRelevance: this.calculateProfileRelevance(match, profile)
+        }));
+      }
+      
+      default:
+        return currentMatches;
+    }
+  }
+
+  /**
+   * Calculate profile relevance indicators
+   */
+  private calculateProfileRelevance(
+    match: TrialMatch,
+    profile: HealthProfile
+  ): any {
+    const cancerType = (profile.cancerType || profile.cancer_type || '').toLowerCase();
+    const conditions = match.conditions?.map(c => c.toLowerCase()) || [];
+    const summary = (match.summary || '').toLowerCase();
+    
+    const matchesCancerType = cancerType ? 
+      conditions.some(c => c.includes(cancerType)) || summary.includes(cancerType) : 
+      false;
+    
+    const matchesMutations: string[] = [];
+    if (profile.molecularMarkers) {
+      Object.entries(profile.molecularMarkers)
+        .filter(([_, status]) => status === 'POSITIVE' || status === 'HIGH')
+        .forEach(([marker, _]) => {
+          const markerName = marker.replace(/_/g, ' ').toLowerCase();
+          if (summary.includes(markerName) || conditions.some(c => c.includes(markerName))) {
+            matchesMutations.push(marker);
+          }
+        });
+    }
+    
+    const matchesStage = profile.diseaseStage ? 
+      summary.includes(profile.diseaseStage.toLowerCase().replace(/_/g, ' ')) : 
+      false;
+    
+    let relevanceLevel: 'high' | 'medium' | 'low' | 'unknown' = 'unknown';
+    if (matchesCancerType && matchesMutations.length > 0) {
+      relevanceLevel = 'high';
+    } else if (matchesCancerType || matchesMutations.length > 0) {
+      relevanceLevel = 'medium';
+    } else if (matchesStage) {
+      relevanceLevel = 'low';
+    }
+    
+    return {
+      matchesCancerType,
+      matchesMutations,
+      matchesStage,
+      relevanceLevel,
+      personalizedResult: true
+    };
+  }
+
+  /**
+   * Generate enhanced match reason including eligibility info
+   */
+  private generateEnhancedMatchReason(
+    trial: ClinicalTrial,
+    context: QueryContext,
+    eligibilityAnalysis?: any
+  ): string {
+    const reasons: string[] = [];
+    
+    // Add basic match reason
+    const basicReason = this.generateMatchReason(trial, context);
+    if (basicReason) reasons.push(basicReason);
+    
+    // Add eligibility reason if available
+    if (eligibilityAnalysis) {
+      if (eligibilityAnalysis.likelyEligible) {
+        reasons.push(`Likely eligible (${Math.round(eligibilityAnalysis.eligibilityScore * 100)}% match)`);
+      } else if (eligibilityAnalysis.exclusionConcerns.length > 0) {
+        reasons.push('Has eligibility concerns');
+      } else if (eligibilityAnalysis.eligibilityScore > 0.5) {
+        reasons.push(`Potential match (${Math.round(eligibilityAnalysis.eligibilityScore * 100)}%)`);
+      }
+    }
+    
+    return reasons.join('. ') || 'Matches search criteria';
   }
 }

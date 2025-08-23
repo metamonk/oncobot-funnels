@@ -3,10 +3,21 @@
  * 
  * Intent-based classification system that determines optimal search strategies
  * while leveraging existing cache, compression, and UI infrastructure
+ * 
+ * ENHANCED: Now builds comprehensive QueryContext that preserves all information
+ * throughout the entire search pipeline.
  */
 
 import type { HealthProfile } from './types';
 import { LocationService } from './location-service';
+import { 
+  QueryContext, 
+  QueryContextBuilder, 
+  ExtractedEntities, 
+  InferredIntent,
+  ExecutionPlan,
+  UserLocation 
+} from './query-context';
 
 /**
  * Query intent categories based on user's primary focus
@@ -74,6 +85,340 @@ export class QueryClassifier {
   private locationService = LocationService.getInstance();
 
   /**
+   * Build comprehensive QueryContext for the entire pipeline
+   * This is the new primary entry point that preserves ALL information
+   */
+  buildQueryContext(
+    query: string, 
+    context: ClassificationContext = {}
+  ): QueryContext {
+    const builder = new QueryContextBuilder(query);
+    
+    // 1. Extract all entities from the query
+    const entities = this.extractAllEntities(query);
+    builder.withExtractedEntities(entities);
+    
+    // 2. Add user context
+    if (context.userCoordinates) {
+      const userLocation: UserLocation = {
+        coordinates: {
+          latitude: context.userCoordinates.latitude!,
+          longitude: context.userCoordinates.longitude!
+        },
+        explicitlyRequested: /\bnear\s+me\b/i.test(query)
+      };
+      builder.withUserLocation(userLocation);
+    }
+    
+    if (context.healthProfile) {
+      builder.withHealthProfile(context.healthProfile);
+    }
+    
+    // 3. Perform classification (existing logic)
+    const classified = this.classify(query, context);
+    
+    // 4. Infer intent with more detail
+    const inferredIntent: InferredIntent = {
+      primaryGoal: this.mapIntentToGoal(classified.intent),
+      specificity: this.determineSpecificity(classified, entities),
+      urgency: this.inferUrgency(query),
+      knowledgeLevel: this.inferKnowledgeLevel(query),
+      confidence: classified.confidence
+    };
+    builder.withInferredIntent(inferredIntent);
+    
+    // 5. Build execution plan
+    const executionPlan: ExecutionPlan = {
+      primaryStrategy: this.mapStrategyToExecution(classified.strategy),
+      fallbackStrategies: this.determineFallbacks(classified.strategy),
+      searchParams: {
+        baseQuery: query,
+        enrichedQuery: this.buildEnrichedQuery(query, entities, context.healthProfile),
+        filters: this.buildFilters(classified.components),
+        maxResults: 50
+      },
+      validations: {
+        checkEligibility: classified.intent === QueryIntent.ELIGIBILITY,
+        verifyLocations: !!classified.components.location,
+        confirmRecruitmentStatus: true,
+        validateMolecularMatch: !!entities.mutations.length
+      }
+    };
+    builder.withExecutionPlan(executionPlan);
+    
+    // 6. Track decision making
+    builder.addDecision(
+      'QueryClassifier',
+      `Classified as ${classified.intent} with ${classified.strategy} strategy`,
+      classified.confidence,
+      classified.reasoning
+    );
+    
+    // 7. Mark enrichments that will be applied
+    if (context.healthProfile) {
+      builder.markEnrichment('profileEnriched');
+    }
+    if (context.userCoordinates || classified.components.location) {
+      builder.markEnrichment('locationEnriched');
+    }
+    if (entities.mutations.length > 0) {
+      builder.markEnrichment('mutationEnriched');
+    }
+    
+    // 8. Determine profile influence level
+    // Import ProfileInfluence directly (it's a constant enum)
+    const ProfileInfluence = {
+      PRIMARY: 1.0,
+      ENHANCED: 0.7,
+      CONTEXTUAL: 0.5,
+      BACKGROUND: 0.3,
+      DISABLED: 0.0
+    };
+    
+    if (this.detectProfileDisable(query)) {
+      builder.withProfileInfluence({
+        level: ProfileInfluence.DISABLED,
+        reason: 'User indicated non-personal search',
+        disableProfile: true
+      });
+    } else if (classified.intent === QueryIntent.ELIGIBILITY) {
+      builder.withProfileInfluence({
+        level: ProfileInfluence.PRIMARY,
+        reason: 'Eligibility query - full profile pipeline'
+      });
+    } else if (classified.intent === QueryIntent.CONDITION_PRIMARY) {
+      builder.withProfileInfluence({
+        level: ProfileInfluence.ENHANCED,
+        reason: 'Condition search - enhanced with profile'
+      });
+    } else if (classified.intent === QueryIntent.LOCATION_PRIMARY || classified.intent === QueryIntent.PROXIMITY) {
+      builder.withProfileInfluence({
+        level: ProfileInfluence.CONTEXTUAL,
+        reason: 'Location search - contextual profile indicators'
+      });
+    } else {
+      builder.withProfileInfluence({
+        level: ProfileInfluence.BACKGROUND,
+        reason: 'Broad search - background profile hints'
+      });
+    }
+    
+    return builder.build();
+  }
+
+  /**
+   * Extract ALL entities from the query for comprehensive context
+   */
+  private extractAllEntities(query: string): ExtractedEntities {
+    const entities: ExtractedEntities = {
+      locations: [],
+      conditions: [],
+      cancerTypes: [],
+      mutations: [],
+      biomarkers: [],
+      nctIds: [],
+      drugs: [],
+      treatments: [],
+      stages: [],
+      otherMedicalTerms: []
+    };
+    
+    // Extract NCT IDs
+    const nctMatches = query.match(this.COMPONENT_PATTERNS.nctId);
+    if (nctMatches) {
+      entities.nctIds = nctMatches.map(id => id.toUpperCase());
+    }
+    
+    // Extract mutations and biomarkers
+    const mutationMatches = query.match(this.COMPONENT_PATTERNS.mutations);
+    if (mutationMatches) {
+      const mutations = [...new Set(mutationMatches.map(m => m.toUpperCase()))];
+      // Separate known biomarkers from general mutations
+      const biomarkerPatterns = ['PD-L1', 'HER2', 'ER', 'PR', 'MSI', 'TMB', 'BRCA'];
+      mutations.forEach(m => {
+        if (biomarkerPatterns.some(b => m.includes(b))) {
+          entities.biomarkers.push(m);
+        } else {
+          entities.mutations.push(m);
+        }
+      });
+    }
+    
+    // Extract stages
+    const stageMatch = query.match(this.COMPONENT_PATTERNS.stage);
+    if (stageMatch) {
+      entities.stages.push(stageMatch[0]);
+    }
+    
+    // Extract locations
+    const location = this.extractLocation(query);
+    if (location) {
+      entities.locations.push(location);
+    }
+    
+    // Extract conditions and cancer types
+    const condition = this.extractCondition(query);
+    if (condition) {
+      if (condition.toLowerCase().includes('cancer') || 
+          condition.toLowerCase().includes('carcinoma')) {
+        entities.cancerTypes.push(condition);
+      } else {
+        entities.conditions.push(condition);
+      }
+    }
+    
+    // Extract drug names (common patterns)
+    const drugPatterns = [
+      /\b(pembrolizumab|nivolumab|atezolizumab|durvalumab|avelumab)\b/gi,
+      /\b(keytruda|opdivo|tecentriq|imfinzi|bavencio)\b/gi,
+      /\b(sotorasib|adagrasib|lorlatinib|osimertinib|afatinib)\b/gi
+    ];
+    drugPatterns.forEach(pattern => {
+      const matches = query.match(pattern);
+      if (matches) {
+        entities.drugs.push(...matches);
+      }
+    });
+    
+    // Extract treatment types
+    const treatmentPatterns = [
+      /\b(chemotherapy|immunotherapy|radiation|surgery|targeted therapy)\b/gi,
+      /\b(chemo|immuno|radio|surgical)\b/gi
+    ];
+    treatmentPatterns.forEach(pattern => {
+      const matches = query.match(pattern);
+      if (matches) {
+        entities.treatments.push(...matches);
+      }
+    });
+    
+    return entities;
+  }
+
+  /**
+   * Helper methods for building QueryContext
+   */
+  private mapIntentToGoal(intent: QueryIntent): InferredIntent['primaryGoal'] {
+    switch (intent) {
+      case QueryIntent.NCT_LOOKUP:
+        return 'specific_trial';
+      case QueryIntent.ELIGIBILITY:
+        return 'check_eligibility';
+      case QueryIntent.GENERAL:
+        return 'explore_options';
+      default:
+        return 'find_trials';
+    }
+  }
+  
+  private determineSpecificity(
+    classified: ClassifiedQuery, 
+    entities: ExtractedEntities
+  ): InferredIntent['specificity'] {
+    const entityCount = 
+      entities.nctIds.length +
+      entities.mutations.length +
+      entities.biomarkers.length +
+      entities.stages.length;
+    
+    if (entities.nctIds.length > 0) return 'very_specific';
+    if (entityCount >= 3) return 'very_specific';
+    if (entityCount >= 1) return 'moderately_specific';
+    if (classified.components.location || classified.components.condition) return 'broad';
+    return 'exploratory';
+  }
+  
+  private inferUrgency(query: string): InferredIntent['urgency'] {
+    if (/\b(urgent|immediately|asap|now)\b/i.test(query)) return 'immediate';
+    if (/\b(planning|considering|thinking)\b/i.test(query)) return 'planning';
+    if (/\b(research|learn|understand)\b/i.test(query)) return 'researching';
+    return 'general_interest';
+  }
+  
+  private inferKnowledgeLevel(query: string): InferredIntent['knowledgeLevel'] {
+    if (/\b(my patient|prescribe|administer)\b/i.test(query)) return 'medical_professional';
+    if (/\b(research|publication|data)\b/i.test(query)) return 'researcher';
+    if (/\b(my (mom|dad|parent|spouse))\b/i.test(query)) return 'caregiver';
+    return 'patient';
+  }
+  
+  private mapStrategyToExecution(strategy: SearchStrategy): ExecutionPlan['primaryStrategy'] {
+    switch (strategy) {
+      case SearchStrategy.NCT_DIRECT:
+        return 'nct_direct';
+      case SearchStrategy.PROFILE_BASED:
+        return 'profile_based';
+      case SearchStrategy.LOCATION_THEN_CONDITION:
+      case SearchStrategy.PROXIMITY_RANKING:
+        return 'location_based';
+      case SearchStrategy.CONDITION_THEN_LOCATION:
+        return 'condition_based';
+      default:
+        return 'broad';
+    }
+  }
+  
+  private determineFallbacks(primaryStrategy: SearchStrategy): string[] {
+    const fallbacks: string[] = [];
+    
+    switch (primaryStrategy) {
+      case SearchStrategy.LOCATION_THEN_CONDITION:
+        fallbacks.push('condition_based', 'broad');
+        break;
+      case SearchStrategy.CONDITION_THEN_LOCATION:
+        fallbacks.push('location_based', 'broad');
+        break;
+      case SearchStrategy.PROFILE_BASED:
+        fallbacks.push('condition_based', 'broad');
+        break;
+    }
+    
+    return fallbacks;
+  }
+  
+  private buildEnrichedQuery(
+    query: string, 
+    entities: ExtractedEntities,
+    healthProfile?: HealthProfile | null
+  ): string {
+    const parts: string[] = [query];
+    
+    // Add cancer type from profile if not in query
+    if (healthProfile?.cancerType && 
+        !entities.cancerTypes.some(c => 
+          c.toLowerCase().includes(healthProfile.cancerType!.toLowerCase()))) {
+      parts.push(healthProfile.cancerType);
+    }
+    
+    // Add positive mutations from profile if not in query
+    if (healthProfile?.molecularMarkers) {
+      Object.entries(healthProfile.molecularMarkers).forEach(([marker, value]) => {
+        if (value === 'POSITIVE' && !entities.mutations.includes(marker)) {
+          parts.push(marker.replace(/_/g, ' '));
+        }
+      });
+    }
+    
+    return parts.join(' ');
+  }
+  
+  private buildFilters(components: ClassifiedQuery['components']): Record<string, any> {
+    const filters: Record<string, any> = {};
+    
+    if (components.stage) {
+      filters.stage = components.stage;
+    }
+    if (components.phase) {
+      filters.phase = components.phase;
+    }
+    if (components.radius) {
+      filters.maxDistance = components.radius;
+    }
+    
+    return filters;
+  }
+
+  /**
    * Intent indicators with weights
    */
   private readonly INTENT_PATTERNS = {
@@ -86,8 +431,8 @@ export class QueryClassifier {
     ],
     condition_primary: [
       { pattern: /^(lung|breast|colon|pancreatic|prostate)\s+cancer/i, weight: 0.9 },
-      // Mutations at start (any gene-like pattern)
-      { pattern: /^([A-Z]{2,5}[0-9]{0,3}(?:[-_]?[A-Z0-9]+)?)/i, weight: 0.95 },
+      // Mutations at start (gene-like pattern, but exclude common words)
+      { pattern: /^(?!what|when|where|who|why|how|find|show|list)([A-Z]{2,5}[0-9]{0,3}(?:[-_]?[A-Z0-9]+)?)/i, weight: 0.95 },
       { pattern: /for\s+(lung|breast|colon)\s+cancer/i, weight: 0.85 },
       { pattern: /stage\s+(I{1,3}V?|[1-4])/i, weight: 0.8 },
       { pattern: /^(cancer|carcinoma|melanoma|lymphoma)/i, weight: 0.8 }
@@ -100,8 +445,12 @@ export class QueryClassifier {
     eligibility: [
       { pattern: /\b(eligible|qualify|can\s+I\s+join)/i, weight: 0.9 },
       { pattern: /for\s+me\b/i, weight: 0.7 },
-      { pattern: /\bmy\s+(cancer|condition|diagnosis)/i, weight: 0.8 },
-      { pattern: /based\s+on\s+my\s+profile/i, weight: 0.95 }
+      { pattern: /available\s+to\s+me/i, weight: 0.85 },
+      { pattern: /\bmy\s+(cancer|condition|diagnosis|profile)/i, weight: 0.85 },
+      { pattern: /for\s+my\s+(cancer|condition|diagnosis)/i, weight: 0.85 },
+      { pattern: /based\s+on\s+my\s+profile/i, weight: 0.95 },
+      { pattern: /trials?\s+for\s+my/i, weight: 0.8 },
+      { pattern: /trials?\s+.*\s+to\s+me/i, weight: 0.75 }
     ],
     continuation: [
       { pattern: /^(show|list|get)\s+(more|next|additional)/i, weight: 0.95 },
@@ -151,7 +500,14 @@ export class QueryClassifier {
     const weights = this.calculateWeights(query, components, context);
     
     // 6. Determine primary intent
-    const intent = this.determineIntent(intentScores, weights, components);
+    let intent = this.determineIntent(intentScores, weights, components);
+    
+    // 6.5 IMPORTANT: If user has a health profile and query contains personal references,
+    // prioritize eligibility/profile-based search
+    if (context.healthProfile && this.hasPersonalReference(normalizedQuery)) {
+      // Override to eligibility intent to trigger profile-based search
+      intent = QueryIntent.ELIGIBILITY;
+    }
     
     // 7. Select optimal search strategy
     const strategy = this.selectStrategy(intent, components, context);
@@ -213,10 +569,8 @@ export class QueryClassifier {
     // Extract NCT IDs (support multiple)
     const nctMatches = query.match(this.COMPONENT_PATTERNS.nctId);
     if (nctMatches) {
-      // If multiple NCT IDs, store them in a special field
       if (nctMatches.length > 1) {
         components.nctIds = nctMatches.map(id => id.toUpperCase());
-        components.nctId = nctMatches[0].toUpperCase(); // Keep first for backward compatibility
       } else {
         components.nctId = nctMatches[0].toUpperCase();
       }
@@ -474,6 +828,37 @@ export class QueryClassifier {
     return generalPatterns.some(p => p.test(query));
   }
 
+  private hasPersonalReference(query: string): boolean {
+    const personalPatterns = [
+      /\bmy\s+(cancer|condition|diagnosis|disease|tumor|profile)/i,
+      /for\s+my\s+(cancer|condition|diagnosis|disease)/i,
+      /\bi\s+(have|was\s+diagnosed|am\s+eligible)/i,
+      /trials?\s+for\s+me\b/i,
+      /\bfor\s+me\b/i,  // Simple "for me" anywhere in query
+      /\bnear\s+me\b/i,  // "near me" is inherently personal
+      /based\s+on\s+my/i,
+      /available\s+to\s+me/i,
+      /trials?\s+.*\s+to\s+me/i,
+      /trials?\s+.*\s+for\s+me\b/i  // Flexible pattern for "trials...for me"
+    ];
+    
+    return personalPatterns.some(p => p.test(query));
+  }
+
+  private detectProfileDisable(query: string): boolean {
+    const disablePatterns = [
+      /\bfor\s+(anyone|everyone|others?)\b/i,
+      /\bgeneral\s+(research|information|overview)\b/i,
+      /\bnot\s+for\s+me\b/i,
+      /\bcomparing\s+options\b/i,
+      /\bresearch(?:ing)?\s+for\s+(?:a\s+)?(?:friend|family|patient)\b/i,
+      /\beducational\s+purposes?\b/i,
+      /\blearning\s+about\b/i
+    ];
+    
+    return disablePatterns.some(p => p.test(query));
+  }
+
   private mapPatternKeyToIntent(key: string): QueryIntent {
     const mapping: Record<string, QueryIntent> = {
       'location_primary': QueryIntent.LOCATION_PRIMARY,
@@ -530,7 +915,6 @@ export class QueryClassifier {
     // Handle single or multiple NCT IDs
     if (nctMatches.length > 1) {
       components.nctIds = nctMatches.map(id => id.toUpperCase());
-      components.nctId = nctMatches[0].toUpperCase(); // Keep first for backward compatibility
     } else {
       components.nctId = nctMatches[0].toUpperCase();
     }
