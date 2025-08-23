@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { Bot } from '@/components/bot';
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -22,14 +22,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         className="text-center max-w-md"
       >
         <div className="mb-6 flex justify-center">
-          <Image
-            src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMzE2YzFlNWExYTJjZjkxZDUxOWQ1MmU2ZjA1NjYxNWIzYzVmMWQ5MSZlcD12MV9pbnRlcm5hbF9naWZzX2dpZklkJmN0PWc/aYpmlCXgX9dc09dbpl/giphy.gif"
-            alt="Computer Error"
-            width={300}
-            height={200}
-            className="rounded-lg"
-            unoptimized
-          />
+          <Bot maxWidth="280px" className="w-full" errorText="ERROR!" />
         </div>
 
         <h1 className="text-4xl mb-4 text-neutral-800 dark:text-neutral-100 font-be-vietnam-pro">
