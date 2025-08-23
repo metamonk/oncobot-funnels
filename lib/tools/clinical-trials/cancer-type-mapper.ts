@@ -251,9 +251,30 @@ export class CancerTypeMapper {
    * Get the region for a specific cancer type
    */
   static getRegionForType(cancerType: string): string {
-    const normalized = cancerType.toUpperCase().replace(/-/g, '_');
-    return CANCER_TYPE_TO_REGION[normalized] || 'OTHER';
+    const normalized = cancerType.toUpperCase().replace(/\s+/g, '_').replace(/-/g, '_');
+    
+    // Check if it's already a region
+    if (CANCER_REGION_TO_TYPES[normalized]) {
+      return normalized;
+    }
+    
+    // Check if it's a known type
+    if (CANCER_TYPE_TO_REGION[normalized]) {
+      return CANCER_TYPE_TO_REGION[normalized];
+    }
+    
+    // Check common aliases
+    if (normalized === 'NON_SMALL_CELL_LUNG_CANCER' || normalized === 'NSCLC') {
+      return 'THORACIC';
+    }
+    if (normalized === 'SMALL_CELL_LUNG_CANCER' || normalized === 'SCLC') {
+      return 'THORACIC';
+    }
+    
+    // Default to OTHER
+    return 'OTHER';
   }
+  
   
   /**
    * Build a comprehensive search query from health profile

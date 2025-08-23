@@ -22,7 +22,7 @@ async function debugTokenSize() {
     dataStream: mockDataStream
   };
   
-  const result = await clinicalTrialsRouter.route(context);
+  const result = await clinicalTrialsRouter.routeWithContext(context);
   
   console.log('Result structure:');
   console.log('- success:', result.success);

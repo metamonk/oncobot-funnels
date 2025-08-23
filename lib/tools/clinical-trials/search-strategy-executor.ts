@@ -227,7 +227,7 @@ export class SearchStrategyExecutor {
 
     // ADAPTIVE STRATEGY: Start with broad disease search to cast wide net
     const cancerType = profile.cancerType || profile.cancer_type || '';
-    const cancerRegion = profile.cancerRegion || profile.cancer_region || '';
+    const cancerRegion = profile.cancerRegion || '';
     
     // Get search terms based on cancer type or region
     let searchTerms: string[] = [];
@@ -547,8 +547,8 @@ export class SearchStrategyExecutor {
         studyType: compressedTrial.protocolSection?.designModule?.studyType,
         enrollmentCount: compressedTrial.protocolSection?.designModule?.enrollmentInfo?.count,
         lastUpdateDate: compressedTrial.protocolSection?.statusModule?.lastUpdatePostDateStruct?.date || '',
-        matchReason: this.generateMatchReason(trial, context),
-        relevanceScore: this.calculateRelevanceScore(trial, context),
+        matchReason: this.generateContextMatchReason(trial, context),
+        relevanceScore: this.calculateContextRelevanceScore(trial, context),
         trial: compressedTrial,
         distance: (trial as any).distance
       };
@@ -560,11 +560,12 @@ export class SearchStrategyExecutor {
   /**
    * Helper: Calculate relevance score based on context
    */
-  private calculateRelevanceScore(trial: ClinicalTrial, context: QueryContext): number {
+  private calculateContextRelevanceScore(trial: ClinicalTrial, context: QueryContext): number {
     let score = 0.5; // Base score
 
     // Boost for NCT ID match
-    if (context.extracted.nctIds.includes(trial.nctId)) {
+    const nctId = trial.protocolSection?.identificationModule?.nctId;
+    if (nctId && context.extracted.nctIds.includes(nctId)) {
       score = 1.0;
     }
 
@@ -584,8 +585,9 @@ export class SearchStrategyExecutor {
     });
 
     // Boost for location match
-    if (context.user.location && trial.locations) {
-      const hasLocalTrial = trial.locations.some(loc => 
+    const locations = trial.protocolSection?.contactsLocationsModule?.locations;
+    if (context.user.location && locations) {
+      const hasLocalTrial = locations.some(loc => 
         this.isLocationMatch(loc, context.user.location!)
       );
       if (hasLocalTrial) score += 0.2;
@@ -597,10 +599,11 @@ export class SearchStrategyExecutor {
   /**
    * Helper: Generate match reason based on context
    */
-  private generateMatchReason(trial: ClinicalTrial, context: QueryContext): string {
+  private generateContextMatchReason(trial: ClinicalTrial, context: QueryContext): string {
     const reasons: string[] = [];
 
-    if (context.extracted.nctIds.includes(trial.nctId)) {
+    const nctId = trial.protocolSection?.identificationModule?.nctId;
+    if (nctId && context.extracted.nctIds.includes(nctId)) {
       reasons.push('Direct NCT ID match');
     }
 
@@ -715,32 +718,6 @@ export class SearchStrategyExecutor {
     };
   }
 
-  private parseLocationString(location: string): { city?: string; state?: string } {
-    // Handle "City, State" format
-    const parts = location.split(',').map(p => p.trim());
-    
-    if (parts.length === 2) {
-      return { city: parts[0], state: parts[1] };
-    }
-    
-    // Handle known cities
-    const knownCities = {
-      'Chicago': 'Illinois',
-      'Boston': 'Massachusetts',
-      'New York': 'New York',
-      'Los Angeles': 'California',
-      'Houston': 'Texas'
-    };
-
-    if (knownCities[location as keyof typeof knownCities]) {
-      return {
-        city: location,
-        state: knownCities[location as keyof typeof knownCities]
-      };
-    }
-
-    return { city: location };
-  }
 
   private isLocationMatch(trialLocation: any, userLocation: UserLocation): boolean {
     if (!trialLocation) return false;
@@ -767,8 +744,9 @@ export class SearchStrategyExecutor {
     if (!location.coordinates) {
       // Filter by city/state text match
       return trials.filter(trial => {
-        if (!trial.locations) return false;
-        return trial.locations.some(loc => this.isLocationMatch(loc, location));
+        const locations = trial.protocolSection?.contactsLocationsModule?.locations;
+        if (!locations) return false;
+        return locations.some(loc => this.isLocationMatch(loc, location));
       });
     }
 
@@ -2290,14 +2268,13 @@ export class SearchStrategyExecutor {
       detailed: true,
       extractCriteria: true,
       maxDetailedAnalysis: Math.min(20, trials.length),
-      streamFullCriteria: !!context.dataStream
+      streamFullCriteria: false
     });
     
     const assessedTrials = await analyzer.execute(trials, {
       healthProfile: profile,
       userQuery: context.originalQuery,
-      intent: context.inferred.primaryGoal === 'find_eligible_trials' ? 'eligibility' : 'discovery',
-      dataStream: context.dataStream,
+      intent: context.inferred.primaryGoal === 'check_eligibility' ? 'eligibility' : 'discovery',
       chatId: context.tracking.contextId
     });
     
@@ -2366,7 +2343,7 @@ export class SearchStrategyExecutor {
         enrollmentCount: compressedTrial.protocolSection?.designModule?.enrollmentInfo?.count,
         lastUpdateDate: compressedTrial.protocolSection?.statusModule?.lastUpdatePostDateStruct?.date || '',
         matchReason: this.generateEnhancedMatchReason(trial, context, eligibilityAnalysis),
-        relevanceScore: eligibilityAnalysis?.eligibilityScore || this.calculateRelevanceScore(trial, context),
+        relevanceScore: eligibilityAnalysis?.eligibilityScore || this.calculateRelevanceScore(trial, context.user?.healthProfile),
         trial: compressedTrial,
         distance: (trial as any).distance,
         // Create three-layer assessment structure that UI expects
@@ -2484,7 +2461,7 @@ export class SearchStrategyExecutor {
   private generateSearchReasoning(trial: ClinicalTrial, context: QueryContext): string {
     const reasons: string[] = [];
     
-    if (context.inferred?.primaryGoal === 'find_eligible_trials') {
+    if (context.inferred?.primaryGoal === 'check_eligibility') {
       reasons.push('Matched your health profile criteria');
     }
     
@@ -2492,8 +2469,8 @@ export class SearchStrategyExecutor {
       reasons.push(`Located in ${context.user.location.city || 'your area'}`);
     }
     
-    if (context.inferred?.conditions && context.inferred.conditions.length > 0) {
-      reasons.push(`Studying ${context.inferred.conditions.join(', ')}`);
+    if (context.extracted?.conditions && context.extracted.conditions.length > 0) {
+      reasons.push(`Studying ${context.extracted.conditions.join(', ')}`);
     }
     
     return reasons.join('. ') || 'Matched search criteria';
@@ -2720,7 +2697,7 @@ export class SearchStrategyExecutor {
     const reasons: string[] = [];
     
     // Add basic match reason
-    const basicReason = this.generateMatchReason(trial, context);
+    const basicReason = this.generateMatchReason(trial, context.user?.healthProfile);
     if (basicReason) reasons.push(basicReason);
     
     // Add eligibility reason if available

@@ -35,6 +35,9 @@ export interface CompressedTrial {
     };
     statusModule?: {
       overallStatus?: string;
+      lastUpdatePostDateStruct?: {
+        date?: string;
+      };
     };
     descriptionModule?: {
       briefSummary?: string;
@@ -44,6 +47,7 @@ export interface CompressedTrial {
     };
     designModule?: {
       phases?: string[];
+      studyType?: string;
       enrollmentInfo?: {
         count?: number;
       };
@@ -103,10 +107,16 @@ export class TrialCompressor {
     };
     
     // Add status module if available
-    if (trial.protocolSection?.statusModule?.overallStatus) {
-      compressed.protocolSection.statusModule = {
-        overallStatus: trial.protocolSection.statusModule.overallStatus
-      };
+    if (trial.protocolSection?.statusModule) {
+      compressed.protocolSection.statusModule = {};
+      if (trial.protocolSection.statusModule.overallStatus) {
+        compressed.protocolSection.statusModule.overallStatus = trial.protocolSection.statusModule.overallStatus;
+      }
+      if (trial.protocolSection.statusModule.lastUpdatePostDateStruct?.date) {
+        compressed.protocolSection.statusModule.lastUpdatePostDateStruct = {
+          date: trial.protocolSection.statusModule.lastUpdatePostDateStruct.date
+        };
+      }
     }
     
     // Add truncated summary if available
@@ -126,11 +136,14 @@ export class TrialCompressor {
       };
     }
     
-    // Add design module with phases and enrollment
+    // Add design module with phases, study type, and enrollment
     if (trial.protocolSection?.designModule) {
       compressed.protocolSection.designModule = {};
       if (trial.protocolSection.designModule.phases) {
         compressed.protocolSection.designModule.phases = trial.protocolSection.designModule.phases;
+      }
+      if (trial.protocolSection.designModule.studyType) {
+        compressed.protocolSection.designModule.studyType = trial.protocolSection.designModule.studyType;
       }
       if (trial.protocolSection.designModule.enrollmentInfo?.count) {
         compressed.protocolSection.designModule.enrollmentInfo = {

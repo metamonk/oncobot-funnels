@@ -11,9 +11,9 @@ vi.mock('@/lib/health-profile-actions', () => ({
   getUserHealthProfile: vi.fn()
 }));
 
-vi.mock('../smart-router', () => ({
-  smartRouter: {
-    route: vi.fn()
+vi.mock('../router', () => ({
+  clinicalTrialsRouter: {
+    routeWithContext: vi.fn()
   }
 }));
 
@@ -133,7 +133,7 @@ describe('Clinical Trials Tool Integration', () => {
   describe('Query Processing', () => {
     it('should process NCT ID queries', async () => {
       const { clinicalTrialsRouter } = await import('../router');
-      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [{
@@ -168,7 +168,7 @@ describe('Clinical Trials Tool Integration', () => {
       expect(result.success).toBe(true);
       expect(result.matches).toHaveLength(1);
       expect(result.matches[0].nctId).toBe('NCT12345678');
-      expect(clinicalTrialsRouter.route).toHaveBeenCalledWith({
+      expect(clinicalTrialsRouter.routeWithContext).toHaveBeenCalledWith({
         query: 'What are the details for NCT12345678?',
         chatId: 'test-chat-123',
         healthProfile: null,
@@ -184,7 +184,7 @@ describe('Clinical Trials Tool Integration', () => {
       });
 
       const { clinicalTrialsRouter } = await import('../router');
-      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -197,7 +197,7 @@ describe('Clinical Trials Tool Integration', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(clinicalTrialsRouter.route).toHaveBeenCalledWith(
+      expect(clinicalTrialsRouter.routeWithContext).toHaveBeenCalledWith(
         expect.objectContaining({
           healthProfile: expect.objectContaining({
             cancerType: 'Non-Small Cell Lung Cancer',
@@ -209,7 +209,7 @@ describe('Clinical Trials Tool Integration', () => {
 
     it('should handle location-based queries', async () => {
       const { clinicalTrialsRouter } = await import('../router');
-      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -227,7 +227,7 @@ describe('Clinical Trials Tool Integration', () => {
 
     it('should detect continuation queries', async () => {
       const { clinicalTrialsRouter } = await import('../router');
-      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [],
         matches: [],
@@ -249,7 +249,7 @@ describe('Clinical Trials Tool Integration', () => {
   describe('Caching', () => {
     it('should cache search results', async () => {
       const { clinicalTrialsRouter } = await import('../router');
-      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -263,7 +263,7 @@ describe('Clinical Trials Tool Integration', () => {
       await tool.execute({ query: 'Show more results' });
 
       // The router should be called with cachedTrials on second call
-      const secondCall = (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mock.calls[1];
+      const secondCall = (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mock.calls[1];
       expect(secondCall[0].cachedTrials).toBeDefined();
     });
 
@@ -271,7 +271,7 @@ describe('Clinical Trials Tool Integration', () => {
       // This would require mocking Date.now() to test TTL expiration
       // For brevity, we'll just verify the cache structure exists
       const { clinicalTrialsRouter } = await import('../router');
-      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -288,7 +288,7 @@ describe('Clinical Trials Tool Integration', () => {
   describe('Error Handling', () => {
     it('should handle router errors gracefully', async () => {
       const { clinicalTrialsRouter } = await import('../router');
-      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: false,
         error: 'API connection failed',
         message: 'Unable to search for trials',
@@ -312,7 +312,7 @@ describe('Clinical Trials Tool Integration', () => {
       );
 
       const { clinicalTrialsRouter } = await import('../router');
-      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -325,7 +325,7 @@ describe('Clinical Trials Tool Integration', () => {
 
       // Should still work but without health profile
       expect(result.success).toBe(true);
-      expect(clinicalTrialsRouter.route).toHaveBeenCalledWith(
+      expect(clinicalTrialsRouter.routeWithContext).toHaveBeenCalledWith(
         expect.objectContaining({
           healthProfile: null
         })
@@ -334,7 +334,7 @@ describe('Clinical Trials Tool Integration', () => {
 
     it('should handle unexpected errors', async () => {
       const { clinicalTrialsRouter } = await import('../router');
-      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockRejectedValue(
+      (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('Unexpected error')
       );
 
@@ -351,7 +351,7 @@ describe('Clinical Trials Tool Integration', () => {
   describe('Eligibility Streaming', () => {
     it('should stream eligibility criteria when appropriate', async () => {
       const { clinicalTrialsRouter } = await import('../router');
-      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [{
@@ -392,7 +392,7 @@ describe('Clinical Trials Tool Integration', () => {
 
     it('should not stream eligibility for non-eligibility queries', async () => {
       const { clinicalTrialsRouter } = await import('../router');
-      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -415,7 +415,7 @@ describe('Clinical Trials Tool Integration', () => {
   describe('Model-Agnostic Operation', () => {
     it('should work without complex ID tracking', async () => {
       const { clinicalTrialsRouter } = await import('../router');
-      (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         trials: [mockTrial],
         matches: [],
@@ -436,7 +436,7 @@ describe('Clinical Trials Tool Integration', () => {
       }
 
       // Verify no complex ID passing required
-      const calls = (clinicalTrialsRouter.route as ReturnType<typeof vi.fn>).mock.calls;
+      const calls = (clinicalTrialsRouter.routeWithContext as ReturnType<typeof vi.fn>).mock.calls;
       calls.forEach(call => {
         expect(call[0].chatId).toBe('test-chat-123'); // Same chat ID throughout
       });

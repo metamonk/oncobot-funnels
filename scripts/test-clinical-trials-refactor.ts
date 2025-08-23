@@ -57,7 +57,7 @@ async function testRefactoredSystem() {
     
     // Test query classification through router
     console.log('   Testing query classification...');
-    const routerResult = await clinicalTrialsRouter.route(context);
+    const routerResult = await clinicalTrialsRouter.routeWithContext(context);
     
     if (routerResult.success) {
       console.log(`   Router processed query successfully ✅`);

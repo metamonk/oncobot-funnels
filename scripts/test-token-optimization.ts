@@ -59,7 +59,7 @@ async function measureTokenUsage() {
     try {
       const startTime = Date.now();
       // Test the router directly (which includes trials array for caching)
-      const routerResult = await clinicalTrialsRouter.route(context);
+      const routerResult = await clinicalTrialsRouter.routeWithContext(context);
       
       // Simulate what the main tool does - remove trials array
       const { trials, ...result } = routerResult;
@@ -113,7 +113,7 @@ async function measureTokenUsage() {
   };
   
   try {
-    const routerResult = await clinicalTrialsRouter.route(worstCaseContext);
+    const routerResult = await clinicalTrialsRouter.routeWithContext(worstCaseContext);
     // Simulate what the main tool does - remove trials array
     const { trials, ...result } = routerResult;
     const responseJson = JSON.stringify(result);

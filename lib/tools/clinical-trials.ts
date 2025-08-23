@@ -13,74 +13,6 @@ import { clinicalTrialsRouter } from './clinical-trials/router';
 import { cacheService } from './clinical-trials/services/cache-service';
 import { locationService } from './clinical-trials/location-service';
 
-// Use centralized cache service instead of local cache
-// The cache service handles all caching logic
-
-// Helper to create match objects
-function createMatchObjects(
-  trials: Array<ClinicalTrial & { matchReason?: string; relevanceScore?: number }>, 
-  _healthProfile: HealthProfile | null, // Kept for potential future use
-  filterLocation?: string
-): TrialMatch[] {
-  return trials.map(trial => ({
-      nctId: trial.protocolSection?.identificationModule?.nctId || '',
-      title: trial.protocolSection?.identificationModule?.briefTitle || '',
-      summary: trial.protocolSection?.descriptionModule?.briefSummary || '',
-      conditions: trial.protocolSection?.conditionsModule?.conditions || [],
-      interventions: (trial.protocolSection?.armsInterventionsModule?.interventions?.map(i => i.name).filter((n): n is string => Boolean(n))) || [],
-      locations: (trial.protocolSection?.contactsLocationsModule?.locations || []).map(loc => ({
-        facility: loc.facility || '',
-        city: loc.city || '',
-        state: loc.state || '',
-        country: loc.country || '',
-        status: 'status' in loc ? (loc as StudyLocation & { status: string }).status : ''
-      })),
-      locationSummary: locationService.getLocationSummary(trial),
-      enrollmentCount: trial.protocolSection?.designModule?.enrollmentInfo && 
-        typeof trial.protocolSection.designModule.enrollmentInfo === 'object' && 
-        'count' in trial.protocolSection.designModule.enrollmentInfo ? 
-        (trial.protocolSection.designModule.enrollmentInfo as { count: number }).count : undefined,
-      studyType: trial.protocolSection?.designModule?.studyType,
-      phases: trial.protocolSection?.designModule?.phases || [],
-      lastUpdateDate: trial.protocolSection?.statusModule?.lastUpdatePostDateStruct && 
-        typeof trial.protocolSection.statusModule.lastUpdatePostDateStruct === 'object' &&
-        'date' in trial.protocolSection.statusModule.lastUpdatePostDateStruct ?
-        (trial.protocolSection.statusModule.lastUpdatePostDateStruct as { date: string }).date : '',
-      matchReason: trial.matchReason || 'Matches search criteria',
-      relevanceScore: trial.relevanceScore || 85,
-      trial: trial,
-      ...(filterLocation && { filterLocation })
-  }));
-}
-
-// Simplified function to stream eligibility criteria
-function streamEligibilityCriteria(
-  trials: ClinicalTrial[],
-  messageType: string,
-  healthProfile: HealthProfile | null,
-  dataStream?: any
-): void {
-  if (!dataStream) return;
-
-  dataStream.writeMessageAnnotation({
-    type: 'eligibility_criteria',
-    data: {
-      eligibilityCriteria: trials.map(trial => ({
-        nctId: trial.protocolSection.identificationModule.nctId,
-        criteria: trial.protocolSection.eligibilityModule?.eligibilityCriteria || 'No criteria available',
-        healthySummary: trial.protocolSection.eligibilityModule?.healthyVolunteers ? 
-          'Accepts healthy volunteers' : 'Does not accept healthy volunteers',
-        sex: trial.protocolSection.eligibilityModule?.sex || 'All',
-        minimumAge: trial.protocolSection.eligibilityModule?.minimumAge || 'N/A',
-        maximumAge: trial.protocolSection.eligibilityModule?.maximumAge || 'N/A'
-      })),
-      hasHealthProfile: !!healthProfile,
-      intent: messageType,
-      message: 'Full eligibility criteria available for detailed analysis'
-    }
-  });
-}
-
 // Clean, minimal tool export
 export const clinicalTrialsTool = (
   chatId?: string, 
@@ -170,8 +102,8 @@ export const clinicalTrialsTool = (
       cacheService.getCachedSearch(effectiveChatId) : null;
     
     try {
-      // Use new clean router for model-agnostic query processing
-      const result = await clinicalTrialsRouter.route({
+      // Use context-aware router that preserves all information
+      const result = await clinicalTrialsRouter.routeWithContext({
         query,
         healthProfile,
         userCoordinates: coordinates,
@@ -182,56 +114,62 @@ export const clinicalTrialsTool = (
 
       // Handle successful routing
       if (result.success) {
-        // Analytics tracking removed - now handled at component level
+        // Log context-aware processing details
+        if (result.metadata?.queryContext) {
+          const context = result.metadata.queryContext;
+          debug.log(DebugCategory.TOOL, 'Context-aware search completed', {
+            contextId: context.tracking.contextId,
+            strategiesUsed: context.metadata.searchStrategiesUsed,
+            enrichments: context.enrichments,
+            processingTime: context.metadata.processingTime,
+            decisionCount: context.tracking.decisionsMade.length
+          });
+        }
         
-        // Always update cache when we have trials (new search or filtered results)
-        if (result.trials && effectiveChatId) {
-          cacheService.updateCache(effectiveChatId, result.trials, healthProfile, query);
+        // Update cache with results (trials may be undefined in new pipeline)
+        if (result.matches && effectiveChatId) {
+          // Extract trials from matches for caching
+          const trialsForCache = result.matches.map(m => m.trial);
+          cacheService.updateCache(effectiveChatId, trialsForCache, healthProfile, query);
         }
 
-        // Stream eligibility criteria if appropriate (but don't include in main response)
-        if (result.metadata?.focusedOnEligibility && result.matches && dataStream) {
-          // Note: We no longer extract full trials from matches since they're compressed
-          // The streaming is optional and only for UI display
-          debug.log(DebugCategory.TOOL, 'Eligibility streaming skipped - trials are compressed');
-        }
-
-        // Remove the full trials array from the result to save tokens
-        // The matches array already contains all necessary information
-        const { trials, ...responseWithoutTrials } = result;
+        // The context-aware pipeline already provides optimally compressed matches
+        // with location-aware compression and context preservation
         
-        // Further compress eligibility assessments for AI (keep full for UI)
-        if (responseWithoutTrials.matches) {
+        // Optional: Further compress eligibility assessments if they exist
+        if (result.matches && result.matches.some(m => m.eligibilityAssessment)) {
           const { AssessmentCompressor } = await import('./clinical-trials/assessment-compressor');
           
-          // Create two versions: one for UI (full), one for AI (compressed)
-          responseWithoutTrials.matches = responseWithoutTrials.matches.map(match => {
-            // Store full assessment for UI to access
-            const fullAssessment = match.eligibilityAssessment;
-            
-            // Replace with compressed version for AI tokens
-            return {
-              ...match,
-              eligibilityAssessment: AssessmentCompressor.compressAssessment(fullAssessment),
-              // Store full assessment in a separate field that UI can access
-              _fullAssessment: fullAssessment
-            };
+          result.matches = result.matches.map(match => {
+            if (match.eligibilityAssessment) {
+              // Store full assessment for UI to access
+              const fullAssessment = match.eligibilityAssessment;
+              
+              // Replace with compressed version for AI tokens
+              return {
+                ...match,
+                eligibilityAssessment: AssessmentCompressor.compressAssessment(fullAssessment),
+                // Store full assessment in a separate field that UI can access
+                _fullAssessment: fullAssessment
+              };
+            }
+            return match;
           });
         }
         
-        // Log token savings
-        if (trials && result.matches) {
-          const fullSize = JSON.stringify({ ...result }).length;
-          const compressedSize = JSON.stringify(responseWithoutTrials).length;
-          debug.log(DebugCategory.TOOL, 'Response compression', {
-            fullSize,
-            compressedSize,
-            reduction: `${Math.round((1 - compressedSize / fullSize) * 100)}%`,
-            trialCount: trials.length
+        // Log compression metrics from context
+        if (result.metadata?.queryContext) {
+          const matchCount = result.matches?.length || 0;
+          const responseSize = JSON.stringify(result).length;
+          debug.log(DebugCategory.TOOL, 'Response metrics', {
+            matchCount,
+            responseSize,
+            contextPreserved: true,
+            processingTimeMs: result.metadata.queryContext.metadata.processingTime
           });
         }
 
-        return responseWithoutTrials;
+        return result;
       } else {
         // Pipeline returned an error
         
