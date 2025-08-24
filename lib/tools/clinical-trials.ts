@@ -13,47 +13,60 @@ import { ClinicalTrial, HealthProfile, TrialMatch, CachedSearch, MolecularMarker
 import { clinicalTrialsRouter } from './clinical-trials/router';
 import { cacheService } from './clinical-trials/services/cache-service';
 import { locationService } from './clinical-trials/location-service';
-import { conversationalIntelligence } from './clinical-trials/conversational-intelligence';
 import { getMessagesByChatId } from '@/lib/db/queries';
 
-// Clean, minimal tool export with optional conversational intelligence
+// Helper function to extract trial IDs from conversation history
+function extractPreviousTrialIds(messages: any[]): string[] {
+  const trialIds = new Set<string>();
+  
+  for (const message of messages) {
+    // Look for tool invocations with clinical trials results
+    if (message.toolInvocations) {
+      for (const invocation of message.toolInvocations) {
+        if (invocation.toolName === 'clinical_trials' && invocation.result?.matches) {
+          for (const match of invocation.result.matches) {
+            if (match.trial?.nctId) {
+              trialIds.add(match.trial.nctId);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  return Array.from(trialIds);
+}
+
+// Clean, minimal tool export with conversation awareness
 export const clinicalTrialsTool = (
   chatId?: string, 
   dataStream?: any,
-  userCoordinates?: { latitude?: number; longitude?: number },
-  enableConversationalIntelligence: boolean = true // Enable by default
+  userCoordinates?: { latitude?: number; longitude?: number }
 ) => tool({
-  description: `Search and analyze clinical trials with conversational intelligence.
+  description: `Search and analyze clinical trials with conversation awareness.
   
   The tool automatically:
-  - Understands conversation context to provide better continuations
+  - Understands conversation context for better continuations
   - Detects NCT IDs (e.g., NCT12345678)
   - Uses health profiles when available
   - Handles location-based searches intelligently
-  - Composes multiple search strategies for comprehensive results
-  
-  The system treats every query equally in the conversation context, understanding:
-  - "Show me more" - intelligently determines if you want similar or different trials
-  - "What about Boston?" - adds location filtering to existing search
-  - "Any phase 1 trials?" - refines current search with phase criteria
-  - "I've seen those" - automatically excludes previously shown trials
+  - Excludes previously shown trials when appropriate
   
   Examples:
   - "Find trials for lung cancer"
-  - "Show me more" (system understands context)
+  - "Show me more" (excludes already shown trials)
   - "What are the locations for NCT05568550?"
-  - "Are there any in academic centers?"`,
+  - "Are there any in Boston?" (location-specific search)`,
   
   parameters: z.object({
     query: z.string().describe('The user\'s natural language query about clinical trials'),
     offset: z.number().optional().default(0).describe('Number of trials to skip for pagination (handled intelligently)'),
     limit: z.number().optional().default(5).describe('Maximum number of trials to return'),
     userLatitude: z.number().optional().describe('User\'s latitude for proximity matching'),
-    userLongitude: z.number().optional().describe('User\'s longitude for proximity matching'),
-    useConversationalContext: z.boolean().optional().default(true).describe('Use conversation history for intelligent processing')
+    userLongitude: z.number().optional().describe('User\'s longitude for proximity matching')
   }),
   
-  execute: async ({ query, offset = 0, limit = 5, userLatitude, userLongitude, useConversationalContext = true }) => {
+  execute: async ({ query, offset = 0, limit = 5, userLatitude, userLongitude }) => {
     const effectiveChatId = chatId;
     
     // Build user coordinates if provided

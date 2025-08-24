@@ -22,6 +22,10 @@ export interface RouterContext {
   chatId?: string;
   dataStream?: any;
   pagination?: { offset: number; limit: number };
+  conversationContext?: {
+    messages: any[];
+    previousTrialIds: string[];
+  };
 }
 
 /**
@@ -42,7 +46,7 @@ export class ClinicalTrialsRouter {
    * Falls back to simple classification if AI fails
    */
   async routeWithContext(context: RouterContext): Promise<RouterResult> {
-    const { query, healthProfile, userCoordinates, chatId, dataStream, pagination } = context;
+    const { query, healthProfile, userCoordinates, chatId, dataStream, pagination, conversationContext } = context;
 
     let queryContext: QueryContext;
     let classificationMethod = 'AI';
@@ -57,6 +61,7 @@ export class ClinicalTrialsRouter {
       const classification = await structuredQueryClassifier.classify(query, {
         healthProfile,
         userLocation: validUserLocation,
+        conversationContext,
       });
 
       // Build QueryContext from structured classification
@@ -64,6 +69,19 @@ export class ClinicalTrialsRouter {
         healthProfile,
         userLocation: validUserLocation,
       });
+      
+      // Add excluded trial IDs if we have conversation context
+      if (conversationContext?.previousTrialIds && conversationContext.previousTrialIds.length > 0) {
+        queryContext.executionPlan.searchParams.filters = {
+          ...queryContext.executionPlan.searchParams.filters,
+          excludeNctIds: conversationContext.previousTrialIds,
+        };
+        
+        debug.log(DebugCategory.ROUTER, 'Added excluded trial IDs from conversation', {
+          count: conversationContext.previousTrialIds.length,
+          ids: conversationContext.previousTrialIds.slice(0, 5), // Log first 5 for debugging
+        });
+      }
     } catch (aiError) {
       // If AI classification fails, use simple fallback
       debug.log(DebugCategory.ROUTER, 'AI classification failed, using simple fallback', {

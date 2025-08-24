@@ -299,7 +299,7 @@ export class SearchStrategyExecutor {
     debug.log(DebugCategory.SEARCH, 'Profile-based broad search', {
       strategy: 'broad-then-filter',
       broadQuery,
-      cancerType,
+      cancerType: profile.cancerType || profile.cancer_type,
       hasLocation: !!context.user.location,
       hasMutations: !!profile.molecularMarkers || !!profile.mutations
     });

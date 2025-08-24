@@ -163,6 +163,10 @@ export class StructuredQueryClassifier {
       healthProfile?: HealthProfile | null;
       userLocation?: { latitude: number; longitude: number } | null;
       previousResults?: number;
+      conversationContext?: {
+        messages: any[];
+        previousTrialIds: string[];
+      };
     }
   ): Promise<StructuredQueryClassification> {
     // Check cache
@@ -175,13 +179,14 @@ export class StructuredQueryClassifier {
       query, 
       model: 'gpt-4o-mini (structured outputs)',
       hasProfile: !!context?.healthProfile,
-      hasLocation: !!context?.userLocation 
+      hasLocation: !!context?.userLocation,
+      hasPreviousTrials: (context?.conversationContext?.previousTrialIds?.length || 0) > 0 
     });
     
     const startTime = Date.now();
     
     try {
-      const systemPrompt = this.buildSystemPrompt(context);
+      const systemPrompt = this.buildSystemPrompt(context, query);
       
       // Use OpenAI structured outputs mode via oncobot provider
       const result = await generateObject({
@@ -328,7 +333,7 @@ export class StructuredQueryClassifier {
   /**
    * Build comprehensive system prompt
    */
-  private buildSystemPrompt(context?: any): string {
+  private buildSystemPrompt(context?: any, query?: string): string {
     let prompt = `You are an expert clinical trials query classifier. Analyze queries to extract ALL relevant information for trial searching.
 
 Your task:
@@ -381,6 +386,45 @@ When a query is general (e.g., "find trials"), use the profile to enrich the sea
 
 User Location: ${context.userLocation.latitude}, ${context.userLocation.longitude}
 If query mentions "near me" or similar, mark isNearMe as true.`;
+    }
+    
+    // Add conversation context for continuation queries
+    if (context?.conversationContext) {
+      const { previousTrialIds, messages } = context.conversationContext;
+      
+      // Check if this is a continuation query
+      const continuationPatterns = [
+        'more', 'else', 'other', 'different', 'additional',
+        'what about', 'any', 'show me', 'continue'
+      ];
+      
+      const lowerQuery = (query || '').toLowerCase();
+      const isContinuation = continuationPatterns.some(pattern => lowerQuery.includes(pattern));
+      
+      if (isContinuation && previousTrialIds.length > 0) {
+        prompt += `
+
+IMPORTANT: This appears to be a continuation query in an ongoing conversation.
+The user has already seen ${previousTrialIds.length} trials.
+
+For continuation queries like "show me more" or "any other trials":
+- The search intent should remain similar to the previous search
+- Consider this as looking for ADDITIONAL trials, not repeating the same ones
+- If the query mentions a specific location (e.g., "what about Boston?"), that's a location refinement
+- If the query mentions specific criteria (e.g., "any phase 1?"), that's a criteria refinement`;
+        
+        // Add recent context if available
+        const recentMessages = messages.slice(-2);
+        if (recentMessages.length > 0) {
+          const previousQuery = recentMessages.find(m => m.role === 'user')?.content;
+          if (previousQuery) {
+            prompt += `
+
+Previous query: "${previousQuery}"
+This helps understand the context of the current query.`;
+          }
+        }
+      }
     }
     
     prompt += `
