@@ -26,14 +26,13 @@ export async function GET(
     // Fetch the full trial data using SearchExecutor
     const searchExecutor = new SearchExecutor();
     
-    // Use executeParallelSearches to fetch by NCT ID
-    const results = await searchExecutor.executeParallelSearches(
-      [nctId.toUpperCase()],
-      ['filter.ids'],
-      { maxResults: 1 }
+    // Use executeSearch to fetch by NCT ID
+    // The ClinicalTrials.gov API uses query.nctid for NCT ID searches
+    const result = await searchExecutor.executeSearch(
+      `query.nctid:${nctId.toUpperCase()}`,
+      { pageSize: 1, countTotal: false }
     );
     
-    const result = results[0];
     const trials = result?.studies || [];
     
     if (!trials || trials.length === 0) {

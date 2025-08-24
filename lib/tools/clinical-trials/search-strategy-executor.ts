@@ -38,6 +38,12 @@ export interface RouterResult {
   totalCount?: number;
   hasMore?: boolean;
   currentOffset?: number;
+  pagination?: {
+    offset: number;
+    limit: number;
+    total: number;
+    showing: string;
+  };
 }
 
 export class SearchStrategyExecutor {
@@ -992,7 +998,10 @@ export class SearchStrategyExecutor {
   ): Promise<{ studies: ClinicalTrial[]; totalCount: number; error?: string }> {
     const results = await this.searchExecutor.executeParallelSearches(
       [query],
-      options
+      { 
+        pageSize: options.maxResults || 50,
+        countTotal: true 
+      }
     );
     
     const result = results[0];
@@ -1205,7 +1214,7 @@ export class SearchStrategyExecutor {
         enrollmentCount: compressedTrial.protocolSection?.designModule?.enrollmentInfo?.count,
         lastUpdateDate: compressedTrial.protocolSection?.statusModule?.lastUpdatePostDateStruct?.date || '',
         matchReason: this.generateEnhancedMatchReason(trial, context, eligibilityAnalysis),
-        relevanceScore: eligibilityAnalysis?.eligibilityScore || this.calculateRelevanceScore(trial, context.user?.healthProfile),
+        relevanceScore: eligibilityAnalysis?.eligibilityScore || this.calculateContextRelevanceScore(trial, context),
         trial: compressedTrial,
         distance: (trial as any).distance,
         // Create three-layer assessment structure that UI expects

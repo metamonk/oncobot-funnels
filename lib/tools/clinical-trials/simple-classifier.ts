@@ -6,7 +6,7 @@
  */
 
 import type { HealthProfile } from './types';
-import { QueryContext, QueryContextBuilder, ProfileInfluence } from './query-context';
+import { QueryContext, QueryContextBuilder, ProfileInfluence, type ExecutionPlan } from './query-context';
 import { debug, DebugCategory } from './debug';
 
 export class SimpleClassifier {
@@ -41,18 +41,19 @@ export class SimpleClassifier {
         conditions: [],
         cancerTypes: [],
         mutations: [],
+        biomarkers: [],
         locations: [],
-        keywords: [],
-        radius: null
+        drugs: [],
+        treatments: [],
+        stages: [],
+        otherMedicalTerms: []
       });
       
       builder.withInferredIntent({
-        searchType: 'nct_lookup',
-        intent: 'specific_trial',
-        hasExplicitLocation: false,
-        hasExplicitCondition: false,
-        hasHealthProfile: !!context?.healthProfile,
-        hasUserLocation: !!context?.userLocation,
+        primaryGoal: 'specific_trial',
+        specificity: 'very_specific',
+        urgency: 'researching',
+        knowledgeLevel: 'patient',
         confidence: 1.0
       });
       
@@ -60,12 +61,14 @@ export class SimpleClassifier {
         primaryStrategy: 'nct_direct',
         fallbackStrategies: [],
         searchParams: {
-          nctIds: nctMatch.map(id => id.toUpperCase())
-        },
-        optimization: {
-          useCache: false,
-          parallelSearch: false,
+          baseQuery: nctMatch[0].toUpperCase(),
+          filters: {
+            nctIds: nctMatch.map(id => id.toUpperCase())
+          },
           maxResults: 10
+        },
+        validations: {
+          confirmRecruitmentStatus: true
         }
       });
       
@@ -97,7 +100,16 @@ export class SimpleClassifier {
       radius: 300
     };
     
-    builder.withExtractedEntities(entities);
+    // Complete entities structure
+    const completeEntities = {
+      ...entities,
+      biomarkers: [],
+      drugs: [],
+      treatments: [],
+      stages: [],
+      otherMedicalTerms: []
+    };
+    builder.withExtractedEntities(completeEntities);
     
     // Determine search type and strategy
     let searchType: string;
@@ -126,13 +138,26 @@ export class SimpleClassifier {
       confidence = 0.5;
     }
     
+    // Map to proper InferredIntent structure
+    let primaryGoal: 'find_trials' | 'check_eligibility' | 'get_info' | 'explore_options' | 'specific_trial' = 'find_trials';
+    let specificity: 'very_specific' | 'moderately_specific' | 'broad' | 'exploratory' = 'broad';
+    
+    if (hasLocation && hasCondition) {
+      specificity = 'moderately_specific';
+    } else if (hasMutation) {
+      specificity = 'moderately_specific';
+    } else if (hasCondition || hasLocation) {
+      specificity = 'moderately_specific';
+    } else if (!context?.healthProfile) {
+      specificity = 'exploratory';
+      primaryGoal = 'explore_options';
+    }
+    
     builder.withInferredIntent({
-      searchType: searchType as any,
-      intent: 'search_trials' as any,
-      hasExplicitLocation: hasLocation,
-      hasExplicitCondition: hasCondition,
-      hasHealthProfile: !!context?.healthProfile,
-      hasUserLocation: !!context?.userLocation,
+      primaryGoal,
+      specificity,
+      urgency: 'researching',
+      knowledgeLevel: 'patient',
       confidence
     });
     
@@ -156,27 +181,36 @@ export class SimpleClassifier {
     }
     
     builder.withExecutionPlan({
-      primaryStrategy: strategy,
+      primaryStrategy: strategy as ExecutionPlan['primaryStrategy'],
       fallbackStrategies: strategy === 'profile_based' ? ['broad_search'] : [],
-      searchParams,
-      optimization: {
-        useCache: false,
-        parallelSearch: true,
+      searchParams: {
+        baseQuery: searchParams.enrichedQuery || searchParams.conditions?.[0] || 'cancer',
+        enrichedQuery: searchParams.enrichedQuery,
+        filters: {
+          conditions: searchParams.conditions,
+          mutations: searchParams.mutations,
+          radius: searchParams.radius
+        },
         maxResults: 25
+      },
+      validations: {
+        checkEligibility: !!context?.healthProfile,
+        verifyLocations: hasLocation,
+        confirmRecruitmentStatus: true
       }
     });
     
     // Set profile influence
     if (context?.healthProfile) {
-      builder.withProfileInfluence(
-        ProfileInfluence.CONTEXTUAL,
-        'Simple classification with profile context'
-      );
+      builder.withProfileInfluence({
+        level: ProfileInfluence.CONTEXTUAL,
+        reason: 'Simple classification with profile context'
+      });
     } else {
-      builder.withProfileInfluence(
-        ProfileInfluence.DISABLED,
-        'No health profile available'
-      );
+      builder.withProfileInfluence({
+        level: ProfileInfluence.DISABLED,
+        reason: 'No health profile available'
+      });
     }
     
     // Add decision tracking

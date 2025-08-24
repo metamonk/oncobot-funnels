@@ -257,54 +257,75 @@ export class AIQueryClassifier {
       conditions: classification.medical.conditions,
       cancerTypes: classification.medical.cancerTypes,
       mutations: classification.medical.mutations,
+      biomarkers: classification.medical.biomarkers,
       locations: [
         ...classification.location.cities,
         ...classification.location.states,
       ],
-      keywords: [],
-      radius: classification.location.radius,
+      drugs: classification.medical.drugs,
+      treatments: [],
+      stages: classification.medical.stage ? [classification.medical.stage] : [],
+      otherMedicalTerms: []
     };
     builder.withExtractedEntities(entities);
     
-    // Map inferred intent
+    // Map inferred intent to proper structure
+    let primaryGoal: InferredIntent['primaryGoal'] = 'find_trials';
+    if (classification.searchType === 'nct_lookup') {
+      primaryGoal = 'specific_trial';
+    } else if (classification.intent.primary.includes('eligibility')) {
+      primaryGoal = 'check_eligibility';
+    } else if (classification.intent.primary.includes('info')) {
+      primaryGoal = 'get_info';
+    }
+    
+    let specificity: InferredIntent['specificity'] = 'broad';
+    if (classification.identifiers.nctIds.length > 0) {
+      specificity = 'very_specific';
+    } else if (classification.medical.mutations.length > 0 || classification.medical.drugs.length > 0) {
+      specificity = 'moderately_specific';
+    }
+    
     const inferredIntent: InferredIntent = {
-      searchType: classification.searchType as any,
-      intent: classification.intent.primary as any,
-      hasExplicitLocation: classification.location.cities.length > 0 || 
-                          classification.location.isNearMe,
-      hasExplicitCondition: classification.medical.conditions.length > 0,
-      hasHealthProfile: !!context?.healthProfile,
-      hasUserLocation: !!context?.userLocation || classification.location.isNearMe,
+      primaryGoal,
+      specificity,
+      urgency: 'researching',
+      knowledgeLevel: 'patient',
       confidence: classification.intent.confidence,
     };
     builder.withInferredIntent(inferredIntent);
     
-    // Build execution plan
+    // Build execution plan with correct structure
+    const baseQuery = classification.identifiers.nctIds.length > 0 
+      ? classification.identifiers.nctIds[0]
+      : this.buildEnrichedQuery(classification, context?.healthProfile);
+      
     const executionPlan: ExecutionPlan = {
       primaryStrategy: this.mapStrategyToExecutionPlan(classification.strategy.primary),
       fallbackStrategies: classification.strategy.fallbacks,
       searchParams: {
-        location: classification.location.cities[0],
-        conditions: classification.medical.conditions,
-        mutations: classification.medical.mutations,
-        drugs: classification.medical.drugs,
-        radius: classification.location.radius || 300,
+        baseQuery,
         enrichedQuery: this.buildEnrichedQuery(classification, context?.healthProfile),
-      },
-      optimization: {
-        useCache: false,
-        parallelSearch: classification.strategy.optimizations.includes('parallel'),
+        filters: {
+          location: classification.location.cities[0],
+          conditions: classification.medical.conditions,
+          mutations: classification.medical.mutations,
+          drugs: classification.medical.drugs,
+          radius: classification.location.radius || 300,
+        },
         maxResults: 25,
+      },
+      validations: {
+        checkEligibility: classification.intent.requiresProfile,
+        verifyLocations: classification.location.cities.length > 0,
+        confirmRecruitmentStatus: true,
       },
     };
     builder.withExecutionPlan(executionPlan);
     
     // Set profile influence based on classification
     const profileInfluence = this.determineProfileInfluence(classification, context?.healthProfile);
-    builder.withProfileInfluence(
-      profileInfluence.level,
-      profileInfluence.reason
-    );
+    builder.withProfileInfluence(profileInfluence);
     
     // Add decision tracking
     builder.addDecision(
@@ -414,13 +435,12 @@ Strategy selection:
       searchRadius: loc.radius || 300,
     };
     
-    // Add extracted location
+    // Add extracted location fields directly
     if (loc.cities.length > 0) {
-      userLocation.extractedLocation = {
-        city: loc.cities[0],
-        state: loc.states[0],
-        country: loc.countries[0] || 'USA',
-      };
+      userLocation.city = loc.cities[0];
+      userLocation.state = loc.states[0];
+      userLocation.country = loc.countries[0] || 'USA';
+      userLocation.explicitlyRequested = true;
     }
     
     // Add coordinates
@@ -430,9 +450,9 @@ Strategy selection:
       userLocation.coordinates = loc.coordinates;
     }
     
-    // Mark as near me
+    // Mark as explicitly requested for "near me" queries
     if (loc.isNearMe) {
-      userLocation.isNearMe = true;
+      userLocation.explicitlyRequested = true;
     }
     
     return userLocation;
@@ -441,16 +461,16 @@ Strategy selection:
   /**
    * Map AI strategy to execution plan format
    */
-  private mapStrategyToExecutionPlan(strategy: string): string {
-    const mapping: Record<string, string> = {
+  private mapStrategyToExecutionPlan(strategy: string): ExecutionPlan['primaryStrategy'] {
+    const mapping: Record<string, ExecutionPlan['primaryStrategy']> = {
       'direct_nct': 'nct_direct',
       'location_first': 'location_based',
       'condition_first': 'condition_based',
       'profile_first': 'profile_based',
-      'parallel_search': 'parallel',
-      'broad_then_filter': 'broad_search',
+      'parallel_search': 'broad',
+      'broad_then_filter': 'broad',
     };
-    return mapping[strategy] || strategy;
+    return mapping[strategy] || 'broad';
   }
   
   /**

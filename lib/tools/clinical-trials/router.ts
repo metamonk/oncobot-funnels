@@ -49,16 +49,20 @@ export class ClinicalTrialsRouter {
 
     try {
       // Try AI classification first
+      // Only pass userLocation if we have valid coordinates
+      const validUserLocation = userCoordinates?.latitude && userCoordinates?.longitude 
+        ? { latitude: userCoordinates.latitude, longitude: userCoordinates.longitude }
+        : null;
+        
       const classification = await structuredQueryClassifier.classify(query, {
         healthProfile,
-        userLocation: userCoordinates || null,
-        previousResults: cachedTrials?.length,
+        userLocation: validUserLocation,
       });
 
       // Build QueryContext from structured classification
       queryContext = structuredQueryClassifier.buildQueryContext(query, classification, {
         healthProfile,
-        userLocation: userCoordinates || null,
+        userLocation: validUserLocation,
       });
     } catch (aiError) {
       // If AI classification fails, use simple fallback
@@ -68,14 +72,19 @@ export class ClinicalTrialsRouter {
       });
 
       classificationMethod = 'Simple';
+      // Use the same validated user location
+      const validUserLocationFallback = userCoordinates?.latitude && userCoordinates?.longitude 
+        ? { latitude: userCoordinates.latitude, longitude: userCoordinates.longitude }
+        : null;
+        
       queryContext = simpleClassifier.classify(query, {
         healthProfile,
-        userLocation: userCoordinates || null,
+        userLocation: validUserLocationFallback,
       });
 
       // Add metadata about fallback usage
-      queryContext.metadata.classificationMethod = 'fallback';
-      queryContext.metadata.aiError = aiError instanceof Error ? aiError.message : 'Unknown error';
+      queryContext.metadata.classifierConfidence = 0.5; // Lower confidence for fallback
+      queryContext.metadata.routerDecision = 'fallback_simple_classifier';
     }
 
     // Add additional routing metadata
