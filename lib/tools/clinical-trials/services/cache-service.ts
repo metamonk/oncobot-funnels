@@ -1,16 +1,17 @@
 /**
  * Cache Service - Centralized caching for clinical trials
  * 
- * Single responsibility: Manage trial search caching
+ * Enhanced with full search context for intelligent continuation
  */
 
-import type { ClinicalTrial, HealthProfile, CachedSearch } from '../types';
+import type { ClinicalTrial, HealthProfile, CachedSearch, SearchContext } from '../types';
 import { debug, DebugCategory } from '../debug';
 
 export class CacheService {
   private static instance: CacheService;
   private cache = new Map<string, CachedSearch>();
   private readonly TTL = 30 * 60 * 1000; // 30 minutes
+  private readonly PAGE_SIZE = 5; // Default page size for pagination
 
   private constructor() {}
 
@@ -49,18 +50,23 @@ export class CacheService {
   }
 
   /**
-   * Update cache for a chat
+   * Update cache with enhanced context
    */
   updateCache(
     chatId: string,
     trials: ClinicalTrial[],
     healthProfile: HealthProfile | null,
-    query: string
+    query: string,
+    searchContext?: SearchContext
   ): void {
     if (!chatId || !trials || trials.length === 0) return;
 
     const key = `chat_${chatId}`;
     const existing = this.cache.get(key);
+
+    // If this is a continuation, preserve shown trials
+    const shownTrialIds = existing?.shownTrialIds || new Set<string>();
+    const availableTrialIds = trials.map(t => t.nctId).filter(Boolean) as string[];
 
     const newCache: CachedSearch = {
       chatId,
@@ -68,39 +74,78 @@ export class CacheService {
       healthProfile,
       searchQueries: existing ? [...existing.searchQueries, query] : [query],
       timestamp: Date.now(),
-      lastOffset: 0
+      lastOffset: 0,
+      searchContext: searchContext || existing?.searchContext,
+      shownTrialIds,
+      availableTrialIds
     };
 
     this.cache.set(key, newCache);
-    debug.log(DebugCategory.CACHE, 'Cache updated', {
+    debug.log(DebugCategory.CACHE, 'Cache updated with context', {
       chatId,
       trialCount: trials.length,
-      queryCount: newCache.searchQueries.length
+      queryCount: newCache.searchQueries.length,
+      hasContext: !!searchContext,
+      shownCount: shownTrialIds.size
     });
   }
 
   /**
-   * Handle pagination for cached results
+   * Get next batch of trials intelligently
    */
-  getPaginatedResults(
+  getNextBatch(
     chatId: string,
-    pageSize: number = 10
-  ): { trials: ClinicalTrial[]; hasMore: boolean; offset: number } | null {
+    pageSize: number = 5
+  ): { 
+    trials: ClinicalTrial[]; 
+    hasMore: boolean; 
+    context: SearchContext | undefined;
+    shownCount: number;
+    totalAvailable: number;
+  } | null {
     const cached = this.getCachedSearch(chatId);
     if (!cached) return null;
 
-    const offset = cached.lastOffset || 0;
-    const trials = cached.trials.slice(offset, offset + pageSize);
-    const hasMore = offset + pageSize < cached.trials.length;
+    // Get trials that haven't been shown yet
+    const unshownTrials = cached.trials.filter(
+      trial => trial.nctId && !cached.shownTrialIds.has(trial.nctId)
+    );
 
-    // Update offset for next pagination
-    cached.lastOffset = offset + pageSize;
+    // Take the next batch
+    const nextBatch = unshownTrials.slice(0, pageSize);
+    
+    // Mark these trials as shown
+    nextBatch.forEach(trial => {
+      if (trial.nctId) {
+        cached.shownTrialIds.add(trial.nctId);
+      }
+    });
+
+    // Update the cache with new shown status
+    this.cache.set(`chat_${chatId}`, cached);
 
     return {
-      trials,
-      hasMore,
-      offset
+      trials: nextBatch,
+      hasMore: unshownTrials.length > pageSize,
+      context: cached.searchContext,
+      shownCount: cached.shownTrialIds.size,
+      totalAvailable: cached.trials.length
     };
+  }
+
+  /**
+   * Check if this is a continuation query
+   */
+  isContinuationAvailable(chatId: string): boolean {
+    const cached = this.getCachedSearch(chatId);
+    if (!cached) return false;
+
+    // Check if we have unshown trials
+    const unshownCount = cached.trials.filter(
+      trial => trial.nctId && !cached.shownTrialIds.has(trial.nctId)
+    ).length;
+
+    return unshownCount > 0;
   }
 
   /**

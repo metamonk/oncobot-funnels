@@ -377,6 +377,21 @@ export interface TrialMatch {
 /**
  * Cached search results for a chat session
  */
+export interface SearchContext {
+  originalQuery: string;
+  searchType: string;
+  filters: {
+    conditions?: string[];
+    cancerTypes?: string[];
+    mutations?: string[];
+    locations?: string[];
+    radius?: number;
+  };
+  totalCount: number;
+  returnedCount: number;
+  pageToken?: string;
+}
+
 export interface CachedSearch {
   chatId: string;
   trials: ClinicalTrial[];
@@ -384,5 +399,9 @@ export interface CachedSearch {
   searchQueries: string[];
   timestamp: number;
   lastOffset: number;
+  // Enhanced context for intelligent continuation
+  searchContext?: SearchContext;
+  shownTrialIds: Set<string>;  // Track which trials have been shown
+  availableTrialIds: string[];  // All trial IDs from original search
 }
 
