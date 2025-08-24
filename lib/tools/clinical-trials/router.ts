@@ -9,7 +9,7 @@
 
 import type { ClinicalTrial, HealthProfile } from './types';
 import { debug, DebugCategory } from './debug';
-import { aiQueryClassifier } from './ai-query-classifier';
+import { structuredQueryClassifier } from './ai-query-classifier-structured';
 import { SearchStrategyExecutor, type RouterResult } from './search-strategy-executor';
 import { LocationService } from './location-service';
 import { QueryContext } from './query-context';
@@ -43,15 +43,15 @@ export class ClinicalTrialsRouter {
   async routeWithContext(context: RouterContext): Promise<RouterResult> {
     const { query, healthProfile, userCoordinates, cachedTrials, chatId, dataStream } = context;
 
-    // Classify query using AI
-    const classification = await aiQueryClassifier.classify(query, {
+    // Classify query using structured outputs
+    const classification = await structuredQueryClassifier.classify(query, {
       healthProfile,
       userLocation: userCoordinates || null,
       previousResults: cachedTrials?.length,
     });
 
-    // Build QueryContext from AI classification
-    const queryContext = aiQueryClassifier.buildQueryContext(query, classification, {
+    // Build QueryContext from structured classification
+    const queryContext = structuredQueryClassifier.buildQueryContext(query, classification, {
       healthProfile,
       userLocation: userCoordinates || null,
     });
