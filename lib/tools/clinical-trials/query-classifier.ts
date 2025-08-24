@@ -502,7 +502,16 @@ export class QueryClassifier {
     // 6. Determine primary intent
     let intent = this.determineIntent(intentScores, weights, components);
     
-    // 6.5 IMPORTANT: If user has a health profile and query contains personal references,
+    // 6.5 CRITICAL FIX: If location is explicitly mentioned, prioritize location-based search
+    // This prevents China trials from appearing in location-specific queries
+    if (components.location && components.location !== 'NEAR_ME') {
+      // Check if query explicitly mentions location with prepositions
+      if (/\b(in|at|near|around)\s+[A-Za-z]/i.test(query)) {
+        intent = QueryIntent.LOCATION_PRIMARY;
+      }
+    }
+    
+    // 6.6 IMPORTANT: If user has a health profile and query contains personal references,
     // prioritize eligibility/profile-based search
     if (context.healthProfile && this.hasPersonalReference(normalizedQuery)) {
       // Override to eligibility intent to trigger profile-based search
@@ -701,6 +710,15 @@ export class QueryClassifier {
     if (components.mutations) conditionWeight += 0.3;
     if (components.stage) conditionWeight += 0.2;
     if (components.radius) locationWeight += 0.5;
+
+    // CRITICAL FIX: Strongly boost location weight when explicitly mentioned
+    // This ensures location-based searches are properly routed
+    if (components.location && components.location !== 'NEAR_ME') {
+      // Explicit location like "in chicago" should take priority
+      if (/\b(in|at|near|around)\s+[A-Za-z]/i.test(query)) {
+        locationWeight += 0.6; // Strong boost for explicit location queries
+      }
+    }
 
     // Adjust based on query structure
     if (/^(in|near|at)\s+/i.test(query)) locationWeight += 0.3;

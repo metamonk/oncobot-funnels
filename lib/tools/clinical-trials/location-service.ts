@@ -153,17 +153,28 @@ export class LocationService {
    * Extract location from query string
    */
   extractLocationFromQuery(query: string): string | null {
-    // Location patterns
+    // Check for "near me" patterns first - special case
+    if (/\bnear\s+me\b/i.test(query) || /\bmy\s+(location|area)\b/i.test(query)) {
+      return 'NEAR_ME'; // Special marker for current location
+    }
+    
+    // Location patterns - FIXED: Now properly captures locations without trailing punctuation
     const patterns = [
-      /(?:near|in|at|around|close to|proximity to)\s+([A-Za-z\s,]+?)(?:\.|,|\?|$)/i,
-      /trials?\s+(?:near|in|at|around)\s+([A-Za-z\s,]+?)(?:\.|,|\?|$)/i,
-      /([A-Za-z\s]+?,\s*[A-Z]{2})\b/, // City, STATE format
+      /(?:near|in|at|around|close to|proximity to)\s+([A-Za-z][A-Za-z\s,]*?)(?:\s+for\s+|\s+trials?\s*|\.|,|\?|$)/i,
+      /trials?\s+(?:near|in|at|around)\s+([A-Za-z][A-Za-z\s,]*?)(?:\s+for\s+|\.|,|\?|$)/i,
+      /([A-Za-z][A-Za-z\s]+?,\s*[A-Z]{2})\b/, // City, STATE format
     ];
     
     for (const pattern of patterns) {
       const match = query.match(pattern);
       if (match && match[1]) {
-        return match[1].trim();
+        // Clean up the captured location
+        let location = match[1].trim();
+        // Remove trailing common words that might get captured
+        location = location.replace(/\s+(trials?|for|with|and)$/i, '').trim();
+        if (location && location.toLowerCase() !== 'me') {
+          return location;
+        }
       }
     }
     

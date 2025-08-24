@@ -145,25 +145,38 @@ export class SearchStrategyExecutor {
       return result;
 
     } catch (error) {
-      debug.log(DebugCategory.ERROR, 'Context-aware execution failed', { 
+      debug.log(DebugCategory.ERROR, 'Context-aware execution failed, trying fallback', { 
         error,
         contextId: queryContext.tracking.contextId 
       });
 
       queryContext.tracking.decisionsMade.push({
         component: 'SearchStrategyExecutor',
-        decision: 'Execution failed',
-        confidence: 0,
+        decision: 'Primary execution failed, attempting broad search fallback',
+        confidence: 0.5,
         reasoning: error instanceof Error ? error.message : 'Unknown error'
       });
 
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Search execution failed',
-        message: 'Unable to complete search. Please try a different query.',
-        matches: [],
-        totalCount: 0
-      };
+      // CRITICAL FIX: If primary strategy fails, fallback to broad search
+      // This ensures we still get results with location filtering applied
+      try {
+        const fallbackResult = await this.executeBroadSearchWithContext(queryContext);
+        fallbackResult.metadata = {
+          ...fallbackResult.metadata,
+          fallbackUsed: true,
+          originalError: error instanceof Error ? error.message : 'Unknown error'
+        };
+        return fallbackResult;
+      } catch (fallbackError) {
+        // If even fallback fails, return error
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Search execution failed',
+          message: 'Unable to complete search. Please try a different query.',
+          matches: [],
+          totalCount: 0
+        };
+      }
     }
   }
 
@@ -491,12 +504,46 @@ export class SearchStrategyExecutor {
       { maxResults: 50 }  // Reduced from 100 to prevent token overflow
     );
 
+    // CRITICAL FIX: Apply location filtering for broad searches if user has location
+    // This prevents distant trials (e.g., China) from appearing when user is in Chicago
+    let filteredStudies = studies;
+    if (context.user.location?.coordinates || context.extracted?.locations?.length > 0) {
+      // Get location either from user or extracted from query
+      const location = context.user.location || this.extractLocationFromContext(context);
+      
+      if (location?.coordinates) {
+        const DEFAULT_SEARCH_RADIUS = 300; // Default 300 miles
+        const locationContext = {
+          userLocation: {
+            coordinates: {
+              lat: location.coordinates.latitude,
+              lng: location.coordinates.longitude
+            },
+            city: location.city,
+            state: location.state
+          },
+          searchRadius: location.searchRadius || DEFAULT_SEARCH_RADIUS
+        };
+        
+        // Filter by location to remove distant trials
+        filteredStudies = await this.locationService.rankTrialsByProximity(studies, locationContext);
+        
+        debug.log(DebugCategory.SEARCH, 'Applied location filter to broad search', {
+          beforeFilter: studies.length,
+          afterFilter: filteredStudies.length,
+          filtered: studies.length - filteredStudies.length,
+          searchRadius: locationContext.searchRadius
+        });
+      }
+    }
+
     // Limit results to prevent token overflow while preserving the most relevant trials
     const MAX_RESULTS_FOR_AI = 20;  // Safe limit that won't exceed token limits
-    const limitedStudies = studies.slice(0, MAX_RESULTS_FOR_AI);
+    const limitedStudies = filteredStudies.slice(0, MAX_RESULTS_FOR_AI);
     
     debug.log(DebugCategory.SEARCH, 'Limiting broad search results for token efficiency', {
       totalRetrieved: studies.length,
+      afterLocationFilter: filteredStudies.length,
       finalLimit: limitedStudies.length,
       maxAllowed: MAX_RESULTS_FOR_AI
     });
@@ -795,12 +842,22 @@ export class SearchStrategyExecutor {
     }
 
     const parsed = this.parseLocationString(primaryLocation);
-    return {
+    
+    // CRITICAL FIX: Include user coordinates if available
+    // This ensures location filtering works even when location is extracted from query
+    const location: UserLocation = {
       city: parsed.city,
       state: parsed.state,
       country: 'United States',
       explicitlyRequested: true
     };
+    
+    // If we have user coordinates, include them for distance calculation
+    if (context.user.location?.coordinates) {
+      location.coordinates = context.user.location.coordinates;
+    }
+    
+    return location;
   }
 
 
