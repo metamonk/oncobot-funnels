@@ -1,6 +1,6 @@
 import { wrapLanguageModel, customProvider, extractReasoningMiddleware } from 'ai';
 
-import { openai, createOpenAI } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { xai } from '@ai-sdk/xai';
 import { groq } from '@ai-sdk/groq';
 import { anthropic } from '@ai-sdk/anthropic';
@@ -9,6 +9,11 @@ import { mistral } from '@ai-sdk/mistral';
 
 const middleware = extractReasoningMiddleware({
   tagName: 'think',
+});
+
+// Configure OpenAI with API key
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 const fireworks = createOpenAI({

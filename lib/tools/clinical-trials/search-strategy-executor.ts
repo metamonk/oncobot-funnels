@@ -1512,6 +1512,51 @@ export class SearchStrategyExecutor {
   }
 
   /**
+   * Generate basic match reason based on trial and health profile
+   */
+  private generateMatchReason(trial: ClinicalTrial, healthProfile?: HealthProfile | null): string {
+    if (!healthProfile) {
+      return 'Matches search criteria';
+    }
+
+    const reasons: string[] = [];
+    const conditions = trial.protocolSection?.conditionsModule?.conditions || [];
+    const summary = trial.protocolSection?.descriptionModule?.briefSummary || '';
+    
+    // Check cancer type match
+    const cancerType = (healthProfile.cancerType || (healthProfile as any).cancer_type || '').toLowerCase();
+    if (cancerType && conditions.some(c => c.toLowerCase().includes(cancerType))) {
+      reasons.push(`Matches your ${healthProfile.cancerType || (healthProfile as any).cancer_type} diagnosis`);
+    }
+    
+    // Check molecular marker matches
+    if (healthProfile.molecularMarkers) {
+      const positiveMarkers = Object.entries(healthProfile.molecularMarkers)
+        .filter(([_, status]) => status === 'POSITIVE' || status === 'HIGH')
+        .map(([marker, _]) => marker);
+      
+      for (const marker of positiveMarkers) {
+        const markerName = marker.replace(/_/g, ' ');
+        if (summary.toLowerCase().includes(markerName.toLowerCase()) || 
+            conditions.some(c => c.toLowerCase().includes(markerName.toLowerCase()))) {
+          reasons.push(`Targets ${markerName} mutation`);
+        }
+      }
+    }
+    
+    // Check stage match
+    const diseaseStage = healthProfile.diseaseStage || (healthProfile as any).disease_stage;
+    if (diseaseStage) {
+      const stageText = diseaseStage.replace(/_/g, ' ').toLowerCase();
+      if (summary.toLowerCase().includes(stageText)) {
+        reasons.push(`Includes ${diseaseStage} patients`);
+      }
+    }
+    
+    return reasons.length > 0 ? reasons.join(', ') : 'Matches search criteria';
+  }
+
+  /**
    * Generate enhanced match reason including eligibility info
    */
   private generateEnhancedMatchReason(
