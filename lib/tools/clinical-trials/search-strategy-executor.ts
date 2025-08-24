@@ -485,7 +485,25 @@ export class SearchStrategyExecutor {
    * Execute broad search with context
    */
   private async executeBroadSearchWithContext(context: QueryContext): Promise<RouterResult> {
-    const searchQuery = context.executionPlan.searchParams.enrichedQuery || context.originalQuery;
+    // Build search query with health profile awareness
+    let searchQuery = context.executionPlan.searchParams.enrichedQuery || context.originalQuery;
+    
+    // CRITICAL FIX: If we have a health profile but no enriched query, build one
+    if (!context.executionPlan.searchParams.enrichedQuery && context.user.healthProfile) {
+      const profile = context.user.healthProfile;
+      const cancerType = profile.cancerType || (profile as any).cancer_type;
+      
+      if (cancerType && cancerType !== 'OTHER') {
+        // Use cancer type as primary search term
+        searchQuery = `${cancerType} ${context.originalQuery}`.trim();
+        
+        debug.log(DebugCategory.SEARCH, 'Enriching broad search with profile cancer type', {
+          originalQuery: context.originalQuery,
+          cancerType,
+          enrichedQuery: searchQuery
+        });
+      }
+    }
 
     const { studies, totalCount } = await this.executeSingleSearch(
       searchQuery,
