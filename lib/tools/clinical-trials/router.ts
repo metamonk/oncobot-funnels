@@ -19,9 +19,9 @@ export interface RouterContext {
   query: string;
   healthProfile?: HealthProfile | null;
   userCoordinates?: { latitude?: number; longitude?: number };
-  cachedTrials?: ClinicalTrial[];
   chatId?: string;
   dataStream?: any;
+  pagination?: { offset: number; limit: number };
 }
 
 /**
@@ -42,7 +42,7 @@ export class ClinicalTrialsRouter {
    * Falls back to simple classification if AI fails
    */
   async routeWithContext(context: RouterContext): Promise<RouterResult> {
-    const { query, healthProfile, userCoordinates, cachedTrials, chatId, dataStream } = context;
+    const { query, healthProfile, userCoordinates, chatId, dataStream, pagination } = context;
 
     let queryContext: QueryContext;
     let classificationMethod = 'AI';
@@ -95,8 +95,8 @@ export class ClinicalTrialsRouter {
       enrichments: queryContext.enrichments
     });
 
-    // Execute with full context
-    const result = await this.executor.executeWithContext(queryContext);
+    // Execute with full context and pagination
+    const result = await this.executor.executeWithContext(queryContext, pagination);
 
     // Log routing completion with context
     debug.log(DebugCategory.ROUTER, 'Context-aware routing complete', {

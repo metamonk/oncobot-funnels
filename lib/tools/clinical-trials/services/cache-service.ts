@@ -50,23 +50,18 @@ export class CacheService {
   }
 
   /**
-   * Update cache with enhanced context
+   * Simple cache update for performance optimization
    */
   updateCache(
     chatId: string,
     trials: ClinicalTrial[],
     healthProfile: HealthProfile | null,
-    query: string,
-    searchContext?: SearchContext
+    query: string
   ): void {
     if (!chatId || !trials || trials.length === 0) return;
 
     const key = `chat_${chatId}`;
     const existing = this.cache.get(key);
-
-    // If this is a continuation, preserve shown trials
-    const shownTrialIds = existing?.shownTrialIds || new Set<string>();
-    const availableTrialIds = trials.map(t => t.nctId).filter(Boolean) as string[];
 
     const newCache: CachedSearch = {
       chatId,
@@ -75,78 +70,18 @@ export class CacheService {
       searchQueries: existing ? [...existing.searchQueries, query] : [query],
       timestamp: Date.now(),
       lastOffset: 0,
-      searchContext: searchContext || existing?.searchContext,
-      shownTrialIds,
-      availableTrialIds
+      shownTrialIds: new Set<string>(),
+      availableTrialIds: []
     };
 
     this.cache.set(key, newCache);
-    debug.log(DebugCategory.CACHE, 'Cache updated with context', {
+    debug.log(DebugCategory.CACHE, 'Cache updated', {
       chatId,
       trialCount: trials.length,
-      queryCount: newCache.searchQueries.length,
-      hasContext: !!searchContext,
-      shownCount: shownTrialIds.size
+      queryCount: newCache.searchQueries.length
     });
   }
 
-  /**
-   * Get next batch of trials intelligently
-   */
-  getNextBatch(
-    chatId: string,
-    pageSize: number = 5
-  ): { 
-    trials: ClinicalTrial[]; 
-    hasMore: boolean; 
-    context: SearchContext | undefined;
-    shownCount: number;
-    totalAvailable: number;
-  } | null {
-    const cached = this.getCachedSearch(chatId);
-    if (!cached) return null;
-
-    // Get trials that haven't been shown yet
-    const unshownTrials = cached.trials.filter(
-      trial => trial.nctId && !cached.shownTrialIds.has(trial.nctId)
-    );
-
-    // Take the next batch
-    const nextBatch = unshownTrials.slice(0, pageSize);
-    
-    // Mark these trials as shown
-    nextBatch.forEach(trial => {
-      if (trial.nctId) {
-        cached.shownTrialIds.add(trial.nctId);
-      }
-    });
-
-    // Update the cache with new shown status
-    this.cache.set(`chat_${chatId}`, cached);
-
-    return {
-      trials: nextBatch,
-      hasMore: unshownTrials.length > pageSize,
-      context: cached.searchContext,
-      shownCount: cached.shownTrialIds.size,
-      totalAvailable: cached.trials.length
-    };
-  }
-
-  /**
-   * Check if this is a continuation query
-   */
-  isContinuationAvailable(chatId: string): boolean {
-    const cached = this.getCachedSearch(chatId);
-    if (!cached) return false;
-
-    // Check if we have unshown trials
-    const unshownCount = cached.trials.filter(
-      trial => trial.nctId && !cached.shownTrialIds.has(trial.nctId)
-    ).length;
-
-    return unshownCount > 0;
-  }
 
   /**
    * Clear cache for a specific chat

@@ -51,10 +51,13 @@ export class SearchStrategyExecutor {
   }
 
   /**
-   * NEW: Execute search with full QueryContext preservation
+   * Execute search with full QueryContext preservation and pagination
    * This is the primary entry point that ensures no information is lost
    */
-  async executeWithContext(queryContext: QueryContext): Promise<RouterResult> {
+  async executeWithContext(
+    queryContext: QueryContext,
+    pagination?: { offset: number; limit: number }
+  ): Promise<RouterResult> {
     const startTime = Date.now();
     
     debug.log(DebugCategory.TOOL, 'Executing with QueryContext', {
@@ -121,6 +124,22 @@ export class SearchStrategyExecutor {
             if (result.matches.length >= 10) break; // Enough results
           }
         }
+      }
+
+      // Apply pagination if specified
+      if (result.success && result.matches && pagination) {
+        const { offset, limit } = pagination;
+        const totalMatches = result.matches.length;
+        
+        // Slice the results based on pagination
+        result.matches = result.matches.slice(offset, offset + limit);
+        
+        debug.log(DebugCategory.TOOL, 'Applied pagination', {
+          totalMatches,
+          offset,
+          limit,
+          returnedCount: result.matches.length
+        });
       }
 
       // Apply compression with full context

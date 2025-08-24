@@ -19,27 +19,33 @@ export const clinicalTrialsTool = (
   dataStream?: any,
   userCoordinates?: { latitude?: number; longitude?: number }
 ) => tool({
-  description: `Search and analyze clinical trials. Simply pass the user's natural language query.
+  description: `Search and analyze clinical trials with built-in pagination support.
   
   The tool automatically:
   - Detects NCT IDs (e.g., NCT12345678)
   - Uses health profiles when available
   - Handles location-based searches
-  - Manages pagination and caching
+  - Supports pagination with offset/limit
+  
+  For continuation queries like "show me more", increase the offset by the limit:
+  - First call: offset=0, limit=5 (shows 1-5)
+  - Second call: offset=5, limit=5 (shows 6-10)
+  - Third call: offset=10, limit=5 (shows 11-15)
   
   Examples:
-  - "What are the locations for NCT05568550?"
-  - "Find trials for lung cancer"
-  - "Show trials near Boston"
-  - "Are there trials for my cancer?"`,
+  - "Find trials for lung cancer" (offset=0)
+  - "Show me more" (offset=5)
+  - "What are the locations for NCT05568550?"`,
   
   parameters: z.object({
     query: z.string().describe('The user\'s natural language query about clinical trials'),
+    offset: z.number().optional().default(0).describe('Number of trials to skip for pagination'),
+    limit: z.number().optional().default(5).describe('Maximum number of trials to return'),
     userLatitude: z.number().optional().describe('User\'s latitude for proximity matching'),
     userLongitude: z.number().optional().describe('User\'s longitude for proximity matching')
   }),
   
-  execute: async ({ query, userLatitude, userLongitude }) => {
+  execute: async ({ query, offset = 0, limit = 5, userLatitude, userLongitude }) => {
     const effectiveChatId = chatId;
     
     // Build user coordinates if provided
@@ -90,73 +96,23 @@ export const clinicalTrialsTool = (
       debug.log(DebugCategory.PROFILE, 'Failed to load health profile', { error });
     }
 
-    // Enhanced continuation detection
-    const continuationKeywords = ['more', 'next', 'additional', 'continue', 'rest'];
-    const isContinuation = continuationKeywords.some(keyword => 
-      query.toLowerCase().includes(keyword)
-    );
-    
-    // Check if we have cached results available for continuation
-    const hasCachedResults = effectiveChatId ? 
-      cacheService.isContinuationAvailable(effectiveChatId) : false;
-    
-    // If this looks like a continuation and we have cached results, use them
-    if (isContinuation && hasCachedResults && effectiveChatId) {
-      debug.log(DebugCategory.TOOL, 'Continuation query detected', {
-        query,
-        chatId: effectiveChatId,
-        hasCachedResults
-      });
-      
-      // Get the next batch of results
-      const nextBatch = cacheService.getNextBatch(effectiveChatId);
-      
-      if (nextBatch && nextBatch.trials.length > 0) {
-        debug.log(DebugCategory.TOOL, 'Returning cached continuation', {
-          returnedCount: nextBatch.trials.length,
-          shownCount: nextBatch.shownCount,
-          totalAvailable: nextBatch.totalAvailable,
-          hasMore: nextBatch.hasMore
-        });
-        
-        // Build response with trial matches
-        const matches = nextBatch.trials.map(trial => ({
-          trial,
-          matchScore: 0.8, // Default score for cached results
-          matchReason: `Continuing from your previous search${
-            nextBatch.context?.originalQuery ? `: "${nextBatch.context.originalQuery}"` : ''
-          }`
-        }));
-        
-        return {
-          success: true,
-          matches,
-          totalCount: nextBatch.totalAvailable,
-          hasMore: nextBatch.hasMore,
-          message: `Showing results ${nextBatch.shownCount - nextBatch.trials.length + 1}-${nextBatch.shownCount} of ${nextBatch.totalAvailable} trials`,
-          metadata: {
-            isContinuation: true,
-            searchContext: nextBatch.context,
-            shownCount: nextBatch.shownCount,
-            totalAvailable: nextBatch.totalAvailable
-          }
-        };
-      }
-    }
-    
-    // Get cached search context if available (for context-aware classification)
-    const cachedSearch = effectiveChatId ? 
-      cacheService.getCachedSearch(effectiveChatId) : null;
+    debug.log(DebugCategory.TOOL, 'Clinical trials search', {
+      query,
+      offset,
+      limit,
+      hasProfile: !!healthProfile,
+      hasLocation: !!coordinates
+    });
     
     try {
-      // Use context-aware router that preserves all information
+      // Use router with pagination parameters
       const result = await clinicalTrialsRouter.routeWithContext({
         query,
         healthProfile,
         userCoordinates: coordinates,
-        cachedTrials: cachedSearch?.trials,
         chatId: effectiveChatId,
-        dataStream
+        dataStream,
+        pagination: { offset, limit }
       });
 
       // Handle successful routing
@@ -173,34 +129,26 @@ export const clinicalTrialsTool = (
           });
         }
         
-        // Update cache with results and context
+        // Simple cache update for performance
         if (result.matches && effectiveChatId) {
-          // Extract trials from matches for caching
           const trialsForCache = result.matches.map(m => m.trial);
+          cacheService.updateCache(effectiveChatId, trialsForCache, healthProfile, query);
+        }
+        
+        // Add pagination info to response
+        if (result.totalCount && result.totalCount > 0) {
+          const startNum = offset + 1;
+          const endNum = Math.min(offset + limit, result.totalCount);
+          const hasMore = endNum < result.totalCount;
           
-          // Build search context from result metadata
-          const searchContext = result.metadata?.queryContext ? {
-            originalQuery: query,
-            searchType: result.metadata.queryContext.inferred.searchType || 'general',
-            filters: {
-              conditions: result.metadata.queryContext.extracted.conditions,
-              cancerTypes: result.metadata.queryContext.extracted.cancerTypes,
-              mutations: result.metadata.queryContext.extracted.mutations,
-              locations: result.metadata.queryContext.extracted.locations,
-              radius: result.metadata.queryContext.extracted.radius || undefined
-            },
-            totalCount: result.totalCount || trialsForCache.length,
-            returnedCount: trialsForCache.length,
-            pageToken: undefined // Would come from API if we had pagination
-          } : {
-            originalQuery: query,
-            searchType: 'general',
-            filters: {},
-            totalCount: result.totalCount || trialsForCache.length,
-            returnedCount: trialsForCache.length
+          result.message = `Showing results ${startNum}-${endNum} of ${result.totalCount} trials`;
+          result.hasMore = hasMore;
+          result.pagination = {
+            offset,
+            limit,
+            total: result.totalCount,
+            showing: `${startNum}-${endNum}`
           };
-          
-          cacheService.updateCache(effectiveChatId, trialsForCache, healthProfile, query, searchContext);
         }
 
         // The context-aware pipeline already provides optimally compressed matches

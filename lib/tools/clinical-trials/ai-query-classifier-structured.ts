@@ -83,13 +83,6 @@ const StructuredQuerySchema = z.object({
     complexity: z.enum(['simple', 'moderate', 'complex']).describe('Query complexity level'),
   }).describe('Intent analysis and confidence'),
   
-  continuation: z.object({
-    isContinuation: z.boolean().describe('Is this continuing a previous search?'),
-    continuationType: z.enum(['pagination', 'refinement', 'filter', 'none']).describe('Type of continuation'),
-    pageNumber: z.number().nullable().describe('Requested page number if applicable'),
-    refinements: z.array(z.string()).describe('Any refinements or filters being added'),
-  }).describe('Continuation detection for multi-turn conversations'),
-  
   strategy: z.object({
     primary: z.enum([
       'direct_nct',
@@ -331,13 +324,7 @@ Important guidelines:
 - Parse location formats (city names, state abbreviations, "near me")
 - NCT IDs follow pattern: NCT followed by 8 digits
 - Default search radius is 300 miles unless specified
-- Consider health profile context when available
-
-Continuation Detection:
-- "Show me more", "next", "more results" = pagination continuation
-- "near me", "in Chicago", "within 50 miles" = location refinement
-- "only recruiting", "phase 3 only" = filter refinement
-- Check if query refers to previous results or adds constraints`;
+- Consider health profile context when available`;
 
     // Add health profile context
     if (context?.healthProfile) {
