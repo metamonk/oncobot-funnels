@@ -341,13 +341,16 @@ export class SearchStrategyExecutor {
 
     const { studies, totalCount } = await this.executeSingleSearch(
       locationQuery,
-      '_fulltext',
+      'term',  // Changed from '_fulltext' which is invalid - use 'term' for general search
       { maxResults: 50 }  // Reduced from 100 to prevent token overflow
     );
 
-    // Apply distance-based ranking
+    // Apply distance-based ranking AND filtering
     let rankedTrials = studies;
     if (location.coordinates) {
+      // CRITICAL FIX: Always specify a search radius to filter out distant trials
+      // This prevents trials from other countries appearing in location-based searches
+      const DEFAULT_SEARCH_RADIUS = 300; // Default 300 miles for reasonable coverage
       const locationContext = {
         userLocation: {
           coordinates: {
@@ -357,10 +360,18 @@ export class SearchStrategyExecutor {
           city: location.city,
           state: location.state
         },
-        searchRadius: location.searchRadius
+        searchRadius: location.searchRadius || DEFAULT_SEARCH_RADIUS
       };
+      
+      // rankTrialsByProximity will now filter by radius since we always provide one
       rankedTrials = await this.locationService.rankTrialsByProximity(studies, locationContext);
-      // rankTrialsByProximity already sorts by distance
+      
+      debug.log(DebugCategory.SEARCH, 'Location filtering applied', {
+        beforeFilter: studies.length,
+        afterDistanceFilter: rankedTrials.length,
+        searchRadius: locationContext.searchRadius,
+        filtered: studies.length - rankedTrials.length
+      });
     }
 
     // Limit results to prevent token overflow while preserving the most relevant trials
@@ -536,8 +547,8 @@ export class SearchStrategyExecutor {
       compressionContext.searchRadius = context.user.location.searchRadius;
     }
 
-    // Add any extracted locations as well
-    if (context.extracted.locations.length > 0) {
+    // Add any extracted locations as well (if available)
+    if (context.extracted?.locations?.length > 0) {
       const primaryLocation = context.extracted.locations[0];
       if (primaryLocation === 'NEAR_ME' && context.user.location) {
         // Already handled above
@@ -708,19 +719,50 @@ export class SearchStrategyExecutor {
   }
 
   private buildLocationQuery(location: UserLocation, baseQuery: string, context: QueryContext): string {
-    const parts: string[] = [baseQuery];
-
-    if (location.city) {
-      parts.push(location.city);
+    const parts: string[] = [];
+    
+    // CRITICAL FIX: Don't include location names in the text search
+    // They cause false matches (e.g., China trials matching "Chicago" mentions)
+    // Instead, rely on post-search geographic filtering
+    
+    // Keep the original query terms (e.g., "kras g12c trials")
+    const cleanedQuery = baseQuery
+      .replace(/\b(in|near|at|around)\s+\w+/gi, '') // Remove location phrases
+      .replace(/chicago|illinois|boston|new york|california/gi, '') // Remove common city/state names
+      .trim();
+    
+    if (cleanedQuery) {
+      parts.push(cleanedQuery);
     }
-    if (location.state) {
-      parts.push(location.state);
-    }
 
-    // Add cancer type if available
+    // Add cancer type if available for better relevance
     if (context.user.healthProfile?.cancerType) {
       parts.push(context.user.healthProfile.cancerType);
     }
+    
+    // Add molecular markers if available
+    if (context.user.healthProfile?.molecularMarkers) {
+      const markers = context.user.healthProfile.molecularMarkers;
+      for (const [marker, status] of Object.entries(markers)) {
+        if (status === 'POSITIVE') {
+          // Convert KRAS_G12C to "KRAS G12C"
+          const markerName = marker.replace(/_/g, ' ');
+          parts.push(markerName);
+        }
+      }
+    }
+
+    // If we have no search terms, at least search for cancer trials in general
+    if (parts.length === 0) {
+      parts.push('cancer clinical trials');
+    }
+
+    debug.log(DebugCategory.SEARCH, 'Building location query', {
+      originalQuery: baseQuery,
+      cleanedQuery,
+      locationInfo: { city: location.city, state: location.state },
+      finalQuery: parts.join(' ')
+    });
 
     return parts.join(' ');
   }
