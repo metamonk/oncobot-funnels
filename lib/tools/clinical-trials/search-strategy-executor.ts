@@ -251,30 +251,44 @@ export class SearchStrategyExecutor {
       return this.executeBroadSearchWithContext(context);
     }
 
-    // ADAPTIVE STRATEGY: Start with broad disease search to cast wide net
-    const cancerType = profile.cancerType || profile.cancer_type || '';
-    const cancerRegion = profile.cancerRegion || '';
+    // ADAPTIVE STRATEGY: Use AI-enriched query when available
+    // The enrichedQuery from AI classification includes mutations, conditions, and drugs
+    let broadQuery: string;
     
-    // Get search terms based on cancer type or region
-    let searchTerms: string[] = [];
-    if (cancerType && cancerType !== 'OTHER') {
-      // Map cancer type to region and get terms
-      const typeRegion = CancerTypeMapper.getRegionForType(cancerType);
-      searchTerms = CancerTypeMapper.getSearchTermsForRegion(typeRegion);
-      // Also add the specific cancer type if not in the list
-      if (!searchTerms.some(t => t.toLowerCase() === cancerType.toLowerCase())) {
-        searchTerms.unshift(cancerType);
-      }
-    } else if (cancerRegion) {
-      searchTerms = CancerTypeMapper.getSearchTermsForRegion(cancerRegion);
+    if (context.executionPlan.searchParams.enrichedQuery) {
+      // Use the AI-enriched query that includes mutations like "KRAS G12C"
+      broadQuery = context.executionPlan.searchParams.enrichedQuery;
+      
+      debug.log(DebugCategory.SEARCH, 'Using AI-enriched query with mutations', {
+        enrichedQuery: broadQuery,
+        extractedMutations: context.extracted.mutations,
+        extractedConditions: context.extracted.conditions
+      });
     } else {
-      // Fallback to generic cancer search
-      searchTerms = ['cancer'];
+      // Fallback to building query from profile if no enriched query
+      const cancerType = profile.cancerType || profile.cancer_type || '';
+      const cancerRegion = profile.cancerRegion || '';
+      
+      // Get search terms based on cancer type or region
+      let searchTerms: string[] = [];
+      if (cancerType && cancerType !== 'OTHER') {
+        // Map cancer type to region and get terms
+        const typeRegion = CancerTypeMapper.getRegionForType(cancerType);
+        searchTerms = CancerTypeMapper.getSearchTermsForRegion(typeRegion);
+        // Also add the specific cancer type if not in the list
+        if (!searchTerms.some(t => t.toLowerCase() === cancerType.toLowerCase())) {
+          searchTerms.unshift(cancerType);
+        }
+      } else if (cancerRegion) {
+        searchTerms = CancerTypeMapper.getSearchTermsForRegion(cancerRegion);
+      } else {
+        // Fallback to generic cancer search
+        searchTerms = ['cancer'];
+      }
+      
+      // Use the most specific term first (e.g., NSCLC instead of "lung cancer")
+      broadQuery = searchTerms[0] || 'cancer';
     }
-    
-    // Build broad query with just disease terms (not mutations yet)
-    // Use the most specific term first (e.g., NSCLC instead of "lung cancer")
-    const broadQuery = searchTerms[0] || 'cancer'; // Use primary term, not OR syntax
     
     debug.log(DebugCategory.SEARCH, 'Profile-based broad search', {
       strategy: 'broad-then-filter',
@@ -445,21 +459,35 @@ export class SearchStrategyExecutor {
    * Execute condition-based search with context
    */
   private async executeConditionBasedWithContext(context: QueryContext): Promise<RouterResult> {
-    // Build condition-focused query
-    const conditions = [
-      ...context.extracted.conditions,
-      ...context.extracted.cancerTypes
-    ];
+    // Prefer enrichedQuery if available (includes mutations, conditions, drugs)
+    let searchQuery: string;
+    
+    if (context.executionPlan.searchParams.enrichedQuery) {
+      // Use the AI-enriched query that includes conditions AND mutations
+      searchQuery = context.executionPlan.searchParams.enrichedQuery;
+      
+      debug.log(DebugCategory.SEARCH, 'Using AI-enriched query for condition search', {
+        enrichedQuery: searchQuery,
+        extractedConditions: context.extracted.conditions,
+        extractedMutations: context.extracted.mutations
+      });
+    } else {
+      // Fallback to building query from extracted entities
+      const conditions = [
+        ...context.extracted.conditions,
+        ...context.extracted.cancerTypes
+      ];
 
-    if (conditions.length === 0 && context.user.healthProfile?.cancerType) {
-      conditions.push(context.user.healthProfile.cancerType);
+      if (conditions.length === 0 && context.user.healthProfile?.cancerType) {
+        conditions.push(context.user.healthProfile.cancerType);
+      }
+
+      if (conditions.length === 0) {
+        return this.executeBroadSearchWithContext(context);
+      }
+
+      searchQuery = this.buildConditionQuery(conditions, context);
     }
-
-    if (conditions.length === 0) {
-      return this.executeBroadSearchWithContext(context);
-    }
-
-    const searchQuery = this.buildConditionQuery(conditions, context);
 
     const { studies, totalCount } = await this.executeSingleSearch(
       searchQuery,
