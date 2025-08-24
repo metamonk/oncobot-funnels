@@ -1,530 +1,249 @@
 /**
- * Search Executor for Clinical Trials
+ * Search Executor - Handles API interactions with ClinicalTrials.gov
  * 
- * Executes parallel API searches following patterns from web-search tool.
- * Handles rate limiting, retries, and error recovery.
+ * Single responsibility: Execute searches and manage API caching
+ * Clean implementation without backward compatibility
  */
 
-// DataStreamWriter type removed - using any for data stream parameter
 import type { ClinicalTrial } from './types';
-import { trialStatusService, type SearchContext } from './services/trial-status-service';
-
-interface SearchQuery {
-  query: string;
-  field: string;
-  description: string;
-}
+import { debug, DebugCategory } from './debug';
 
 interface SearchResult {
-  query: string;
-  field: string;
   studies: ClinicalTrial[];
   totalCount: number;
   error?: string;
-  cached?: boolean;
 }
 
-interface ExecutorOptions {
-  maxResults?: number;
-  includeStatuses?: string[];
-  dataStream?: any;
-  cacheKey?: string;
-}
-
-// Enhanced cache with better key management
 interface CacheEntry {
   result: SearchResult;
   timestamp: number;
-  hits: number;
 }
 
-const searchCache = new Map<string, CacheEntry>();
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes for better session continuity
-const MAX_CACHE_SIZE = 100; // Limit cache size to prevent memory issues
-
 export class SearchExecutor {
-  private readonly baseUrl = 'https://clinicaltrials.gov/api/v2/studies';
-  private readonly maxConcurrent = 5; // Parallel request limit
-  private readonly retryAttempts = 2;
-  private readonly retryDelay = 1000; // 1 second
+  private static cache = new Map<string, CacheEntry>();
+  private static readonly CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+  private static readonly API_BASE = 'https://clinicaltrials.gov/api/v2';
+  private static readonly MAX_RETRIES = 3;
+  private static readonly RETRY_DELAY = 1000;
 
   /**
-   * Execute multiple searches in parallel (following web-search pattern)
+   * Execute parallel searches for multiple queries
    */
   async executeParallelSearches(
     queries: string[],
-    fields: string[],
-    options: ExecutorOptions = {}
-  ): Promise<{ success: boolean; studies: ClinicalTrial[]; totalCount: number; error?: string; message?: string }[]> {
-    const {
-      maxResults = 25,
-      includeStatuses,
-      dataStream,
-      cacheKey
-    } = options;
-    
-    // Use trial status service for intelligent status filtering
-    const searchContext: SearchContext = {
-      // Could be enhanced with more context
-    };
-    const statuses = includeStatuses || trialStatusService.getInitialSearchStatuses(searchContext);
-
-    // Create search batches for rate limiting
-    const searchBatches: SearchQuery[][] = [];
-    for (let i = 0; i < queries.length; i += this.maxConcurrent) {
-      const batch: SearchQuery[] = [];
-      for (let j = 0; j < this.maxConcurrent && i + j < queries.length; j++) {
-        batch.push({
-          query: queries[i + j],
-          field: fields[i + j],
-          description: `${fields[i + j]}: ${queries[i + j]}`
-        });
-      }
-      searchBatches.push(batch);
+    options?: {
+      pageSize?: number;
+      offset?: number;
+      countTotal?: boolean;
     }
-
-    // Execute batches sequentially, searches within batch in parallel
-    const allResults: SearchResult[] = [];
-    
-    for (let batchIndex = 0; batchIndex < searchBatches.length; batchIndex++) {
-      const batch = searchBatches[batchIndex];
-      
-      // Notify progress if dataStream available
-      if (dataStream) {
-        dataStream.writeMessageAnnotation({
-          type: 'clinical_trials_batch',
-          data: {
-            batchIndex,
-            totalBatches: searchBatches.length,
-            status: 'started',
-            queriesInBatch: batch.length
-          }
-        });
-      }
-
-      const batchPromises = batch.map(searchQuery => 
-        this.executeSingleSearch(
-          searchQuery,
-          maxResults,
-          statuses,
-          dataStream,
-          cacheKey
-        )
-      );
-
-      const batchResults = await Promise.all(batchPromises);
-      // Transform SearchResult to the expected format
-      // batchResults already contains SearchResult objects with query and field
-      allResults.push(...batchResults);
-
-      // Notify batch completion
-      if (dataStream) {
-        dataStream.writeMessageAnnotation({
-          type: 'clinical_trials_batch',
-          data: {
-            batchIndex,
-            totalBatches: searchBatches.length,
-            status: 'completed',
-            resultsCount: batchResults.reduce((sum, r) => sum + r.studies.length, 0)
-          }
-        });
-      }
-
-      // Small delay between batches to be nice to the API
-      if (batchIndex < searchBatches.length - 1) {
-        await this.sleep(500);
-      }
-    }
-
-    // Transform SearchResult[] to the expected return type
-    return allResults.map(r => ({
-      success: !r.error,
-      studies: r.studies,
-      totalCount: r.totalCount,
-      error: r.error,
-      message: r.error ? `Search failed: ${r.error}` : `Found ${r.studies.length} studies`
-    }));
+  ): Promise<SearchResult[]> {
+    const promises = queries.map(query => this.executeSearch(query, options));
+    return Promise.all(promises);
   }
 
   /**
-   * Execute a single search with caching and retry logic
+   * Execute a single search
    */
-  private async executeSingleSearch(
-    searchQuery: SearchQuery,
-    maxResults: number,
-    statuses: string[],
-    dataStream?: any,
-    cacheKey?: string
+  async executeSearch(
+    query: string,
+    options?: {
+      pageSize?: number;
+      offset?: number;
+      countTotal?: boolean;
+      pageToken?: string;
+    }
   ): Promise<SearchResult> {
+    const pageSize = options?.pageSize || 50;
+    const offset = options?.offset || 0;
+    const countTotal = options?.countTotal ?? true;
+    const pageToken = options?.pageToken;
+
     // Check cache first
-    const cacheId = `${cacheKey}-${searchQuery.field}-${searchQuery.query}`;
-    const cached = this.getCachedResult(cacheId);
+    const cacheKey = this.buildCacheKey(query, pageSize, offset);
+    const cached = this.getCachedResult(cacheKey);
     if (cached) {
-      if (dataStream) {
-        dataStream.writeMessageAnnotation({
-          type: 'clinical_trials_query',
-          data: {
-            query: searchQuery.query,
-            field: searchQuery.field,
-            status: 'cached',
-            resultsCount: cached.studies.length,
-            totalCount: cached.totalCount
-          }
-        });
-      }
-      return { ...cached, cached: true };
+      debug.log(DebugCategory.CACHE, 'Cache hit for search', { query, cacheKey });
+      return cached;
     }
 
-    // Notify search start
-    if (dataStream) {
-      dataStream.writeMessageAnnotation({
-        type: 'clinical_trials_query',
-        data: {
-          query: searchQuery.query,
-          field: searchQuery.field,
-          status: 'started'
-        }
-      });
-    }
-
-    // Build API parameters
+    // Build API URL with smart parameter selection
     const params = new URLSearchParams({
-      pageSize: maxResults.toString(),
-      countTotal: 'true'
+      pageSize: pageSize.toString(),
+      countTotal: countTotal.toString(),
+      format: 'json'
     });
     
-    // Only apply status filter if NOT searching by NCT ID
-    // When users search by NCT ID, they want those specific trials regardless of status
-    if (searchQuery.field !== 'filter.ids') {
-      params.append('filter.overallStatus', statuses.join(','));
+    // Add pageToken if provided (for pagination), but NOT offset
+    if (pageToken) {
+      params.append('pageToken', pageToken);
     }
 
-    // Add the query to the appropriate field
-    // Special handling for different field types:
-    // - filter.* fields are used as-is (e.g., filter.ids for NCT ID lookups)
-    // - Other fields get prefixed with 'query.' (e.g., cond becomes query.cond)
-    let queryField: string;
-    if (searchQuery.field.startsWith('filter.') || searchQuery.field.startsWith('query.')) {
-      queryField = searchQuery.field;
-    } else {
-      queryField = `query.${searchQuery.field}`;
-    }
-    params.append(queryField, searchQuery.query);
-
-    // Execute with retry logic
-    let lastError: Error | null = null;
-    for (let attempt = 0; attempt < this.retryAttempts; attempt++) {
-      try {
-        const response = await fetch(`${this.baseUrl}?${params}`);
-        
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status} ${response.statusText}`);
+    // For ClinicalTrials.gov API, we need to be careful with query construction
+    // The API accepts both query.cond (for conditions) and query.term (for general terms)
+    
+    // Detect common cancer types and conditions
+    const queryLower = query.toLowerCase();
+    let useCondParam = false;
+    let useTermParam = false;
+    let conditionQuery = '';
+    let termQuery = '';
+    
+    // Check for known cancer types that should use query.cond
+    const cancerConditions = [
+      'nsclc', 'sclc', 'lung cancer', 'breast cancer', 'colon cancer',
+      'melanoma', 'leukemia', 'lymphoma', 'myeloma', 'glioblastoma',
+      'pancreatic cancer', 'prostate cancer', 'ovarian cancer'
+    ];
+    
+    // Check if query contains a cancer condition
+    for (const condition of cancerConditions) {
+      if (queryLower.includes(condition)) {
+        useCondParam = true;
+        // Extract the condition part
+        if (condition === 'nsclc' && queryLower.includes('nsclc')) {
+          conditionQuery = 'NSCLC';
+          // Remove NSCLC from the query for other terms
+          termQuery = query.replace(/NSCLC/gi, '').trim();
+        } else if (condition === 'sclc' && queryLower.includes('sclc')) {
+          conditionQuery = 'SCLC';
+          termQuery = query.replace(/SCLC/gi, '').trim();
+        } else if (queryLower.includes(condition)) {
+          // For multi-word conditions, extract them
+          const regex = new RegExp(condition, 'gi');
+          const match = query.match(regex);
+          if (match) {
+            conditionQuery = match[0];
+            termQuery = query.replace(regex, '').trim();
+          }
         }
-
-        const data = await response.json();
-        const studies = data.studies || [];
-        const totalCount = data.totalCount || 0;
-
-        const result: SearchResult = {
-          query: searchQuery.query,
-          field: searchQuery.field,
-          studies,
-          totalCount
-        };
-
-        // Cache the result
-        this.setCachedResult(cacheId, result);
-
-        // Notify success
-        if (dataStream) {
-          dataStream.writeMessageAnnotation({
-            type: 'clinical_trials_query',
-            data: {
-              query: searchQuery.query,
-              field: searchQuery.field,
-              status: 'completed',
-              resultsCount: studies.length,
-              totalCount
-            }
-          });
-        }
-
-        return result;
-
-      } catch (error) {
-        lastError = error as Error;
-        console.error(`Search attempt ${attempt + 1} failed:`, error);
-        
-        if (attempt < this.retryAttempts - 1) {
-          await this.sleep(this.retryDelay * (attempt + 1));
-        }
+        break; // Use the first match
       }
     }
-
-    // All retries failed
-    const errorResult: SearchResult = {
-      query: searchQuery.query,
-      field: searchQuery.field,
-      studies: [],
-      totalCount: 0,
-      error: lastError?.message || 'Unknown error'
-    };
-
-    // Notify error
-    if (dataStream) {
-      dataStream.writeMessageAnnotation({
-        type: 'clinical_trials_query',
-        data: {
-          query: searchQuery.query,
-          field: searchQuery.field,
-          status: 'error',
-          error: errorResult.error || 'Unknown error'
-        }
-      });
+    
+    // If we have remaining terms after extracting condition, use query.term
+    if (termQuery) {
+      useTermParam = true;
+    }
+    
+    // Build the query parameters
+    if (useCondParam && conditionQuery) {
+      params.append('query.cond', conditionQuery);
+    }
+    
+    if (useTermParam && termQuery) {
+      params.append('query.term', termQuery);
+    }
+    
+    // If no specific parameters were set, use the full query as query.term
+    if (!useCondParam && !useTermParam) {
+      params.append('query.term', query);
     }
 
-    return errorResult;
+    const url = `${SearchExecutor.API_BASE}/studies?${params}`;
+
+    debug.log(DebugCategory.SEARCH, 'Executing search', {
+      originalQuery: query,
+      conditionQuery,
+      termQuery,
+      url
+    });
+
+    try {
+      const result = await this.fetchWithRetry(url);
+      
+      // Cache the result
+      this.cacheResult(cacheKey, result);
+      
+      debug.log(DebugCategory.SEARCH, 'Search executed', {
+        query,
+        totalCount: result.totalCount,
+        retrievedCount: result.studies.length
+      });
+
+      return result;
+    } catch (error) {
+      debug.error(DebugCategory.ERROR, 'Search failed', { query, error });
+      return {
+        studies: [],
+        totalCount: 0,
+        error: error instanceof Error ? error.message : 'Search failed'
+      };
+    }
   }
 
   /**
-   * Execute direct NCT ID lookup
+   * Fetch with retry logic
    */
-  async executeLookup(
-    nctId: string,
-    dataStream?: any
-  ): Promise<SearchResult> {
-    // Notify lookup start
-    if (dataStream) {
-      dataStream.writeMessageAnnotation({
-        type: 'clinical_trials_lookup',
-        data: {
-          nctId,
-          status: 'started'
-        }
-      });
-    }
-
+  private async fetchWithRetry(url: string, retries = 0): Promise<SearchResult> {
     try {
-      // Direct API call to get specific trial
-      const response = await fetch(`https://clinicaltrials.gov/api/v2/studies/${nctId}`);
+      const response = await fetch(url);
       
       if (!response.ok) {
-        if (response.status === 404) {
-          // Trial not found
-          if (dataStream) {
-            dataStream.writeMessageAnnotation({
-              type: 'clinical_trials_lookup',
-              data: {
-                nctId,
-                status: 'not_found'
-              }
-            });
-          }
-          
-          return {
-            query: nctId,
-            field: 'nctId',
-            studies: [],
-            totalCount: 0,
-            error: `Trial ${nctId} not found`
-          };
-        }
-        
         throw new Error(`API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
       
-      // The v2 API returns the study with protocolSection directly
-      // Just use the data as-is since it already has the correct structure
-      const study = data;
-      
-      // Notify success
-      if (dataStream) {
-        dataStream.writeMessageAnnotation({
-          type: 'clinical_trials_lookup',
-          data: {
-            nctId,
-            status: 'completed',
-            title: study.protocolSection?.identificationModule?.briefTitle
-          }
-        });
-      }
-
       return {
-        query: nctId,
-        field: 'nctId',
-        studies: [study],
-        totalCount: 1
+        studies: data.studies || [],
+        totalCount: data.totalCount || 0
       };
-      
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      // Notify error
-      if (dataStream) {
-        dataStream.writeMessageAnnotation({
-          type: 'clinical_trials_lookup',
-          data: {
-            nctId,
-            status: 'error',
-            error: errorMessage
-          }
-        });
+      if (retries < SearchExecutor.MAX_RETRIES - 1) {
+        debug.log(DebugCategory.SEARCH, `Retrying after error (attempt ${retries + 2})`, { url });
+        await this.delay(SearchExecutor.RETRY_DELAY * (retries + 1));
+        return this.fetchWithRetry(url, retries + 1);
       }
-
-      return {
-        query: nctId,
-        field: 'nctId',
-        studies: [],
-        totalCount: 0,
-        error: errorMessage
-      };
+      throw error;
     }
   }
 
   /**
-   * Execute location-filtered search (Phase 2 strategy)
+   * Build cache key
    */
-  async executeLocationSearch(
-    query: string,
-    location: string,
-    maxResults: number = 100
-  ): Promise<SearchResult> {
-    // First, search without location to get comprehensive results
-    // Use trial status service for statuses
-    const searchContext: SearchContext = {
-      // Could be enhanced with location context
-    };
-    const statuses = trialStatusService.getInitialSearchStatuses(searchContext);
-    
-    const broadSearch = await this.executeSingleSearch(
-      { query, field: 'query.term', description: `Broad search: ${query}` },
-      maxResults,
-      statuses
-    );
-
-    // If we have location, we'll filter locally instead of using API location filter
-    // This is handled by LocationMatcher in the next phase
-    return broadSearch;
+  private buildCacheKey(query: string, pageSize: number, offset: number): string {
+    return `${query}::${pageSize}::${offset}`;
   }
 
   /**
-   * Get cached result if still valid
+   * Get cached result if valid
    */
-  private getCachedResult(cacheId: string): SearchResult | null {
-    const entry = searchCache.get(cacheId);
+  private getCachedResult(key: string): SearchResult | null {
+    const entry = SearchExecutor.cache.get(key);
     
-    if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
-      // Update hit count for cache analytics
-      entry.hits++;
+    if (entry && Date.now() - entry.timestamp < SearchExecutor.CACHE_TTL) {
       return entry.result;
     }
     
-    // Clean up expired cache
+    // Remove expired entry
     if (entry) {
-      searchCache.delete(cacheId);
+      SearchExecutor.cache.delete(key);
     }
     
     return null;
   }
 
   /**
-   * Set cached result with LRU eviction
+   * Cache a result
    */
-  private setCachedResult(cacheId: string, result: SearchResult): void {
-    // Implement LRU eviction if cache is too large
-    if (searchCache.size >= MAX_CACHE_SIZE) {
-      // Find and remove least recently used entry
-      let oldestKey: string | null = null;
-      let oldestTime = Date.now();
-      
-      for (const [key, entry] of searchCache.entries()) {
-        if (entry.timestamp < oldestTime) {
-          oldestTime = entry.timestamp;
-          oldestKey = key;
-        }
-      }
-      
-      if (oldestKey) {
-        searchCache.delete(oldestKey);
-      }
-    }
-    
-    searchCache.set(cacheId, {
+  private cacheResult(key: string, result: SearchResult): void {
+    SearchExecutor.cache.set(key, {
       result,
-      timestamp: Date.now(),
-      hits: 0
+      timestamp: Date.now()
     });
   }
 
   /**
-   * Clear cache (useful for testing or manual refresh)
+   * Clear the cache (for testing)
    */
   static clearCache(): void {
-    searchCache.clear();
-  }
-  
-  /**
-   * Get cache statistics for monitoring
-   */
-  static getCacheStats(): { size: number; totalHits: number; avgHits: number } {
-    let totalHits = 0;
-    for (const entry of searchCache.values()) {
-      totalHits += entry.hits;
-    }
-    
-    return {
-      size: searchCache.size,
-      totalHits,
-      avgHits: searchCache.size > 0 ? totalHits / searchCache.size : 0
-    };
+    SearchExecutor.cache.clear();
   }
 
   /**
-   * Sleep helper
+   * Utility delay function
    */
-  private sleep(ms: number): Promise<void> {
+  private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  /**
-   * Aggregate results from multiple searches
-   */
-  static aggregateResults(searchResults: SearchResult[]): {
-    allStudies: ClinicalTrial[];
-    uniqueStudies: ClinicalTrial[];
-    totalQueries: number;
-    successfulQueries: number;
-    errors: string[];
-  } {
-    const allStudies: ClinicalTrial[] = [];
-    const studyMap = new Map<string, ClinicalTrial>();
-    const errors: string[] = [];
-
-    searchResults.forEach(result => {
-      if (result.error) {
-        errors.push(`${result.field}:${result.query} - ${result.error}`);
-      }
-      
-      result.studies.forEach(study => {
-        const nctId = study.protocolSection?.identificationModule?.nctId;
-        if (nctId) {
-          allStudies.push(study);
-          // Keep the first occurrence of each study
-          if (!studyMap.has(nctId)) {
-            studyMap.set(nctId, study);
-          }
-        }
-      });
-    });
-
-    return {
-      allStudies,
-      uniqueStudies: Array.from(studyMap.values()),
-      totalQueries: searchResults.length,
-      successfulQueries: searchResults.filter(r => !r.error).length,
-      errors
-    };
   }
 }

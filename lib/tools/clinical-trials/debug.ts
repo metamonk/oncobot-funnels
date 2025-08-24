@@ -47,6 +47,7 @@ export const debug = {
 // Export debug categories for consistency
 export const DebugCategory = {
   QUERY_INTERPRET: 'QueryInterpreter',
+  QUERY: 'Query',
   SEARCH_EXEC: 'SearchExecutor',
   SEARCH: 'Search',
   LOCATION: 'LocationMatcher',
@@ -57,5 +58,6 @@ export const DebugCategory = {
   NCT_LOOKUP: 'NCTLookup',
   PROFILE: 'HealthProfile',
   ERROR: 'Error',
-  ROUTER: 'Router'
+  ROUTER: 'Router',
+  ASSESSMENT: 'Assessment'
 } as const;

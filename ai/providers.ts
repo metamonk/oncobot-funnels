@@ -22,7 +22,7 @@ export const oncobot = customProvider({
     'oncobot-x-fast-mini': xai('grok-3-mini-fast'),
     'oncobot-x-fast': xai('grok-3-fast'),
     'oncobot-nano': openai.responses('gpt-4.1-nano'),
-    'oncobot-4.1-mini': openai.responses('gpt-4.1-mini'),
+    'oncobot-4.1-mini': openai('gpt-4.1-mini'),
     'oncobot-grok-3': xai('grok-3'),
     'oncobot-grok-4': xai('grok-4'),
     'oncobot-vision': xai('grok-2-vision-1212'),

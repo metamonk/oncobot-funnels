@@ -1,0 +1,8 @@
+# Essential Test Scripts to Keep
+test-ai-classification.ts         # Current AI classifier testing
+test-eligibility-direct.ts        # Eligibility assessment testing
+test-integration.ts              # Main integration test
+test-router-integration.ts       # Router integration test
+benchmark-clinical-trials.ts     # Performance benchmarking
+test-analytics-integration.ts    # Analytics testing
+test-health-profile-flow.ts      # Health profile workflow

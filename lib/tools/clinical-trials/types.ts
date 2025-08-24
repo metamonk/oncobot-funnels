@@ -322,6 +322,10 @@ export interface TrialMatch {
   relevanceScore?: number;
   trial: ClinicalTrial | any; // Should be CompressedTrial for token efficiency
   filterLocation?: string;
+  // Recruitment status fields
+  recruitmentStatus?: string;
+  statusLabel?: string;
+  isRecruiting?: boolean;
   // Eligibility scoring enhancements
   recommendations?: string[];
   eligibilityBreakdown?: {

@@ -9,6 +9,7 @@ import type { ClinicalTrial, HealthProfile, TrialMatch } from './types';
 import { EligibilityScorer } from './eligibility-scorer';
 import { EligibilityAnalyzer } from './eligibility-analyzer';
 import type { OperatorContext } from './eligibility-analyzer';
+import { debug, DebugCategory } from './debug';
 
 /**
  * UI-expected assessment structure
@@ -83,15 +84,14 @@ export class TrialAssessmentBuilder {
     const eligibilityCriteria = trial.protocolSection?.eligibilityModule?.eligibilityCriteria;
     
     if (!eligibilityCriteria) {
-      console.log('[TrialAssessmentBuilder] No eligibility criteria found');
+      debug.log(DebugCategory.ASSESSMENT, 'No eligibility criteria found');
       return null;
     }
     
     // Get NCT ID for unique key generation
     const nctId = trial.protocolSection?.identificationModule?.nctId || 'unknown';
     
-    console.log('[TrialAssessmentBuilder] Parsing criteria for', nctId);
-    // console.log('[TrialAssessmentBuilder] Full criteria text:', eligibilityCriteria);
+    debug.log(DebugCategory.ASSESSMENT, 'Parsing criteria', { nctId });
     
     // Parse inclusion and exclusion criteria
     const lines = eligibilityCriteria.split('\n').map(line => line.trim()).filter(Boolean);
@@ -109,7 +109,7 @@ export class TrialAssessmentBuilder {
     
     // If no headers, treat the entire text as inclusion criteria by default
     if (!hasInclusionHeader && !hasExclusionHeader) {
-      console.log('[TrialAssessmentBuilder] No explicit headers found, treating as general criteria');
+      debug.log(DebugCategory.ASSESSMENT, 'No explicit headers found, treating as general criteria');
       currentSection = 'inclusion';
     }
     
@@ -123,7 +123,7 @@ export class TrialAssessmentBuilder {
         lineLower.startsWith('inclusion')
       )) {
         currentSection = 'inclusion';
-        console.log('[TrialAssessmentBuilder] Found inclusion section');
+        debug.log(DebugCategory.ASSESSMENT, 'Found inclusion section');
         continue;
       }
       
@@ -133,7 +133,7 @@ export class TrialAssessmentBuilder {
         lineLower.startsWith('exclusion')
       )) {
         currentSection = 'exclusion';
-        console.log('[TrialAssessmentBuilder] Found exclusion section');
+        debug.log(DebugCategory.ASSESSMENT, 'Found exclusion section');
         continue;
       }
       
@@ -199,7 +199,7 @@ export class TrialAssessmentBuilder {
       }
     }
     
-    console.log('[TrialAssessmentBuilder] Parsed criteria:', {
+    debug.log(DebugCategory.ASSESSMENT, 'Parsed criteria', {
       nctId,
       inclusionCount: inclusion.length,
       exclusionCount: exclusion.length

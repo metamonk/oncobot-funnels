@@ -1,13 +1,44 @@
-# Clinical Trials Tool
+# Clinical Trials Search System
 
-A powerful, model-agnostic tool for searching and analyzing clinical trials from ClinicalTrials.gov.
+## Overview
 
-## Features
+The Clinical Trials Search System is the core feature of OncoBot v3, providing intelligent, AI-driven search and matching of clinical trials for cancer patients based on their health profiles.
 
-- 🔍 **Smart Search**: Natural language query processing
-- 🏥 **NCT ID Lookup**: Direct trial lookup by NCT identifier
-- 📍 **Location Filtering**: Find trials by geographic location
-- 👤 **Health Profile Integration**: Personalized trial matching
+## Architecture
+
+### Core Components
+
+1. **AI Query Classifier** (`ai-query-classifier.ts`)
+   - Pure AI-driven query understanding using xAI Grok models
+   - Deterministic classification with structured outputs (temperature=0)
+   - Handles all query types: conditions, mutations, drugs, locations, NCT IDs
+   - No regex patterns or fallbacks - 100% AI-driven
+
+2. **Router** (`router.ts`)
+   - Clean routing layer with single responsibility
+   - Delegates query understanding to AI classifier
+   - Routes to appropriate search strategies
+
+3. **Search Strategy Executor** (`search-strategy-executor.ts`)
+   - Implements all search strategies
+   - Profile-first approach for personalized results
+   - Location-based and condition-based searching
+   - Comprehensive trial assessment and eligibility scoring
+
+4. **Cancer Type Mapper** (`cancer-type-mapper.ts`)
+   - Maps cancer types to searchable terms
+   - Handles NSCLC/SCLC differentiation
+   - Molecular marker integration
+
+5. **Trial Assessment Builder** (`trial-assessment-builder.ts`)
+   - Builds eligibility assessments for each trial
+   - Parses inclusion/exclusion criteria
+   - Generates personalized match scores
+
+6. **Location Service** (`location-service.ts`)
+   - Handles location extraction and geocoding
+   - Distance calculations for proximity ranking
+   - Metro area matching
 - 💾 **Intelligent Caching**: 30-minute cache with LRU eviction
 - 🚀 **Model-Agnostic**: Works with any AI model (Grok, Claude, GPT, etc.)
 - ⚡ **High Performance**: Parallel search execution and optimized caching

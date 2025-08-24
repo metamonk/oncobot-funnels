@@ -4,6 +4,7 @@
 
 // BaseOperator functionality inlined since pipeline is being removed
 import type { ClinicalTrial, HealthProfile } from './types';
+import { debug, DebugCategory } from './debug';
 
 // OperatorContext type definition (from pipeline/types.ts)
 export interface OperatorContext {
@@ -493,7 +494,7 @@ export class EligibilityAnalyzer {
   }
 
   protected logWarning(message: string): void {
-    console.warn(`[${this.name}] ${message}`);
+    debug.log(DebugCategory.ASSESSMENT, `[${this.name}] ${message}`);
   }
 
   protected async streamData(data: any, type: string, context: OperatorContext): Promise<void> {

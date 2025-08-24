@@ -9,8 +9,8 @@
 
 import type { ClinicalTrial, HealthProfile } from './types';
 import { debug, DebugCategory } from './debug';
-import { QueryClassifier, type ClassificationContext } from './query-classifier';
-import { SearchStrategyExecutor, type ExecutionContext, type RouterResult } from './search-strategy-executor';
+import { aiQueryClassifier } from './ai-query-classifier';
+import { SearchStrategyExecutor, type RouterResult } from './search-strategy-executor';
 import { LocationService } from './location-service';
 import { QueryContext } from './query-context';
 
@@ -28,35 +28,33 @@ export interface RouterContext {
  * Follows single responsibility principle - only routes, doesn't execute
  */
 export class ClinicalTrialsRouter {
-  private classifier: QueryClassifier;
   private executor: SearchStrategyExecutor;
   private locationService: LocationService;
 
   constructor() {
-    this.classifier = new QueryClassifier();
     this.executor = new SearchStrategyExecutor();
     this.locationService = LocationService.getInstance();
   }
 
   /**
-   * NEW: Route with full QueryContext preservation
-   * This ensures no information is lost throughout the entire pipeline
-   * 
-   * UPDATED: Now properly handles async AI-driven classification
+   * Route with AI-driven query understanding
+   * Pure AI classification with no fallbacks
    */
   async routeWithContext(context: RouterContext): Promise<RouterResult> {
     const { query, healthProfile, userCoordinates, cachedTrials, chatId, dataStream } = context;
 
-    // Build comprehensive QueryContext
-    const classificationContext: ClassificationContext = {
+    // Classify query using AI
+    const classification = await aiQueryClassifier.classify(query, {
       healthProfile,
-      userCoordinates,
-      hasCachedResults: !!cachedTrials?.length,
-      previousQuery: undefined
-    };
+      userLocation: userCoordinates || null,
+      previousResults: cachedTrials?.length,
+    });
 
-    // Use async AI-driven classification
-    const queryContext = await this.classifier.buildQueryContext(query, classificationContext);
+    // Build QueryContext from AI classification
+    const queryContext = aiQueryClassifier.buildQueryContext(query, classification, {
+      healthProfile,
+      userLocation: userCoordinates || null,
+    });
 
     // Add additional routing metadata
     queryContext.tracking.decisionsMade.push({

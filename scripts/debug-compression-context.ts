@@ -5,7 +5,7 @@
  */
 
 import { SearchStrategyExecutor } from '../lib/tools/clinical-trials/search-strategy-executor';
-import { QueryClassifier } from '../lib/tools/clinical-trials/query-classifier';
+import { aiQueryClassifier } from '../lib/tools/clinical-trials/ai-query-classifier';
 import type { ExecutionContext } from '../lib/tools/clinical-trials/search-strategy-executor';
 
 // Monkey patch to debug

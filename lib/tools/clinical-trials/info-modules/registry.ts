@@ -17,7 +17,7 @@ export class InfoModuleRegistry {
     const id = module.metadata.id;
     
     if (this.modules.has(id)) {
-      console.warn(`Module ${id} already registered, overwriting...`);
+      // Module already registered, will be overwritten
     }
     
     this.modules.set(id, module);
