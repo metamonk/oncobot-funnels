@@ -41,6 +41,8 @@ export class ClinicalTrialsRouter {
   /**
    * NEW: Route with full QueryContext preservation
    * This ensures no information is lost throughout the entire pipeline
+   * 
+   * UPDATED: Now properly handles async AI-driven classification
    */
   async routeWithContext(context: RouterContext): Promise<RouterResult> {
     const { query, healthProfile, userCoordinates, cachedTrials, chatId, dataStream } = context;
@@ -53,7 +55,8 @@ export class ClinicalTrialsRouter {
       previousQuery: undefined
     };
 
-    const queryContext = this.classifier.buildQueryContext(query, classificationContext);
+    // Use async AI-driven classification
+    const queryContext = await this.classifier.buildQueryContext(query, classificationContext);
 
     // Add additional routing metadata
     queryContext.tracking.decisionsMade.push({
