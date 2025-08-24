@@ -71,8 +71,14 @@ export class SearchStrategyExecutor {
       primaryStrategy: queryContext.executionPlan.primaryStrategy,
       enrichments: queryContext.enrichments,
       hasProfile: !!queryContext.user.healthProfile,
-      hasLocation: !!queryContext.user.location
+      hasLocation: !!queryContext.user.location,
+      hasComposition: !!(queryContext.executionPlan as any).composition
     });
+
+    // Check if we have strategy composition from conversational intelligence
+    if ((queryContext.executionPlan as any).composition) {
+      return this.executeComposedStrategies(queryContext, pagination);
+    }
 
     // Track this execution
     queryContext.metadata.searchStrategiesUsed.push(queryContext.executionPlan.primaryStrategy);
@@ -991,6 +997,231 @@ export class SearchStrategyExecutor {
     // rankTrialsByProximity already filters by radius if specified
     const trialsWithDistance = await this.locationService.rankTrialsByProximity(trials, locationContext);
     return trialsWithDistance;
+  }
+
+  /**
+   * Execute composed strategies from conversational intelligence
+   * This method combines multiple search strategies with weights
+   */
+  private async executeComposedStrategies(
+    context: QueryContext,
+    pagination?: { offset: number; limit: number }
+  ): Promise<RouterResult> {
+    const composition = (context.executionPlan as any).composition;
+    if (!composition) {
+      return this.executeBroadSearchWithContext(context);
+    }
+
+    debug.log(DebugCategory.SEARCH, 'Executing composed strategies', {
+      strategies: composition.strategies,
+      weights: composition.weights,
+      filters: composition.filters
+    });
+
+    // Collect trials from each strategy
+    const strategyResults: Map<string, ClinicalTrial[]> = new Map();
+    const strategyWeights = composition.weights || {};
+
+    // Execute each strategy in parallel
+    const promises = composition.strategies.map(async (strategy: string) => {
+      try {
+        let trials: ClinicalTrial[] = [];
+        
+        switch (strategy) {
+          case 'profile_search':
+            if (context.user.healthProfile) {
+              const result = await this.executeProfileBasedWithContext(context);
+              trials = result.matches?.map(m => m.trial) || [];
+            }
+            break;
+            
+          case 'location_search':
+            if (context.user.location || context.extracted.locations.length > 0) {
+              const result = await this.executeLocationBasedWithContext(context);
+              trials = result.matches?.map(m => m.trial) || [];
+            }
+            break;
+            
+          case 'condition_search':
+            if (context.extracted.conditions.length > 0) {
+              const result = await this.executeConditionBasedWithContext(context);
+              trials = result.matches?.map(m => m.trial) || [];
+            }
+            break;
+            
+          case 'mutation_search':
+            if (context.extracted.mutations.length > 0) {
+              const mutationQuery = context.extracted.mutations.join(' ');
+              const searchResult = await this.executeSingleSearch(mutationQuery, 'OUTCOMEMEASURE');
+              trials = searchResult.studies;
+            }
+            break;
+            
+          case 'nct_lookup':
+            if (context.extracted.nctIds.length > 0) {
+              const result = await this.executeNCTDirectWithContext(context);
+              trials = result.matches?.map(m => m.trial) || [];
+            }
+            break;
+            
+          case 'broad_search':
+            const broadResult = await this.executeBroadSearchWithContext(context);
+            trials = broadResult.matches?.map(m => m.trial) || [];
+            break;
+            
+          case 'novelty_filter':
+            // This is a filter, not a search - handled later
+            break;
+            
+          case 'geographic_expansion':
+            // Expand search radius if location-based
+            if (context.user.location) {
+              const expandedContext = { ...context };
+              if (expandedContext.user.location) {
+                expandedContext.user.location.searchRadius = 500; // Expand to 500 miles
+              }
+              const result = await this.executeLocationBasedWithContext(expandedContext);
+              trials = result.matches?.map(m => m.trial) || [];
+            }
+            break;
+        }
+        
+        if (trials.length > 0) {
+          strategyResults.set(strategy, trials);
+        }
+      } catch (error) {
+        debug.log(DebugCategory.ERROR, `Strategy ${strategy} failed`, { error });
+      }
+    });
+
+    await Promise.all(promises);
+
+    // Combine and score trials based on weights
+    const trialScores = new Map<string, { trial: ClinicalTrial; score: number; sources: string[] }>();
+    
+    for (const [strategy, trials] of strategyResults) {
+      const weight = strategyWeights[strategy] || 1.0;
+      
+      for (const trial of trials) {
+        const nctId = trial.protocolSection?.identificationModule?.nctId;
+        if (!nctId) continue;
+        
+        if (trialScores.has(nctId)) {
+          const existing = trialScores.get(nctId)!;
+          existing.score += weight;
+          existing.sources.push(strategy);
+        } else {
+          trialScores.set(nctId, {
+            trial,
+            score: weight,
+            sources: [strategy]
+          });
+        }
+      }
+    }
+
+    // Apply filters
+    let finalTrials = Array.from(trialScores.values());
+    
+    if (composition.filters) {
+      // Exclude already shown trials
+      if (composition.filters.excludeShownTrials && context.executionPlan.searchParams.filters?.excludeNctIds) {
+        const excludeSet = new Set(context.executionPlan.searchParams.filters.excludeNctIds);
+        finalTrials = finalTrials.filter(item => {
+          const nctId = item.trial.protocolSection?.identificationModule?.nctId;
+          return nctId && !excludeSet.has(nctId);
+        });
+      }
+      
+      // Prefer new locations
+      if (composition.filters.preferNewLocations && context.metadata.conversationAnalysis) {
+        // Boost trials from locations not yet discussed
+        // This would require tracking discussed locations in conversation
+      }
+      
+      // Diversify results
+      if (composition.filters.diversifyResults) {
+        // Ensure variety in phases, locations, etc.
+        finalTrials = this.diversifyTrials(finalTrials);
+      }
+    }
+
+    // Sort by score
+    finalTrials.sort((a, b) => b.score - a.score);
+
+    // Apply pagination
+    const offset = pagination?.offset || 0;
+    const limit = pagination?.limit || 20;
+    const paginatedTrials = finalTrials.slice(offset, offset + limit);
+
+    // Create matches
+    const matches = await this.createMatchesWithContext(
+      paginatedTrials.map(item => item.trial),
+      context,
+      this.buildCompressionContext(context)
+    );
+
+    // Add metadata about composition
+    matches.forEach((match, index) => {
+      const scoreData = paginatedTrials[index];
+      match.metadata = {
+        ...match.metadata,
+        compositionScore: scoreData.score,
+        sourcedStrategies: scoreData.sources
+      };
+    });
+
+    return {
+      success: true,
+      matches,
+      totalCount: finalTrials.length,
+      message: `Found ${finalTrials.length} trials using ${composition.strategies.length} composed strategies`,
+      metadata: {
+        strategiesUsed: composition.strategies,
+        strategyWeights: composition.weights,
+        totalBeforeFilters: trialScores.size,
+        totalAfterFilters: finalTrials.length
+      }
+    };
+  }
+
+  /**
+   * Diversify trials to ensure variety
+   */
+  private diversifyTrials(
+    trials: Array<{ trial: ClinicalTrial; score: number; sources: string[] }>
+  ): Array<{ trial: ClinicalTrial; score: number; sources: string[] }> {
+    // Group by phase
+    const byPhase = new Map<string, typeof trials>();
+    const noPhase: typeof trials = [];
+    
+    for (const item of trials) {
+      const phase = item.trial.protocolSection?.designModule?.phases?.[0];
+      if (phase) {
+        if (!byPhase.has(phase)) {
+          byPhase.set(phase, []);
+        }
+        byPhase.get(phase)!.push(item);
+      } else {
+        noPhase.push(item);
+      }
+    }
+    
+    // Take top trials from each phase
+    const diversified: typeof trials = [];
+    const trialsPerPhase = Math.ceil(20 / (byPhase.size || 1));
+    
+    for (const [phase, phaseTrials] of byPhase) {
+      diversified.push(...phaseTrials.slice(0, trialsPerPhase));
+    }
+    
+    // Add trials without phase info
+    diversified.push(...noPhase.slice(0, 5));
+    
+    // Sort by score again
+    diversified.sort((a, b) => b.score - a.score);
+    
+    return diversified;
   }
 
   private async executeFallbackStrategy(strategy: string, context: QueryContext): Promise<RouterResult> {

@@ -1,6 +1,7 @@
 /**
- * Clinical Trials Tool - Clean Version
+ * Clinical Trials Tool - Clean Version with Conversational Intelligence
  * Simplified implementation without backward compatibility
+ * Enhanced with conversation-aware processing for intelligent continuation
  */
 
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
@@ -12,40 +13,47 @@ import { ClinicalTrial, HealthProfile, TrialMatch, CachedSearch, MolecularMarker
 import { clinicalTrialsRouter } from './clinical-trials/router';
 import { cacheService } from './clinical-trials/services/cache-service';
 import { locationService } from './clinical-trials/location-service';
+import { conversationalIntelligence } from './clinical-trials/conversational-intelligence';
+import { getMessagesByChatId } from '@/lib/db/queries';
 
-// Clean, minimal tool export
+// Clean, minimal tool export with optional conversational intelligence
 export const clinicalTrialsTool = (
   chatId?: string, 
   dataStream?: any,
-  userCoordinates?: { latitude?: number; longitude?: number }
+  userCoordinates?: { latitude?: number; longitude?: number },
+  enableConversationalIntelligence: boolean = true // Enable by default
 ) => tool({
-  description: `Search and analyze clinical trials with built-in pagination support.
+  description: `Search and analyze clinical trials with conversational intelligence.
   
   The tool automatically:
+  - Understands conversation context to provide better continuations
   - Detects NCT IDs (e.g., NCT12345678)
   - Uses health profiles when available
-  - Handles location-based searches
-  - Supports pagination with offset/limit
+  - Handles location-based searches intelligently
+  - Composes multiple search strategies for comprehensive results
   
-  For continuation queries like "show me more", increase the offset by the limit:
-  - First call: offset=0, limit=5 (shows 1-5)
-  - Second call: offset=5, limit=5 (shows 6-10)
-  - Third call: offset=10, limit=5 (shows 11-15)
+  The system treats every query equally in the conversation context, understanding:
+  - "Show me more" - intelligently determines if you want similar or different trials
+  - "What about Boston?" - adds location filtering to existing search
+  - "Any phase 1 trials?" - refines current search with phase criteria
+  - "I've seen those" - automatically excludes previously shown trials
   
   Examples:
-  - "Find trials for lung cancer" (offset=0)
-  - "Show me more" (offset=5)
-  - "What are the locations for NCT05568550?"`,
+  - "Find trials for lung cancer"
+  - "Show me more" (system understands context)
+  - "What are the locations for NCT05568550?"
+  - "Are there any in academic centers?"`,
   
   parameters: z.object({
     query: z.string().describe('The user\'s natural language query about clinical trials'),
-    offset: z.number().optional().default(0).describe('Number of trials to skip for pagination'),
+    offset: z.number().optional().default(0).describe('Number of trials to skip for pagination (handled intelligently)'),
     limit: z.number().optional().default(5).describe('Maximum number of trials to return'),
     userLatitude: z.number().optional().describe('User\'s latitude for proximity matching'),
-    userLongitude: z.number().optional().describe('User\'s longitude for proximity matching')
+    userLongitude: z.number().optional().describe('User\'s longitude for proximity matching'),
+    useConversationalContext: z.boolean().optional().default(true).describe('Use conversation history for intelligent processing')
   }),
   
-  execute: async ({ query, offset = 0, limit = 5, userLatitude, userLongitude }) => {
+  execute: async ({ query, offset = 0, limit = 5, userLatitude, userLongitude, useConversationalContext = true }) => {
     const effectiveChatId = chatId;
     
     // Build user coordinates if provided
@@ -96,24 +104,67 @@ export const clinicalTrialsTool = (
       debug.log(DebugCategory.PROFILE, 'Failed to load health profile', { error });
     }
 
+    // Check if we should use conversational intelligence
+    let useConversationalAI = useConversationalContext && enableConversationalIntelligence && effectiveChatId;
+    let conversationMessages: any[] = [];
+    
+    if (useConversationalAI) {
+      try {
+        // Load conversation history
+        conversationMessages = await getMessagesByChatId({ id: effectiveChatId, limit: 20 });
+        
+        // Only use conversational AI if we have history
+        if (conversationMessages.length < 2) {
+          useConversationalAI = false;
+        }
+      } catch (error) {
+        debug.log(DebugCategory.TOOL, 'Failed to load conversation history', { error });
+        useConversationalAI = false;
+      }
+    }
+
     debug.log(DebugCategory.TOOL, 'Clinical trials search', {
       query,
       offset,
       limit,
       hasProfile: !!healthProfile,
-      hasLocation: !!coordinates
+      hasLocation: !!coordinates,
+      useConversationalAI,
+      messageCount: conversationMessages.length
     });
     
     try {
-      // Use router with pagination parameters
-      const result = await clinicalTrialsRouter.routeWithContext({
-        query,
-        healthProfile,
-        userCoordinates: coordinates,
-        chatId: effectiveChatId,
-        dataStream,
-        pagination: { offset, limit }
-      });
+      let result;
+      
+      if (useConversationalAI) {
+        // Use conversational intelligence for context-aware processing
+        const queryContext = await conversationalIntelligence.processWithContext(
+          query,
+          conversationMessages,
+          healthProfile,
+          coordinates
+        );
+        
+        // Execute with the enhanced context
+        const SearchStrategyExecutor = (await import('./clinical-trials/search-strategy-executor')).SearchStrategyExecutor;
+        const executor = new SearchStrategyExecutor();
+        result = await executor.executeWithContext(queryContext, { offset, limit });
+        
+        debug.log(DebugCategory.TOOL, 'Conversational intelligence used', {
+          strategies: (queryContext.executionPlan as any).composition?.strategies,
+          continuationType: queryContext.metadata.continuationType
+        });
+      } else {
+        // Fall back to standard router
+        result = await clinicalTrialsRouter.routeWithContext({
+          query,
+          healthProfile,
+          userCoordinates: coordinates,
+          chatId: effectiveChatId,
+          dataStream,
+          pagination: { offset, limit }
+        });
+      }
 
       // Handle successful routing
       if (result.success) {
