@@ -6,50 +6,50 @@ export const user = pgTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  emailVerified: boolean('email_verified').notNull(),
+  email_verified: boolean('email_verified').notNull(),
   image: text('image'),
-  createdAt: timestamp('created_at').notNull(),
-  updatedAt: timestamp('updated_at').notNull(),
+  created_at: timestamp('created_at').notNull(),
+  updated_at: timestamp('updated_at').notNull(),
 });
 
 export const session = pgTable('session', {
   id: text('id').primaryKey(),
-  expiresAt: timestamp('expires_at').notNull(),
+  expires_at: timestamp('expires_at').notNull(),
   token: text('token').notNull().unique(),
-  createdAt: timestamp('created_at').notNull(),
-  updatedAt: timestamp('updated_at').notNull(),
-  ipAddress: text('ip_address'),
-  userAgent: text('user_agent'),
-  userId: text('user_id')
+  created_at: timestamp('created_at').notNull(),
+  updated_at: timestamp('updated_at').notNull(),
+  ip_address: text('ip_address'),
+  user_agent: text('user_agent'),
+  user_id: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
 });
 
 export const account = pgTable('account', {
   id: text('id').primaryKey(),
-  accountId: text('account_id').notNull(),
-  providerId: text('provider_id').notNull(),
-  userId: text('user_id')
+  account_id: text('account_id').notNull(),
+  provider_id: text('provider_id').notNull(),
+  user_id: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
-  accessToken: text('access_token'),
-  refreshToken: text('refresh_token'),
-  idToken: text('id_token'),
-  accessTokenExpiresAt: timestamp('access_token_expires_at'),
-  refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
+  access_token: text('access_token'),
+  refresh_token: text('refresh_token'),
+  id_token: text('id_token'),
+  access_token_expires_at: timestamp('access_token_expires_at'),
+  refresh_token_expires_at: timestamp('refresh_token_expires_at'),
   scope: text('scope'),
   password: text('password'),
-  createdAt: timestamp('created_at').notNull(),
-  updatedAt: timestamp('updated_at').notNull(),
+  created_at: timestamp('created_at').notNull(),
+  updated_at: timestamp('updated_at').notNull(),
 });
 
 export const verification = pgTable('verification', {
   id: text('id').primaryKey(),
   identifier: text('identifier').notNull(),
   value: text('value').notNull(),
-  expiresAt: timestamp('expires_at').notNull(),
-  createdAt: timestamp('created_at'),
-  updatedAt: timestamp('updated_at'),
+  expires_at: timestamp('expires_at').notNull(),
+  created_at: timestamp('created_at'),
+  updated_at: timestamp('updated_at'),
 });
 
 export const chat = pgTable('chat', {
@@ -57,12 +57,12 @@ export const chat = pgTable('chat', {
     .primaryKey()
     .notNull()
     .$defaultFn(() => generateId()),
-  userId: text('userId')
+  user_id: text('user_id')
     .notNull()
     .references(() => user.id),
   title: text('title').notNull().default('New Chat'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
   visibility: varchar('visibility', { enum: ['public', 'private'] })
     .notNull()
     .default('private'),
@@ -73,23 +73,23 @@ export const message = pgTable('message', {
     .primaryKey()
     .notNull()
     .$defaultFn(() => generateId()),
-  chatId: text('chat_id')
+  chat_id: text('chat_id')
     .notNull()
     .references(() => chat.id, { onDelete: 'cascade' }),
   role: text('role').notNull(), // user, assistant, or tool
   parts: json('parts').notNull(), // Store parts as JSON in the database
   attachments: json('attachments').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull(),
 });
 
 export const stream = pgTable('stream', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => generateId()),
-  chatId: text('chatId')
+  chat_id: text('chat_id')
     .notNull()
     .references(() => chat.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
 
@@ -98,12 +98,12 @@ export const customInstructions = pgTable('custom_instructions', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => generateId()),
-  userId: text('user_id')
+  user_id: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
 
 export type User = InferSelectModel<typeof user>;
@@ -120,19 +120,19 @@ export const healthProfile = pgTable('health_profile', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => generateId()),
-  cancerRegion: text('cancer_region'),
-  primarySite: text('primary_site'),
-  cancerType: text('cancer_type'),
-  diseaseStage: text('disease_stage'),
-  dateOfBirth: date('date_of_birth'),
-  treatmentHistory: json('treatment_history'),
-  molecularMarkers: json('molecular_markers'),
-  performanceStatus: text('performance_status'),
+  cancer_region: text('cancer_region'),
+  primary_site: text('primary_site'),
+  cancer_type: text('cancer_type'),
+  disease_stage: text('disease_stage'),
+  date_of_birth: date('date_of_birth'),
+  treatment_history: json('treatment_history'),
+  molecular_markers: json('molecular_markers'),
+  performance_status: text('performance_status'),
   complications: json('complications'),
-  completedAt: timestamp('completed_at'),
-  questionnaireVersion: integer('questionnaire_version').notNull().default(1),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  completed_at: timestamp('completed_at'),
+  questionnaire_version: integer('questionnaire_version').notNull().default(1),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
 
 // User health profile mapping table
@@ -140,15 +140,15 @@ export const userHealthProfile = pgTable('user_health_profile', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => generateId()),
-  userId: text('user_id')
+  user_id: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
-  healthProfileId: text('health_profile_id')
+  health_profile_id: text('health_profile_id')
     .notNull()
     .references(() => healthProfile.id, { onDelete: 'cascade' }),
-  isActive: boolean('is_active').notNull().default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  is_active: boolean('is_active').notNull().default(true),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
 
 // Health profile responses table for individual answers
@@ -156,22 +156,22 @@ export const healthProfileResponse = pgTable('health_profile_response', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => generateId()),
-  healthProfileId: text('health_profile_id')
+  health_profile_id: text('health_profile_id')
     .notNull()
     .references(() => healthProfile.id, { onDelete: 'cascade' }),
-  questionId: text('question_id').notNull(),
+  question_id: text('question_id').notNull(),
   response: json('response').notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
 // Relations
 export const userHealthProfileRelations = relations(userHealthProfile, ({ one }) => ({
   user: one(user, {
-    fields: [userHealthProfile.userId],
+    fields: [userHealthProfile.user_id],
     references: [user.id],
   }),
   healthProfile: one(healthProfile, {
-    fields: [userHealthProfile.healthProfileId],
+    fields: [userHealthProfile.health_profile_id],
     references: [healthProfile.id],
   }),
 }));
@@ -183,7 +183,7 @@ export const healthProfileRelations = relations(healthProfile, ({ many }) => ({
 
 export const healthProfileResponseRelations = relations(healthProfileResponse, ({ one }) => ({
   healthProfile: one(healthProfile, {
-    fields: [healthProfileResponse.healthProfileId],
+    fields: [healthProfileResponse.health_profile_id],
     references: [healthProfile.id],
   }),
 }));

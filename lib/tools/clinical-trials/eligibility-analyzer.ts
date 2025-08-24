@@ -283,7 +283,7 @@ export class EligibilityAnalyzer {
     profile: HealthProfile,
     analysis: EligibilityAnalysis
   ): void {
-    const cancerType = profile.cancerType || profile.cancer_type;
+    const cancerType = profile.cancer_type;
     if (!cancerType) {
       analysis.missingInformation.push('Cancer type not specified in profile');
       return;

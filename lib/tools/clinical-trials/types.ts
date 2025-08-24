@@ -22,29 +22,27 @@ export interface Complication {
 
 export interface HealthProfile {
   id?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-  cancerRegion?: string | null;
-  primarySite?: string | null;
-  cancerType?: string | null;
-  cancer_type?: string; // Alternative format
-  diseaseStage?: string | null;
-  stage?: string; // Alternative format
-  treatmentHistory?: string[] | TreatmentHistoryItem[];
-  molecularMarkers?: MolecularMarkers;
-  mutations?: string[]; // Alternative format
-  treatments?: string[];
-  location?: string;
-  previousTrials?: string[];
-  performanceStatus?: string | null;
+  created_at?: Date;
+  updated_at?: Date;
+  cancer_region?: string | null;
+  primary_site?: string | null;
+  cancer_type?: string | null;
+  disease_stage?: string | null;
+  treatment_history?: string[] | TreatmentHistoryItem[];
+  molecular_markers?: MolecularMarkers;
+  performance_status?: string | null;
   complications?: string[] | Complication[];
-  questionnaireVersion?: number;
+  questionnaire_version?: number;
+  completed_at?: Date | null;
   // Additional demographic fields for better matching
-  dateOfBirth?: Date | string;
-  age?: number; // Calculated from dateOfBirth
+  date_of_birth?: Date | string;
+  age?: number; // Calculated from date_of_birth
   sex?: 'MALE' | 'FEMALE' | 'OTHER';
   race?: string;
   ethnicity?: string;
+  // Derived/computed fields (not in DB)
+  location?: string;
+  previous_trials?: string[];
 }
 
 export interface StudyLocation {

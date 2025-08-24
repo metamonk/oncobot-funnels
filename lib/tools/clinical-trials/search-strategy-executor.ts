@@ -12,6 +12,7 @@ import { LocationService, TrialWithDistance } from './location-service';
 import { TrialCompressor } from './trial-compressor';
 import { CancerTypeMapper } from './cancer-type-mapper';
 import { debug, DebugCategory } from './debug';
+import { conversationTrialStore } from './services/conversation-trial-store';
 import type { 
   ClinicalTrial, 
   HealthProfile, 
@@ -1330,7 +1331,7 @@ export class SearchStrategyExecutor {
       const trialText = [...conditions, summary, eligibility].join(' ').toLowerCase();
       
       // Filter by cancer type
-      const cancerType = (profile.cancerType || profile.cancer_type || '').toLowerCase();
+      const cancerType = (profile.cancer_type || '').toLowerCase();
       if (cancerType && !trialText.includes(cancerType.replace(/_/g, ' '))) {
         // Check for alternative names
         // Get search terms for the cancer type
