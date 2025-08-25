@@ -1419,7 +1419,7 @@ export class SearchStrategyExecutor {
       }
       
       // Check stage if available
-      const stage = profile.diseaseStage || profile.stage;
+      const stage = profile.diseaseStage;
       if (stage) {
         const normalizedStage = stage.toLowerCase().replace(/_/g, ' ');
         // Advanced/metastatic trials often accept stage IV
