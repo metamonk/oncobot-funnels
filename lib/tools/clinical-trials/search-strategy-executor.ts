@@ -333,7 +333,7 @@ export class SearchStrategyExecutor {
       broadQuery,
       cancerType: profile.cancerType,
       hasLocation: !!context.user.location,
-      hasMutations: !!profile.molecularMarkers || !!profile.mutations
+      hasMutations: !!profile.molecularMarkers
     });
 
     // Step 1: Broad search to get comprehensive results
