@@ -159,7 +159,7 @@ export class AIDrivenSearchExecutor {
     conditions.push(...classification.medical.cancerTypes);
     
     // Add mutations (they're medical conditions too)
-    conditions.push(...classification.medical.mutations.map(m => m.replace(/_/g, ' ')));
+    conditions.push(...classification.medical.mutations.map((m: string) => m.replace(/_/g, ' ')));
     
     if (conditions.length > 0) {
       // Use OR for multiple conditions
