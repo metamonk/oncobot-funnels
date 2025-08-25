@@ -283,7 +283,7 @@ export class EligibilityAnalyzer {
     profile: HealthProfile,
     analysis: EligibilityAnalysis
   ): void {
-    const cancerType = profile.cancer_type;
+    const cancerType = profile.cancerType;
     if (!cancerType) {
       analysis.missingInformation.push('Cancer type not specified in profile');
       return;
@@ -309,7 +309,7 @@ export class EligibilityAnalyzer {
     profile: HealthProfile,
     analysis: EligibilityAnalysis
   ): void {
-    if (!profile.molecularMarkers && !profile.mutations) {
+    if (!profile.molecularMarkers) {
       analysis.missingInformation.push('Molecular markers not specified in profile');
       return;
     }

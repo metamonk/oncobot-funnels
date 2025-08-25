@@ -1,80 +1,140 @@
 #!/usr/bin/env tsx
 
-import { clinicalTrialsTool } from '../lib/tools/clinical-trials';
+/**
+ * Test the complete clinical trials search flow
+ * Verifies both the location parameter and the reasoning labels
+ */
+
+import { clinicalTrialsRouter } from '../lib/tools/clinical-trials/router';
 import type { HealthProfile } from '../lib/tools/clinical-trials/types';
 
+// Mock health profile for testing
+const mockProfile: HealthProfile = {
+  id: 'test-id',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  cancerRegion: 'THORACIC',
+  cancerType: 'NSCLC',
+  diseaseStage: 'STAGE_IV',
+  molecularMarkers: {
+    KRAS_G12C: 'POSITIVE'
+  }
+};
+
 async function testCompleteFlow() {
-  console.log('Testing complete clinical trials flow with health profile...\n');
+  console.log('🎯 Testing Complete Clinical Trials Search Flow\n');
+  console.log('=' .repeat(60));
   
-  // Mock health profile for NSCLC patient with KRAS G12C mutation
-  const healthProfile: HealthProfile = {
-    id: 'test-123',
-    userId: 'user-456',
-    cancerRegion: 'THORACIC',
-    cancerType: 'NSCLC',
-    cancerSubtype: null,
-    diseaseStage: 'STAGE_IV',
-    diagnosisDate: new Date('2024-01-01'),
-    molecularMarkers: {
-      KRAS_G12C: 'POSITIVE',
-      EGFR: 'NEGATIVE',
-      ALK: 'NEGATIVE',
-      PD_L1: 'POSITIVE'
-    },
-    treatmentHistory: [],
-    createdAt: new Date(),
-    updatedAt: new Date()
-  };
+  // Test Chicago search
+  console.log('\n📍 Testing: "KRAS G12C trials in Chicago"\n');
   
-  const queries = [
-    'Find clinical trials for me',
-    'NSCLC trials near Chicago',
-    'KRAS G12C targeted therapy trials',
-    'Show me NCT05789082'
-  ];
+  const result = await clinicalTrialsRouter.routeWithContext({
+    query: 'KRAS G12C trials in Chicago',
+    healthProfile: mockProfile,
+    userCoordinates: { latitude: 41.8781, longitude: -87.6298 }, // Chicago coordinates
+    pagination: { offset: 0, limit: 5 }
+  });
   
-  for (const query of queries) {
-    console.log(`\nQuery: "${query}"`);
-    console.log('─'.repeat(60));
+  console.log(`✅ Search completed successfully`);
+  console.log(`📊 Found ${result.totalCount || 0} total trials`);
+  console.log(`📍 Returning ${result.matches?.length || 0} trials\n`);
+  
+  // Check each trial
+  if (result.matches) {
+    console.log('Analyzing results:\n');
     
-    try {
-      const result = await clinicalTrialsTool.execute({
-        query,
-        userLocation: {
-          latitude: 41.8781,
-          longitude: -87.6298
-        },
-        healthProfile,
-        maxResults: 3,
-        includeDetails: true
-      });
+    result.matches.forEach((match, index) => {
+      const trial = match.trial;
+      const nctId = trial.protocolSection?.identificationModule?.nctId;
+      const title = trial.protocolSection?.identificationModule?.briefTitle;
+      const locations = trial.protocolSection?.contactsLocationsModule?.locations || [];
       
-      const parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
+      console.log(`${index + 1}. ${nctId}`);
+      console.log(`   Title: ${title?.substring(0, 60)}...`);
       
-      console.log(`Total trials found: ${parsedResult.totalTrials || 0}`);
-      console.log(`Returned trials: ${parsedResult.trials?.length || 0}`);
+      // Check if actually in Chicago
+      const chicagoLocations = locations.filter(loc => 
+        loc.city?.toLowerCase() === 'chicago' || 
+        loc.state?.toLowerCase() === 'illinois'
+      );
       
-      if (parsedResult.trials && parsedResult.trials.length > 0) {
-        console.log('\nFirst trial:');
-        const trial = parsedResult.trials[0];
-        console.log(`  NCT ID: ${trial.nctId}`);
-        console.log(`  Title: ${trial.title?.substring(0, 60)}...`);
-        console.log(`  Status: ${trial.status}`);
-        if (trial.nearestLocation) {
-          console.log(`  Location: ${trial.nearestLocation.city}, ${trial.nearestLocation.state}`);
-          console.log(`  Distance: ${trial.nearestLocation.distance} miles`);
+      if (chicagoLocations.length > 0) {
+        console.log(`   ✅ Actually located in Chicago (${chicagoLocations.length} sites)`);
+      } else {
+        console.log(`   ❌ NOT in Chicago`);
+        const cities = [...new Set(locations.map(l => l.city).filter(Boolean))].slice(0, 3);
+        if (cities.length > 0) {
+          console.log(`   📍 Actual locations: ${cities.join(', ')}`);
         }
       }
       
-      if (parsedResult.searchInfo) {
-        console.log('\nSearch info:');
-        console.log(`  Strategy: ${parsedResult.searchInfo.searchStrategy}`);
-        console.log(`  Query Type: ${parsedResult.searchInfo.queryType}`);
+      // Check the reasoning (this should now be fixed)
+      if (match.searchReasoning) {
+        console.log(`   📝 Reasoning: "${match.searchReasoning}"`);
+        
+        // Verify reasoning accuracy
+        if (match.searchReasoning.includes('Located in Chicago')) {
+          if (chicagoLocations.length === 0) {
+            console.log(`   ⚠️ FALSE POSITIVE: Claims Chicago but isn't there!`);
+          }
+        }
       }
-    } catch (error) {
-      console.log(`❌ Error: ${error}`);
+      
+      console.log();
+    });
+  }
+  
+  // Summary
+  console.log('=' .repeat(60));
+  console.log('\n📊 Summary:\n');
+  
+  if (result.matches) {
+    const actualChicagoCount = result.matches.filter(match => {
+      const locations = match.trial.protocolSection?.contactsLocationsModule?.locations || [];
+      return locations.some(loc => 
+        loc.city?.toLowerCase() === 'chicago' || 
+        loc.state?.toLowerCase() === 'illinois'
+      );
+    }).length;
+    
+    const falseClaimsCount = result.matches.filter(match => {
+      const hasChicagoReasoning = match.searchReasoning?.includes('Located in Chicago');
+      const locations = match.trial.protocolSection?.contactsLocationsModule?.locations || [];
+      const actuallyInChicago = locations.some(loc => 
+        loc.city?.toLowerCase() === 'chicago' || 
+        loc.state?.toLowerCase() === 'illinois'
+      );
+      return hasChicagoReasoning && !actuallyInChicago;
+    }).length;
+    
+    console.log(`✅ Trials actually in Chicago: ${actualChicagoCount}/${result.matches.length}`);
+    console.log(`❌ False "Located in Chicago" claims: ${falseClaimsCount}`);
+    
+    if (actualChicagoCount === result.matches.length && falseClaimsCount === 0) {
+      console.log('\n🎉 PERFECT! All results are accurate!');
+      console.log('   - All trials are actually in Chicago');
+      console.log('   - No false location claims in reasoning');
+      console.log('   - The AI-driven parameter mapping is working correctly!');
+    } else {
+      console.log('\n⚠️ Some issues remain:');
+      if (actualChicagoCount < result.matches.length) {
+        console.log(`   - ${result.matches.length - actualChicagoCount} trials are not actually in Chicago`);
+      }
+      if (falseClaimsCount > 0) {
+        console.log(`   - ${falseClaimsCount} trials falsely claim to be in Chicago`);
+      }
     }
   }
+  
+  // Check what parameters were actually used
+  const queryContext = result.metadata?.queryContext as any;
+  if (queryContext) {
+    console.log('\n🔍 Debug Info:');
+    console.log(`   Primary Strategy: ${queryContext.executionPlan?.primaryStrategy}`);
+    console.log(`   Search Params:`, queryContext.executionPlan?.searchParams);
+  }
+  
+  console.log('\n' + '=' .repeat(60));
 }
 
 testCompleteFlow().catch(console.error);

@@ -514,21 +514,40 @@ Strategy selection:
   ): string {
     const parts: string[] = [];
     
-    // Add cancer type from profile if not in query
-    if (profile?.cancerType && !classification.medical.cancerTypes.includes(profile.cancerType)) {
-      parts.push(profile.cancerType);
+    // ALWAYS include cancer type from profile for mutation queries
+    // This ensures "KRAS G12C trials" becomes "NSCLC KRAS G12C" when user has NSCLC
+    const hasMutations = classification.medical.mutations.length > 0;
+    const hasConditions = classification.medical.conditions.length > 0 || 
+                         classification.medical.cancerTypes.length > 0;
+    
+    if (profile?.cancerType && (hasMutations || !hasConditions)) {
+      // Always add cancer type when:
+      // 1. Query has mutations (e.g., "KRAS G12C")
+      // 2. Query has no conditions/cancer types specified
+      if (!classification.medical.cancerTypes.includes(profile.cancerType)) {
+        parts.push(profile.cancerType);
+      }
     }
+    
+    // Add cancer types from query
+    parts.push(...classification.medical.cancerTypes);
     
     // Add conditions
     parts.push(...classification.medical.conditions);
     
-    // Add mutations
-    parts.push(...classification.medical.mutations);
+    // Add mutations (convert underscores to spaces)
+    const formattedMutations = classification.medical.mutations.map(m => 
+      m.replace(/_/g, ' ')
+    );
+    parts.push(...formattedMutations);
     
     // Add drugs
     parts.push(...classification.medical.drugs);
     
-    return parts.join(' ').trim() || 'cancer';
+    // Remove duplicates while preserving order
+    const uniqueParts = [...new Set(parts)];
+    
+    return uniqueParts.join(' ').trim() || 'cancer';
   }
   
   /**

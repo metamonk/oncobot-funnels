@@ -27,9 +27,9 @@ export async function GET(
     const searchExecutor = new SearchExecutor();
     
     // Use executeSearch to fetch by NCT ID
-    // The ClinicalTrials.gov API uses query.nctid for NCT ID searches
+    // For NCT IDs, just pass the ID directly - the API will understand it
     const result = await searchExecutor.executeSearch(
-      `query.nctid:${nctId.toUpperCase()}`,
+      nctId.toUpperCase(),
       { pageSize: 1, countTotal: false }
     );
     

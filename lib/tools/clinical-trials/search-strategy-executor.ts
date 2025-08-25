@@ -258,22 +258,39 @@ export class SearchStrategyExecutor {
       return this.executeBroadSearchWithContext(context);
     }
 
-    // ADAPTIVE STRATEGY: Use AI-enriched query when available
+    // ADAPTIVE STRATEGY: Combine AI-enriched query with cancer type for best results
     // The enrichedQuery from AI classification includes mutations, conditions, and drugs
     let broadQuery: string;
     
     if (context.executionPlan.searchParams.enrichedQuery) {
-      // Use the AI-enriched query that includes mutations like "KRAS G12C"
-      broadQuery = context.executionPlan.searchParams.enrichedQuery;
+      // INTELLIGENT COMBINATION: Ensure we always include cancer type with mutations
+      const enrichedQuery = context.executionPlan.searchParams.enrichedQuery;
+      const cancerType = profile.cancerType || '';
+      
+      // Check if the enriched query already includes the cancer type
+      const hasCondition = context.extracted.conditions && context.extracted.conditions.length > 0;
+      const hasCancerType = enrichedQuery.toLowerCase().includes('lung') || 
+                            enrichedQuery.toLowerCase().includes('nsclc') ||
+                            enrichedQuery.toLowerCase().includes('cancer');
+      
+      if (!hasCondition && !hasCancerType && cancerType && cancerType !== 'OTHER') {
+        // Combine cancer type with mutations for comprehensive search
+        // E.g., "NSCLC KRAS G12C" instead of just "KRAS G12C"
+        broadQuery = `${cancerType} ${enrichedQuery}`.trim();
+      } else {
+        broadQuery = enrichedQuery;
+      }
       
       debug.log(DebugCategory.SEARCH, 'Using AI-enriched query with mutations', {
         enrichedQuery: broadQuery,
+        originalEnriched: enrichedQuery,
+        cancerType: cancerType,
         extractedMutations: context.extracted.mutations,
         extractedConditions: context.extracted.conditions
       });
     } else {
       // Fallback to building query from profile if no enriched query
-      const cancerType = profile.cancerType || profile.cancer_type || '';
+      const cancerType = profile.cancerType || '';
       const cancerRegion = profile.cancerRegion || '';
       
       // Get search terms based on cancer type or region
@@ -295,12 +312,26 @@ export class SearchStrategyExecutor {
       
       // Use the most specific term first (e.g., NSCLC instead of "lung cancer")
       broadQuery = searchTerms[0] || 'cancer';
+      
+      // Also add mutations from profile if available
+      if (profile.molecularMarkers) {
+        const mutations = [];
+        for (const [marker, status] of Object.entries(profile.molecularMarkers)) {
+          if (status === 'POSITIVE') {
+            // Convert KRAS_G12C to "KRAS G12C"
+            mutations.push(marker.replace(/_/g, ' '));
+          }
+        }
+        if (mutations.length > 0) {
+          broadQuery = `${broadQuery} ${mutations.join(' ')}`.trim();
+        }
+      }
     }
     
     debug.log(DebugCategory.SEARCH, 'Profile-based broad search', {
       strategy: 'broad-then-filter',
       broadQuery,
-      cancerType: profile.cancerType || profile.cancer_type,
+      cancerType: profile.cancerType,
       hasLocation: !!context.user.location,
       hasMutations: !!profile.molecularMarkers || !!profile.mutations
     });
@@ -387,10 +418,15 @@ export class SearchStrategyExecutor {
     const baseQuery = context.executionPlan.searchParams.enrichedQuery || context.originalQuery;
     const locationQuery = this.buildLocationQuery(location, baseQuery, context);
 
+    // CRITICAL FIX: Pass the location to the search executor to use query.locn parameter
     const { studies, totalCount } = await this.executeSingleSearch(
       locationQuery,
       'term',  // Changed from '_fulltext' which is invalid - use 'term' for general search
-      { maxResults: 50 }  // Reduced from 100 to prevent token overflow
+      { 
+        maxResults: 50,  // Reduced from 100 to prevent token overflow
+        locationCity: location.city,  // Pass location for query.locn parameter
+        locationState: location.state
+      }
     );
 
     // Apply distance-based ranking AND filtering
@@ -820,8 +856,8 @@ export class SearchStrategyExecutor {
     const parts: string[] = [];
 
     // Add cancer type
-    if (profile.cancerType || profile.cancer_type) {
-      const cancerType = profile.cancerType || profile.cancer_type;
+    if (profile.cancerType) {
+      const cancerType = profile.cancerType;
       // Get search terms for the cancer type
       let searchTerms: string[] = [];
       if (cancerType && cancerType !== 'OTHER') {
@@ -1254,14 +1290,19 @@ export class SearchStrategyExecutor {
   private async executeSingleSearch(
     query: string,
     field: string,
-    options: { maxResults?: number; dataStream?: any } = {}
+    options: { maxResults?: number; dataStream?: any; locationCity?: string; locationState?: string } = {}
   ): Promise<{ studies: ClinicalTrial[]; totalCount: number; error?: string }> {
+    // Pass location information to the search executor
+    const searchOptions = { 
+      pageSize: options.maxResults || 50,
+      countTotal: true,
+      locationCity: options.locationCity,
+      locationState: options.locationState
+    };
+    
     const results = await this.searchExecutor.executeParallelSearches(
       [query],
-      { 
-        pageSize: options.maxResults || 50,
-        countTotal: true 
-      }
+      searchOptions
     );
     
     const result = results[0];
@@ -1331,7 +1372,7 @@ export class SearchStrategyExecutor {
       const trialText = [...conditions, summary, eligibility].join(' ').toLowerCase();
       
       // Filter by cancer type
-      const cancerType = (profile.cancer_type || '').toLowerCase();
+      const cancerType = (profile.cancerType || '').toLowerCase();
       if (cancerType && !trialText.includes(cancerType.replace(/_/g, ' '))) {
         // Check for alternative names
         // Get search terms for the cancer type
@@ -1596,8 +1637,17 @@ export class SearchStrategyExecutor {
       reasons.push('Matched your health profile criteria');
     }
     
-    if (context.user?.location) {
-      reasons.push(`Located in ${context.user.location.city || 'your area'}`);
+    // CRITICAL FIX: Only claim "Located in X" if the trial actually has a location there
+    if (context.user?.location && context.user.location.city) {
+      const trialLocations = trial.protocolSection?.contactsLocationsModule?.locations || [];
+      const hasLocationMatch = trialLocations.some(loc => 
+        loc.city?.toLowerCase() === context.user.location!.city?.toLowerCase() ||
+        loc.state?.toLowerCase() === context.user.location!.state?.toLowerCase()
+      );
+      
+      if (hasLocationMatch) {
+        reasons.push(`Located in ${context.user.location.city}`);
+      }
     }
     
     if (context.extracted?.conditions && context.extracted.conditions.length > 0) {
@@ -1775,7 +1825,7 @@ export class SearchStrategyExecutor {
     match: TrialMatch,
     profile: HealthProfile
   ): any {
-    const cancerType = (profile.cancerType || profile.cancer_type || '').toLowerCase();
+    const cancerType = (profile.cancerType || '').toLowerCase();
     const conditions = match.conditions?.map(c => c.toLowerCase()) || [];
     const summary = (match.summary || '').toLowerCase();
     

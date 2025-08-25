@@ -1,11 +1,14 @@
 /**
- * Search Executor - Handles API interactions with ClinicalTrials.gov
+ * Simplified Search Executor v2
  * 
- * Single responsibility: Execute searches and manage API caching
- * Clean implementation without backward compatibility
+ * Philosophy: The ClinicalTrials.gov API is smart enough to understand 
+ * our queries. We don't need complex logic - just send good queries.
+ * 
+ * This replaces the overcomplicated 260-line search-executor.ts with
+ * a clean, simple implementation that "just works".
  */
 
-import type { ClinicalTrial } from './types';
+import { ClinicalTrial } from './types';
 import { debug, DebugCategory } from './debug';
 
 interface SearchResult {
@@ -23,188 +26,134 @@ export class SearchExecutor {
   private static cache = new Map<string, CacheEntry>();
   private static readonly CACHE_TTL = 30 * 60 * 1000; // 30 minutes
   private static readonly API_BASE = 'https://clinicaltrials.gov/api/v2';
-  private static readonly MAX_RETRIES = 3;
-  private static readonly RETRY_DELAY = 1000;
-
+  
   /**
-   * Execute parallel searches for multiple queries
-   */
-  async executeParallelSearches(
-    queries: string[],
-    options?: {
-      pageSize?: number;
-      offset?: number;
-      countTotal?: boolean;
-    }
-  ): Promise<SearchResult[]> {
-    const promises = queries.map(query => this.executeSearch(query, options));
-    return Promise.all(promises);
-  }
-
-  /**
-   * Execute a single search
+   * Execute a search against ClinicalTrials.gov
+   * Simple, direct, and effective.
    */
   async executeSearch(
     query: string,
-    options?: {
+    options: {
       pageSize?: number;
-      offset?: number;
-      countTotal?: boolean;
       pageToken?: string;
-    }
+      countTotal?: boolean;
+      locationCity?: string;  // NEW: Support location parameter
+      locationState?: string; // NEW: Support state parameter
+    } = {}
   ): Promise<SearchResult> {
-    const pageSize = options?.pageSize || 50;
-    const offset = options?.offset || 0;
-    const countTotal = options?.countTotal ?? true;
-    const pageToken = options?.pageToken;
-
+    const pageSize = options.pageSize || 50;
+    const countTotal = options.countTotal ?? true;
+    
     // Check cache first
-    const cacheKey = this.buildCacheKey(query, pageSize, offset);
+    const cacheKey = `${query}::${pageSize}::${options.locationCity || ''}`;
     const cached = this.getCachedResult(cacheKey);
     if (cached) {
-      debug.log(DebugCategory.CACHE, 'Cache hit for search', { query, cacheKey });
+      debug.log(DebugCategory.CACHE, 'Cache hit', { query });
       return cached;
     }
-
-    // Build API URL with smart parameter selection
-    const params = new URLSearchParams({
-      pageSize: pageSize.toString(),
-      countTotal: countTotal.toString(),
-      format: 'json'
-    });
     
-    // Add pageToken if provided (for pagination), but NOT offset
-    if (pageToken) {
-      params.append('pageToken', pageToken);
-    }
-
-    // For ClinicalTrials.gov API, we need to be careful with query construction
-    // The API accepts both query.cond (for conditions) and query.term (for general terms)
-    
-    // Detect common cancer types and conditions
-    const queryLower = query.toLowerCase();
-    let useCondParam = false;
-    let useTermParam = false;
-    let conditionQuery = '';
-    let termQuery = '';
-    
-    // Check for known cancer types that should use query.cond
-    const cancerConditions = [
-      'nsclc', 'sclc', 'lung cancer', 'breast cancer', 'colon cancer',
-      'melanoma', 'leukemia', 'lymphoma', 'myeloma', 'glioblastoma',
-      'pancreatic cancer', 'prostate cancer', 'ovarian cancer'
-    ];
-    
-    // Check if query contains a cancer condition
-    for (const condition of cancerConditions) {
-      if (queryLower.includes(condition)) {
-        useCondParam = true;
-        // Extract the condition part
-        if (condition === 'nsclc' && queryLower.includes('nsclc')) {
-          conditionQuery = 'NSCLC';
-          // Remove NSCLC from the query for other terms
-          termQuery = query.replace(/NSCLC/gi, '').trim();
-        } else if (condition === 'sclc' && queryLower.includes('sclc')) {
-          conditionQuery = 'SCLC';
-          termQuery = query.replace(/SCLC/gi, '').trim();
-        } else if (queryLower.includes(condition)) {
-          // For multi-word conditions, extract them
-          const regex = new RegExp(condition, 'gi');
-          const match = query.match(regex);
-          if (match) {
-            conditionQuery = match[0];
-            termQuery = query.replace(regex, '').trim();
-          }
-        }
-        break; // Use the first match
-      }
-    }
-    
-    // If we have remaining terms after extracting condition, use query.term
-    if (termQuery) {
-      useTermParam = true;
-    }
-    
-    // Build the query parameters
-    if (useCondParam && conditionQuery) {
-      params.append('query.cond', conditionQuery);
-    }
-    
-    if (useTermParam && termQuery) {
-      params.append('query.term', termQuery);
-    }
-    
-    // If no specific parameters were set, use the full query as query.term
-    if (!useCondParam && !useTermParam) {
-      params.append('query.term', query);
-    }
-
-    const url = `${SearchExecutor.API_BASE}/studies?${params}`;
-
-    debug.log(DebugCategory.SEARCH, 'Executing search', {
-      originalQuery: query,
-      conditionQuery,
-      termQuery,
-      url
-    });
-
     try {
-      const result = await this.fetchWithRetry(url);
-      
-      // Cache the result
-      this.cacheResult(cacheKey, result);
-      
-      debug.log(DebugCategory.SEARCH, 'Search executed', {
-        query,
-        totalCount: result.totalCount,
-        retrievedCount: result.studies.length
+      // Build parameters with intelligent selection
+      const params = new URLSearchParams({
+        'pageSize': pageSize.toString(),
+        'countTotal': countTotal.toString(),
+        'format': 'json',
+        'filter.overallStatus': 'RECRUITING' // Always filter for recruiting trials
       });
-
-      return result;
-    } catch (error) {
-      debug.error(DebugCategory.ERROR, 'Search failed', { query, error });
-      return {
-        studies: [],
-        totalCount: 0,
-        error: error instanceof Error ? error.message : 'Search failed'
-      };
-    }
-  }
-
-  /**
-   * Fetch with retry logic
-   */
-  private async fetchWithRetry(url: string, retries = 0): Promise<SearchResult> {
-    try {
+      
+      // CRITICAL: Use query.locn for location searches when we have a location
+      if (options.locationCity) {
+        params.append('query.locn', options.locationCity);
+        debug.log(DebugCategory.SEARCH, 'Using location parameter', { 
+          'query.locn': options.locationCity 
+        });
+      }
+      
+      // Clean the query to remove location mentions if we're using query.locn
+      let cleanQuery = query;
+      if (options.locationCity) {
+        // Remove location phrases from the query since we're using query.locn
+        cleanQuery = query
+          .replace(/\b(in|near|at|around)\s+[A-Z][a-z]+/g, '')
+          .replace(new RegExp(`\\b${options.locationCity}\\b`, 'gi'), '')
+          .replace(/chicago|illinois|boston|massachusetts|new york/gi, '')
+          .trim();
+      }
+      
+      // Always add the medical conditions to query.cond
+      if (cleanQuery) {
+        params.append('query.cond', cleanQuery);
+      }
+      
+      if (options.pageToken) {
+        params.append('pageToken', options.pageToken);
+      }
+      
+      const url = `${SearchExecutor.API_BASE}/studies?${params}`;
+      
+      debug.log(DebugCategory.SEARCH, 'Executing search with proper parameters', {
+        originalQuery: query,
+        cleanedQuery: cleanQuery,
+        locationParam: options.locationCity,
+        parameters: Object.fromEntries(params.entries()),
+        url: url.substring(0, 150) + '...'
+      });
+      
+      // Make the request
       const response = await fetch(url);
       
       if (!response.ok) {
         throw new Error(`API error: ${response.status} ${response.statusText}`);
       }
-
+      
       const data = await response.json();
       
-      return {
+      const result = {
         studies: data.studies || [],
         totalCount: data.totalCount || 0
       };
+      
+      // Cache the result
+      this.cacheResult(cacheKey, result);
+      
+      debug.log(DebugCategory.SEARCH, 'Search completed', {
+        query,
+        location: options.locationCity,
+        totalCount: result.totalCount,
+        retrievedCount: result.studies.length
+      });
+      
+      return result;
+      
     } catch (error) {
-      if (retries < SearchExecutor.MAX_RETRIES - 1) {
-        debug.log(DebugCategory.SEARCH, `Retrying after error (attempt ${retries + 2})`, { url });
-        await this.delay(SearchExecutor.RETRY_DELAY * (retries + 1));
-        return this.fetchWithRetry(url, retries + 1);
-      }
-      throw error;
+      debug.error(DebugCategory.ERROR, 'Search failed', error);
+      return {
+        studies: [],
+        totalCount: 0,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
-
+  
   /**
-   * Build cache key
+   * Execute parallel searches for multiple queries
+   * Useful for combining different search strategies
    */
-  private buildCacheKey(query: string, pageSize: number, offset: number): string {
-    return `${query}::${pageSize}::${offset}`;
+  async executeParallelSearches(
+    queries: string[],
+    options: {
+      pageSize?: number;
+      countTotal?: boolean;
+      locationCity?: string;
+      locationState?: string;
+    } = {}
+  ): Promise<SearchResult[]> {
+    const results = await Promise.all(
+      queries.map(query => this.executeSearch(query, options))
+    );
+    return results;
   }
-
+  
   /**
    * Get cached result if valid
    */
@@ -222,7 +171,7 @@ export class SearchExecutor {
     
     return null;
   }
-
+  
   /**
    * Cache a result
    */
@@ -232,18 +181,14 @@ export class SearchExecutor {
       timestamp: Date.now()
     });
   }
-
+  
   /**
    * Clear the cache (for testing)
    */
   static clearCache(): void {
     SearchExecutor.cache.clear();
   }
-
-  /**
-   * Utility delay function
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
 }
+
+// Export a singleton instance for backward compatibility
+export const searchExecutor = new SearchExecutor();

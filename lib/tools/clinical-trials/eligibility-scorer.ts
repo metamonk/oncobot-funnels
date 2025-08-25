@@ -144,9 +144,9 @@ export class EligibilityScorer {
     trial: ClinicalTrial,
     profile: HealthProfile
   ): number {
-    if (!profile.cancerType && !profile.cancer_type) return 50; // No profile data
+    if (!profile.cancerType) return 50; // No profile data
 
-    const profileCancer = (profile.cancer_type || '').toLowerCase();
+    const profileCancer = (profile.cancerType || '').toLowerCase();
     const conditions = trial.protocolSection?.conditionsModule?.conditions || [];
     
     // Exact match
@@ -451,10 +451,10 @@ export class EligibilityScorer {
     let filledFields = 0;
     let totalFields = 6;
 
-    if (profile.cancer_type) filledFields++;
-    if (profile.diseaseStage || profile.stage) filledFields++;
-    if (profile.molecularMarkers || profile.mutations) filledFields++;
-    if (profile.treatmentHistory || profile.treatments) filledFields++;
+    if (profile.cancerType) filledFields++;
+    if (profile.diseaseStage) filledFields++;
+    if (profile.molecularMarkers) filledFields++;
+    if (profile.treatmentHistory) filledFields++;
     if (profile.performanceStatus) filledFields++;
     // Demographics would be the 6th
 
@@ -526,12 +526,12 @@ export class EligibilityScorer {
     const unmatchedCriteria: string[] = [];
 
     // Check conditions
-    if (profile.cancer_type) {
-      matchedCriteria.push(`Cancer type: ${profile.cancer_type}`);
+    if (profile.cancerType) {
+      matchedCriteria.push(`Cancer type: ${profile.cancerType}`);
     }
 
     // Check stage
-    if (profile.diseaseStage || profile.stage) {
+    if (profile.diseaseStage) {
       matchedCriteria.push(`Disease stage: ${profile.diseaseStage || profile.stage}`);
     }
 

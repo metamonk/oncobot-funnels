@@ -100,7 +100,7 @@ export const clinicalTrialsTool = (
     }
     
     // INTELLIGENT CONTINUATION: Handle "show me more" type queries
-    const continuationPatterns = ['more', 'else', 'other', 'additional', 'different'];
+    const continuationPatterns = ['more', 'else', 'other', 'additional', 'different', 'next'];
     const isContinuation = continuationPatterns.some(pattern => 
       query.toLowerCase().includes(pattern)
     );
@@ -163,17 +163,17 @@ export const clinicalTrialsTool = (
         // Map to snake_case interface
         healthProfile = {
           id: profile.id,
-          created_at: profile.createdAt,
-          updated_at: profile.updatedAt,
-          cancer_region: profile.cancerRegion,
-          primary_site: profile.primarySite,
-          cancer_type: profile.cancerType,
-          disease_stage: profile.diseaseStage,
-          date_of_birth: profile.dateOfBirth || undefined,
+          createdAt: profile.createdAt,
+          updatedAt: profile.updatedAt,
+          cancerRegion: profile.cancerRegion,
+          primarySite: profile.primarySite,
+          cancerType: profile.cancerType,
+          diseaseStage: profile.diseaseStage,
+          dateOfBirth: profile.dateOfBirth || undefined,
           age: calculatedAge,
-          treatment_history: profile.treatmentHistory as string[] | undefined,
-          molecular_markers: profile.molecularMarkers as MolecularMarkers | undefined,
-          performance_status: profile.performanceStatus,
+          treatmentHistory: profile.treatmentHistory as string[] | undefined,
+          molecularMarkers: profile.molecularMarkers as MolecularMarkers | undefined,
+          performanceStatus: profile.performanceStatus,
           complications: profile.complications as string[] | undefined
         };
       }
@@ -216,12 +216,27 @@ export const clinicalTrialsTool = (
       
       // Store successful results in conversation store
       if (result.success && result.matches && effectiveChatId) {
+        // Store ALL trials but don't mark them as shown yet
+        // This allows continuation queries to work
         conversationTrialStore.storeTrials(
           effectiveChatId,
           result.matches,
           query,
-          true // Mark as shown
+          false // Don't mark as shown yet - we'll do it after limiting
         );
+        
+        // Now mark only the returned trials as shown
+        const returnedNctIds = result.matches
+          .slice(0, limit)
+          .map(m => m.trial.protocolSection?.identificationModule?.nctId)
+          .filter(Boolean) as string[];
+        
+        if (returnedNctIds.length > 0) {
+          conversationTrialStore.markAsShown(effectiveChatId, returnedNctIds);
+        }
+        
+        // Limit the returned matches to what was requested
+        result.matches = result.matches.slice(0, limit);
         
         // Update stats in response
         const stats = conversationTrialStore.getStats(effectiveChatId);
