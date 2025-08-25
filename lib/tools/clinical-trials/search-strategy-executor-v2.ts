@@ -6,9 +6,15 @@
  */
 
 import { SearchExecutor } from './search-executor';
-import { ClinicalTrial, HealthProfile, TrialMatch } from './types';
+import { ClinicalTrial, HealthProfile } from './types';
 import { EligibilityAnalyzer } from './eligibility-analyzer';
 import { debug, DebugCategory } from './debug';
+
+// Define our own trial match structure for this executor
+interface TrialMatchWithScore {
+  trial: ClinicalTrial;
+  matchScore: number;
+}
 
 export class SimpleSearchStrategyExecutor {
   private searchExecutor = new SearchExecutor();
@@ -26,7 +32,7 @@ export class SimpleSearchStrategyExecutor {
       location?: { latitude: number; longitude: number };
     } = {}
   ): Promise<{
-    matches: TrialMatch[];
+    matches: TrialMatchWithScore[];
     totalCount: number;
     success: boolean;
   }> {
@@ -53,7 +59,7 @@ export class SimpleSearchStrategyExecutor {
     }
     
     // Step 3: Score and rank trials based on profile
-    let matches: TrialMatch[] = result.studies.map(trial => ({
+    let matches: TrialMatchWithScore[] = result.studies.map(trial => ({
       trial,
       matchScore: 0.5 // Default score
     }));
@@ -133,9 +139,9 @@ export class SimpleSearchStrategyExecutor {
    * Score trials based on profile match
    */
   private async scoreTrials(
-    matches: TrialMatch[],
+    matches: TrialMatchWithScore[],
     profile: HealthProfile
-  ): Promise<TrialMatch[]> {
+  ): Promise<TrialMatchWithScore[]> {
     return Promise.all(matches.map(async match => {
       try {
         // Use eligibility analyzer for detailed assessment
@@ -190,7 +196,7 @@ export class SimpleSearchStrategyExecutor {
    * Filter trials by location (simple distance check)
    */
   private filterByLocation(
-    matches: TrialMatch[],
+    matches: TrialMatchWithScore[],
     userLocation: { latitude: number; longitude: number }
   ): TrialMatch[] {
     // For now, just return all matches
