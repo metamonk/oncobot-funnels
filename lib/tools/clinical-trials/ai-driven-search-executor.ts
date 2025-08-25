@@ -76,7 +76,7 @@ export class AIDrivenSearchExecutor {
       });
 
       // Step 2: Direct Parameter Mapping - No string manipulation!
-      const apiParams = this.mapClassificationToAPIParams(classification, context.healthProfile);
+      const apiParams = this.mapClassificationToAPIParams(classification, context.healthProfile, query);
       
       debug.log(DebugCategory.SEARCH, 'API Parameters Mapped', apiParams);
 
@@ -120,7 +120,8 @@ export class AIDrivenSearchExecutor {
    */
   private mapClassificationToAPIParams(
     classification: any,
-    profile?: HealthProfile | null
+    profile?: HealthProfile | null,
+    originalQuery?: string
   ): ClinicalTrialsAPIParams {
     const params: ClinicalTrialsAPIParams = {
       pageSize: '50',
@@ -189,8 +190,10 @@ export class AIDrivenSearchExecutor {
     // 7. If we have nothing specific, use general term search as fallback
     if (!params['query.cond'] && !params['query.intr'] && !params['query.id'] && !params['query.locn']) {
       // Only as a last resort, use the original query
-      params['query.term'] = query;
-      debug.log(DebugCategory.SEARCH, 'Fallback to general term search', query);
+      if (originalQuery) {
+        params['query.term'] = originalQuery;
+        debug.log(DebugCategory.SEARCH, 'Fallback to general term search', originalQuery);
+      }
     }
 
     return params;
