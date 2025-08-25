@@ -915,19 +915,37 @@ export class SearchStrategyExecutor {
       parts.push(cleanedQuery);
     }
 
-    // Add cancer type if available for better relevance
+    // CRITICAL FIX: Only add cancer type and markers if not already in the query
+    // The enrichedQuery from AI classification often already includes these
+    const queryLower = cleanedQuery.toLowerCase();
+    
+    // Add cancer type if not already present
     if (context.user.healthProfile?.cancerType) {
-      parts.push(context.user.healthProfile.cancerType);
+      const cancerType = context.user.healthProfile.cancerType;
+      const cancerTypeLower = cancerType.toLowerCase();
+      
+      // Check if cancer type isn't already in the query
+      if (!queryLower.includes(cancerTypeLower) && 
+          !queryLower.includes('nsclc') && 
+          !queryLower.includes('non-small cell') &&
+          !queryLower.includes('lung cancer')) {
+        parts.push(cancerType);
+      }
     }
     
-    // Add molecular markers if available
+    // Add molecular markers if not already present
     if (context.user.healthProfile?.molecularMarkers) {
       const markers = context.user.healthProfile.molecularMarkers;
       for (const [marker, status] of Object.entries(markers)) {
         if (status === 'POSITIVE') {
           // Convert KRAS_G12C to "KRAS G12C"
           const markerName = marker.replace(/_/g, ' ');
-          parts.push(markerName);
+          const markerLower = markerName.toLowerCase();
+          
+          // Check if marker isn't already in the query
+          if (!queryLower.includes(markerLower)) {
+            parts.push(markerName);
+          }
         }
       }
     }
