@@ -274,8 +274,9 @@ export class AIDrivenSearchExecutor {
       const status = trial.protocolSection?.statusModule?.overallStatus;
 
       // Boost for cancer type match
-      if (profile.cancerType && conditions.some(c => 
-        c.toLowerCase().includes(profile.cancerType.toLowerCase())
+      const cancerType = profile.cancerType;
+      if (cancerType && conditions.some(c => 
+        c.toLowerCase().includes(cancerType.toLowerCase())
       )) {
         score += 0.2;
       }
