@@ -87,11 +87,14 @@ User Query → AI Classification → API Parameters → Results
      - Managing conversation context
 
 2. **Query Classification AI** (Tier 2)
-   - **Role**: Specialized query understanding and entity extraction
+   - **Role**: Specialized query understanding with intelligent context awareness
    - **Model**: GPT-4o-mini (with structured outputs)
    - **Location**: `/lib/tools/clinical-trials/ai-query-classifier-structured.ts`
    - **Responsibilities**:
      - Classifying query intent (PROFILE_BASED, LOCATION_BASED, etc.)
+     - **NEW**: Determining query scope (personal, research, other_person, general)
+     - **NEW**: Assessing profile relevance (0.0 to 1.0 score)
+     - **NEW**: Deciding when to use health profile data
      - Extracting medical entities (mutations, conditions, drugs)
      - Understanding continuation queries ("show me more")
      - Building enriched search queries
@@ -379,6 +382,25 @@ Profile Search → Broad Search → Location Search → All Trials
 - Validates trial locations against user location before claiming match
 - Eliminates false positive location claims
 - Ensures search reasoning accuracy
+
+### 7. Intelligent Query Context System (✅ COMPLETED - 2025-08-25)
+- **AI-Driven Profile Application**: System intelligently determines when to use health profile data
+- **Query Scope Detection**: Identifies if query is personal, research, about others, or general
+- **Profile Relevance Scoring**: 0.0 to 1.0 score indicating how relevant the profile is
+- **Graduated Influence Levels**: PRIMARY, ENHANCED, CONTEXTUAL, BACKGROUND, or DISABLED
+- **Trust the Intelligence**: AI decides context rather than forcing profile on all queries
+
+**Query Scope Categories**:
+- **Personal** (Profile: ✅): "my cancer", "I have", "am I eligible"
+- **Research** (Profile: ❌): "what is", "explain", "how does"
+- **Other Person** (Profile: ❌): "my mother", "friend with", "patient has"
+- **General** (Profile: varies): May benefit from context based on query
+
+**Benefits**:
+- Prevents contaminating research queries with personal data
+- Avoids incorrect results for queries about others
+- Provides more relevant, context-aware results
+- Trusts AI intelligence over rigid rules
 
 ## 🎯 Architectural Principles in Practice
 

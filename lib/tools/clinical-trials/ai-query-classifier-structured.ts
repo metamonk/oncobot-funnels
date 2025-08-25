@@ -81,6 +81,13 @@ const StructuredQuerySchema = z.object({
     requiresProfile: z.boolean().describe('Query needs health profile context'),
     requiresLocation: z.boolean().describe('Query needs location context'),
     complexity: z.enum(['simple', 'moderate', 'complex']).describe('Query complexity level'),
+    // NEW: Intelligent query context understanding
+    queryScope: z.enum(['personal', 'research', 'other_person', 'general'])
+      .describe('Is this about user\'s own condition, research, someone else, or general info?'),
+    useProfileData: z.boolean()
+      .describe('Should user profile data be included in search based on query intent?'),
+    profileRelevance: z.number().min(0).max(1)
+      .describe('How relevant is the user profile to this query (0=not relevant, 1=highly relevant)?'),
   }).describe('Intent analysis and confidence'),
   
   strategy: z.object({
@@ -343,6 +350,7 @@ Your task:
 4. Identify any NCT IDs or trial identifiers
 5. Determine the optimal search strategy
 6. Assess query complexity and confidence
+7. CRITICAL: Determine query scope and profile relevance
 
 Important guidelines:
 - Be comprehensive - extract everything that could be relevant
@@ -352,7 +360,51 @@ Important guidelines:
 - Parse location formats (city names, state abbreviations, "near me")
 - NCT IDs follow pattern: NCT followed by 8 digits
 - Default search radius is 300 miles unless specified
-- Consider health profile context when available`;
+
+INTELLIGENT QUERY SCOPE DETECTION:
+Determine the queryScope based on these patterns:
+
+'personal' - Query is about the user's own condition:
+- Uses personal pronouns: "my", "I have", "I was diagnosed", "for me"
+- Asks about eligibility: "am I eligible", "can I participate"
+- References personal health: "my cancer", "my diagnosis", "my treatment"
+- General queries when user has a health profile (e.g., "find trials")
+
+'research' - Query is for research/educational purposes:
+- Academic language: "what is", "how does", "explain", "mechanism of"
+- General information: "types of trials", "phases of trials"
+- Comparative: "difference between", "compare"
+- No personal context or pronouns
+
+'other_person' - Query is about someone else:
+- References others: "my mother", "my friend", "a patient with"
+- Third person pronouns: "he has", "she was diagnosed", "they have"
+- Asking on behalf of someone else
+
+'general' - General clinical trial information:
+- Broad queries without personal context
+- No specific medical conditions mentioned
+- General exploration: "what trials exist", "latest trials"
+
+PROFILE RELEVANCE SCORING (0.0 to 1.0):
+- 1.0: Query directly relates to user's condition (personal queries with matching conditions)
+- 0.7-0.9: Query likely benefits from profile (general trial searches, location queries)
+- 0.3-0.6: Query partially relates (some overlap with profile)
+- 0.1-0.2: Query minimally relates (different condition but same category)
+- 0.0: Query unrelated to profile (research, other person, different condition)
+
+USE PROFILE DATA DECISION:
+- Set useProfileData to TRUE when:
+  * queryScope is 'personal'
+  * Query is general but user has relevant profile
+  * Query mentions "trials for me" or similar
+  * profileRelevance > 0.5
+
+- Set useProfileData to FALSE when:
+  * queryScope is 'research' or 'other_person'
+  * Query explicitly mentions different condition than profile
+  * Query is about trial methodology/process
+  * profileRelevance < 0.3`;
 
     // Add health profile context
     if (context?.healthProfile) {
@@ -514,18 +566,22 @@ Strategy selection:
   ): string {
     const parts: string[] = [];
     
-    // ALWAYS include cancer type from profile for mutation queries
-    // This ensures "KRAS G12C trials" becomes "NSCLC KRAS G12C" when user has NSCLC
-    const hasMutations = classification.medical.mutations.length > 0;
-    const hasConditions = classification.medical.conditions.length > 0 || 
-                         classification.medical.cancerTypes.length > 0;
+    // NEW: Respect AI's decision about using profile data
+    const shouldUseProfile = classification.intent.useProfileData;
     
-    if (profile?.cancerType && (hasMutations || !hasConditions)) {
-      // Always add cancer type when:
-      // 1. Query has mutations (e.g., "KRAS G12C")
-      // 2. Query has no conditions/cancer types specified
-      if (!classification.medical.cancerTypes.includes(profile.cancerType)) {
-        parts.push(profile.cancerType);
+    if (shouldUseProfile && profile?.cancerType) {
+      // Only include profile data when AI determines it's relevant
+      const hasMutations = classification.medical.mutations.length > 0;
+      const hasConditions = classification.medical.conditions.length > 0 || 
+                           classification.medical.cancerTypes.length > 0;
+      
+      // Add cancer type when:
+      // 1. Query has mutations (e.g., "KRAS G12C") - needs context
+      // 2. Query has no conditions/cancer types specified - general query
+      if (hasMutations || !hasConditions) {
+        if (!classification.medical.cancerTypes.includes(profile.cancerType)) {
+          parts.push(profile.cancerType);
+        }
       }
     }
     
@@ -556,7 +612,7 @@ Strategy selection:
   private determineProfileInfluence(
     classification: StructuredQueryClassification,
     profile?: HealthProfile | null
-  ): { level: ProfileInfluence; reason: string } {
+  ): { level: ProfileInfluence; reason: string; disableProfile?: boolean } {
     if (!profile) {
       return { 
         level: ProfileInfluence.DISABLED, 
@@ -572,26 +628,46 @@ Strategy selection:
       };
     }
     
-    // Profile-based search uses full profile
-    if (classification.searchType === 'profile_based') {
-      return { 
-        level: ProfileInfluence.ENHANCED, 
-        reason: 'Profile-based search requested' 
+    // NEW: Use intelligent query scope detection
+    const { queryScope, useProfileData, profileRelevance } = classification.intent;
+    
+    // If AI determined not to use profile data
+    if (!useProfileData) {
+      return {
+        level: ProfileInfluence.DISABLED,
+        reason: `Query scope is '${queryScope}' - profile not relevant`,
+        disableProfile: true
       };
     }
     
-    // Location search with profile gets contextual influence
-    if (classification.searchType === 'location_based') {
-      return { 
-        level: ProfileInfluence.CONTEXTUAL, 
-        reason: 'Location search with profile context' 
+    // Map profile relevance score to influence level
+    if (profileRelevance >= 0.9) {
+      return {
+        level: ProfileInfluence.PRIMARY,
+        reason: `Personal query highly relevant to profile (relevance: ${profileRelevance})`
+      };
+    } else if (profileRelevance >= 0.7) {
+      return {
+        level: ProfileInfluence.ENHANCED,
+        reason: `Query benefits from profile context (relevance: ${profileRelevance})`
+      };
+    } else if (profileRelevance >= 0.5) {
+      return {
+        level: ProfileInfluence.CONTEXTUAL,
+        reason: `Query partially relates to profile (relevance: ${profileRelevance})`
+      };
+    } else if (profileRelevance >= 0.3) {
+      return {
+        level: ProfileInfluence.BACKGROUND,
+        reason: `Query has minimal profile relevance (relevance: ${profileRelevance})`
       };
     }
     
-    // Default to enhanced for medical queries
-    return { 
-      level: ProfileInfluence.ENHANCED, 
-      reason: 'Medical query with profile available' 
+    // Default to disabled if relevance is very low
+    return {
+      level: ProfileInfluence.DISABLED,
+      reason: `Query unrelated to profile (relevance: ${profileRelevance})`,
+      disableProfile: true
     };
   }
 }
