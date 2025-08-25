@@ -92,7 +92,7 @@ class ConversationTrialStore {
       // Store or update the trial
       const stored: StoredTrial = {
         trial: match.trial,
-        match_score: match.matchScore,
+        match_score: match.relevanceScore,
         eligibility_assessment: match.eligibilityAssessment,
         query_context: query,
         search_position: index
