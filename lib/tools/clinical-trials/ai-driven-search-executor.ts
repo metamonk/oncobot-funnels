@@ -58,7 +58,7 @@ export class AIDrivenSearchExecutor {
       conversationContext?: any;
     } = {}
   ): Promise<{
-    matches: TrialMatch[];
+    matches: { trial: ClinicalTrial; matchScore: number }[];
     totalCount: number;
     success: boolean;
     apiParams: ClinicalTrialsAPIParams; // For transparency
@@ -258,10 +258,10 @@ export class AIDrivenSearchExecutor {
    * Simple scoring - can be enhanced with more sophisticated logic
    */
   private scoreTrials(
-    matches: TrialMatch[],
+    matches: { trial: ClinicalTrial; matchScore: number }[],
     profile: HealthProfile,
     classification: any
-  ): TrialMatch[] {
+  ): { trial: ClinicalTrial; matchScore: number }[] {
     return matches.map(match => {
       let score = 0.5; // Base score
 
