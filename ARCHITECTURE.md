@@ -4,12 +4,14 @@
 
 ## 🎯 Architecture Philosophy
 
-**Core Principle**: "Simple, Elegant, and Context-Aware"
+**Core Principle**: "Trust the Intelligence"
 
 The system follows these architectural principles:
+- **Trust Over Control**: Trust AI intelligence rather than micromanaging with state
+- **Data Over State**: Store pure data, let intelligence determine presentation
 - **Simplicity Over Complexity**: Prefer straightforward solutions that "just work"
 - **Context-Aware Intelligence**: Every component understands its role in the larger system
-- **Graceful Degradation**: Multiple fallback layers ensure reliability
+- **Natural Flow**: Conversations should flow naturally without brittle pagination
 - **Clean Abstractions**: Clear boundaries between layers with no leaky abstractions
 
 ## 🏗️ System Overview
@@ -153,21 +155,29 @@ User Query → AI Classification → API Parameters → Results
 - Extract entities → Map to appropriate parameters → Multiple specific parameters
 - Result: `query.locn="Chicago"`, `query.cond="NSCLC KRAS G12C"`
 
-### Continuation Query Flow
+### Intelligent Continuation Flow (NEW)
 
 ```
-1. User: "Show me the next 10"
+1. User: "Show me more" / "What else?" / "Next trials"
    ↓
 2. Main AI invokes tool with continuation query
    ↓
-3. Tool detects continuation pattern ("next")
+3. Tool provides FULL conversation context to AI
    ↓
-4. Retrieves unshown trials from Conversation Store
+4. AI sees:
+   - All stored trials (e.g., 40 trials)
+   - What was previously discussed
+   - User's intent from query
    ↓
-5. Returns next batch without API call
+5. AI intelligently decides:
+   - Show different stored trials
+   - Filter by new criteria
+   - Fetch additional trials if needed
    ↓
-6. Updates shown/unshown tracking
+6. Natural presentation without state tracking
 ```
+
+**Key Difference**: No brittle "shown/unshown" tracking - the AI understands context and makes intelligent decisions about what to present.
 
 ## 🗄️ Data Storage Architecture
 
@@ -186,25 +196,44 @@ message             // Individual messages
 customInstructions  // User preferences
 ```
 
-### Conversation Trial Store
+### Intelligent Conversation Store (NEW)
 
-**Philosophy**: "Trials accumulate naturally in conversation context"
+**Philosophy**: "Trust the Intelligence - Store Data, Not State"
+
+Instead of tracking shown/unshown trials with brittle state management, we now use an intelligent approach that trusts the AI to manage conversation flow.
 
 ```typescript
+// OLD: State-Tracking Approach (Fragile)
 ConversationContext {
   chatId: string
   trials: Map<nctId, StoredTrial>
-  shownTrialIds: Set<string>
+  shownTrialIds: Set<string>       // ❌ Brittle state tracking
   searchHistory: Array<SearchRecord>
   lastSearchCriteria: any
 }
+
+// NEW: Intelligence-Driven Approach (Elegant)
+IntelligentConversationContext {
+  chatId: string
+  trials: Map<nctId, StoredTrialData>  // Pure data storage
+  searchHistory: Array<SearchRecord>   // Context for AI
+  lastSearchCriteria: any              // Metadata only
+  // No shown/unshown tracking - AI decides based on context
+}
 ```
 
-**Key Features**:
-- Instant NCT ID retrieval
-- Natural continuation support
-- No complex pagination
-- Search within stored trials
+**Key Innovation**:
+- **Pure Data Storage**: Store trials with metadata, no state tracking
+- **AI-Driven Presentation**: AI sees ALL trials and decides what to show
+- **Natural Continuation**: "Show me more" is understood contextually
+- **Instant Retrieval**: Direct NCT ID lookups from conversation
+- **Flexible Filtering**: AI can filter, search, or retrieve as needed
+
+**How It Works**:
+1. **Store Everything**: All trials from searches are stored with metadata
+2. **Provide Context**: AI receives full conversation context with every query
+3. **Trust Intelligence**: AI decides whether to show stored trials, fetch new ones, or filter existing
+4. **Natural Flow**: Continuation queries work naturally without pagination logic
 
 ### Cache Architecture
 
@@ -450,7 +479,12 @@ The OncoBot architecture has achieved **true AI-driven simplicity**:
 - **Phase 1** ✅: Simplified search executor (260→150 lines)
 - **Phase 2** ✅: AI-driven parameter mapping (COMPLETED)
 - **Phase 3** ✅: Location parameter integration (WORKING)
-- **Phase 4** 🚧: Further simplification opportunities
+- **Phase 4** ✅: Intelligent Conversation Store (COMPLETED)
+  - Removed brittle shown/unshown tracking
+  - Trust AI to manage conversation flow
+  - Pure data storage with metadata
+  - Natural continuation without pagination
+- **Phase 5** 🚧: Further simplification opportunities
 
 ### Production Metrics (from logs)
 - **Query**: "kras g12c trials chicago"
