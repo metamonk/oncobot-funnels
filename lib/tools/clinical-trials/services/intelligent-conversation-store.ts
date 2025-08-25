@@ -14,7 +14,12 @@
  * - Natural continuation - the AI understands "show me more"
  */
 
-import type { ClinicalTrial, TrialMatch } from '../types';
+import type { 
+  ClinicalTrial, 
+  TrialMatch, 
+  StudyLocation, 
+  ClinicalTrialIntervention 
+} from '../types';
 import { debug, DebugCategory } from '../debug';
 
 export interface StoredTrialData {
@@ -104,18 +109,18 @@ class IntelligentConversationStore {
         phase: match.trial.protocolSection?.designModule?.phases?.join(', '),
         status: match.trial.protocolSection?.statusModule?.overallStatus,
         locations: match.trial.protocolSection?.contactsLocationsModule?.locations
-          ?.map(l => `${l.city}, ${l.state}`.trim())
+          ?.map((l: StudyLocation) => `${l.city}, ${l.state}`.trim())
           .filter(Boolean),
         conditions: match.trial.protocolSection?.conditionsModule?.conditions,
         interventions: match.trial.protocolSection?.armsInterventionsModule?.interventions
-          ?.map(i => i.name)
+          ?.map((i: ClinicalTrialIntervention) => i.name)
       };
       
       // Store pure data - no "shown" state
       const storedData: StoredTrialData = {
         trial: match.trial,
         nctId,
-        matchScore: match.matchScore,
+        matchScore: match.relevanceScore,
         eligibilityAssessment: match.eligibilityAssessment,
         queryContext: query,
         searchPosition: index,
