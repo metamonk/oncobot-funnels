@@ -1178,9 +1178,10 @@ export class SearchStrategyExecutor {
       }
       
       // Prefer new locations
-      if (composition.filters.preferNewLocations && context.metadata.conversationAnalysis) {
-        // Boost trials from locations not yet discussed
+      if (composition.filters.preferNewLocations) {
+        // TODO: Boost trials from locations not yet discussed
         // This would require tracking discussed locations in conversation
+        // For now, this filter is acknowledged but not implemented
       }
       
       // Diversify results
