@@ -5,7 +5,9 @@
  * Demonstrates how a cleaner architecture works better
  */
 
-import { simpleSearchStrategy } from '../lib/tools/clinical-trials/search-strategy-executor-v2';
+import { SearchStrategyExecutor } from '../lib/tools/clinical-trials/search-strategy-executor';
+import { QueryContext } from '../lib/tools/clinical-trials/query-context';
+import { simpleClassifier } from '../lib/tools/clinical-trials/simple-classifier';
 
 // Mock profile for NSCLC with KRAS G12C
 const mockProfile = {
@@ -21,26 +23,38 @@ async function testSimplifiedApproach() {
   console.log('🎯 Testing Simplified Search Approach\n');
   console.log('Philosophy: Simple, elegant, and effective\n');
   
+  const executor = new SearchStrategyExecutor();
+  
   // Test 1: Mutation query that needs cancer type
   console.log('1️⃣ Query: "kras g12c trials chicago"');
   console.log('   Profile: NSCLC with KRAS G12C positive\n');
   
-  const result1 = await simpleSearchStrategy.executeSearch(
+  // Create a query context for the search
+  const classification1 = await simpleClassifier.classify('kras g12c trials chicago');
+  const queryContext1 = new QueryContext(
     'kras g12c trials chicago',
+    classification1,
     mockProfile,
-    { limit: 5 }
+    undefined
+  );
+  
+  const result1 = await executor.executeWithContext(
+    queryContext1,
+    { offset: 0, limit: 5 }
   );
   
   console.log(`   ✅ Search completed: ${result1.success ? 'Success' : 'Failed'}`);
-  console.log(`   📊 Found ${result1.matches.length} matches (of ${result1.totalCount} total)`);
+  const trials1 = result1.trials || result1.matches?.map(m => m.trial) || [];
+  console.log(`   📊 Found ${trials1.length} matches (of ${result1.totalCount} total)`);
   
-  if (result1.matches.length > 0) {
+  if (trials1.length > 0) {
     console.log('\n   Top matches:');
-    result1.matches.slice(0, 3).forEach((match, i) => {
-      const trial = match.trial;
+    trials1.slice(0, 3).forEach((trial, i) => {
       const nctId = trial.protocolSection?.identificationModule?.nctId;
       const title = trial.protocolSection?.identificationModule?.briefTitle;
-      console.log(`   ${i + 1}. ${nctId} (Score: ${match.matchScore.toFixed(2)})`);
+      const match = result1.matches?.find(m => m.trial === trial);
+      const score = match?.matchScore || 0.5;
+      console.log(`   ${i + 1}. ${nctId} (Score: ${score.toFixed(2)})`);
       console.log(`      ${title?.substring(0, 50)}...`);
     });
   }
@@ -48,26 +62,42 @@ async function testSimplifiedApproach() {
   // Test 2: Direct cancer type query
   console.log('\n2️⃣ Query: "NSCLC clinical trials"');
   
-  const result2 = await simpleSearchStrategy.executeSearch(
+  const classification2 = await simpleClassifier.classify('NSCLC clinical trials');
+  const queryContext2 = new QueryContext(
     'NSCLC clinical trials',
+    classification2,
     mockProfile,
-    { limit: 5 }
+    undefined
   );
   
-  console.log(`   ✅ Found ${result2.matches.length} matches (of ${result2.totalCount} total)`);
+  const result2 = await executor.executeWithContext(
+    queryContext2,
+    { offset: 0, limit: 5 }
+  );
+  
+  const trials2 = result2.trials || result2.matches?.map(m => m.trial) || [];
+  console.log(`   ✅ Found ${trials2.length} matches (of ${result2.totalCount} total)`);
   
   // Test 3: NCT ID lookup
   console.log('\n3️⃣ Query: "NCT05789082"');
   
-  const result3 = await simpleSearchStrategy.executeSearch(
+  const classification3 = await simpleClassifier.classify('NCT05789082');
+  const queryContext3 = new QueryContext(
     'NCT05789082',
+    classification3,
     null, // No profile needed for NCT lookup
-    { limit: 1 }
+    undefined
   );
   
-  console.log(`   ✅ Found ${result3.matches.length} match`);
-  if (result3.matches.length > 0) {
-    const trial = result3.matches[0].trial;
+  const result3 = await executor.executeWithContext(
+    queryContext3,
+    { offset: 0, limit: 1 }
+  );
+  
+  const trials3 = result3.trials || result3.matches?.map(m => m.trial) || [];
+  console.log(`   ✅ Found ${trials3.length} match`);
+  if (trials3.length > 0) {
+    const trial = trials3[0];
     const title = trial.protocolSection?.identificationModule?.briefTitle;
     console.log(`   Title: ${title?.substring(0, 60)}...`);
   }
