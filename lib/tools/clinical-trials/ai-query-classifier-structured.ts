@@ -416,7 +416,7 @@ For continuation queries like "show me more" or "any other trials":
         // Add recent context if available
         const recentMessages = messages.slice(-2);
         if (recentMessages.length > 0) {
-          const previousQuery = recentMessages.find(m => m.role === 'user')?.content;
+          const previousQuery = recentMessages.find((m: any) => m.role === 'user')?.content;
           if (previousQuery) {
             prompt += `
 
