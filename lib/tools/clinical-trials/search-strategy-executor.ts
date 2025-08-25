@@ -504,10 +504,17 @@ export class SearchStrategyExecutor {
   private async executeConditionBasedWithContext(context: QueryContext): Promise<RouterResult> {
     // Prefer enrichedQuery if available (includes mutations, conditions, drugs)
     let searchQuery: string;
+    let conditions: string[] = [];
     
     if (context.executionPlan.searchParams.enrichedQuery) {
       // Use the AI-enriched query that includes conditions AND mutations
       searchQuery = context.executionPlan.searchParams.enrichedQuery;
+      
+      // Still extract conditions for metadata
+      conditions = [
+        ...context.extracted.conditions,
+        ...context.extracted.cancerTypes
+      ];
       
       debug.log(DebugCategory.SEARCH, 'Using AI-enriched query for condition search', {
         enrichedQuery: searchQuery,
@@ -516,7 +523,7 @@ export class SearchStrategyExecutor {
       });
     } else {
       // Fallback to building query from extracted entities
-      const conditions = [
+      conditions = [
         ...context.extracted.conditions,
         ...context.extracted.cancerTypes
       ];
