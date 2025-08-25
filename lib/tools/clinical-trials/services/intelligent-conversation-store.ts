@@ -47,6 +47,16 @@ export interface SearchRecord {
   searchCriteria?: any;
 }
 
+export interface ConversationStats {
+  totalTrials: number;
+  totalSearches: number;
+  uniqueQueries: number;
+  firstSearchTime?: Date;
+  lastSearchTime?: Date;
+  commonLocations: string[];
+  commonConditions: string[];
+}
+
 export interface IntelligentConversationContext {
   chatId: string;
   trials: Map<string, StoredTrialData>;
@@ -261,15 +271,7 @@ class IntelligentConversationStore {
   /**
    * Get conversation statistics - pure data, no state
    */
-  getStats(chatId: string): {
-    totalTrials: number;
-    totalSearches: number;
-    uniqueQueries: number;
-    firstSearchTime?: Date;
-    lastSearchTime?: Date;
-    commonLocations: string[];
-    commonConditions: string[];
-  } {
+  getStats(chatId: string): ConversationStats {
     const context = this.getContext(chatId);
     const uniqueQueries = new Set(context.searchHistory.map(s => s.query));
     
@@ -324,7 +326,7 @@ class IntelligentConversationStore {
   getFullContext(chatId: string): {
     trials: StoredTrialData[];
     searchHistory: SearchRecord[];
-    stats: ReturnType<typeof this.getStats>;
+    stats: ConversationStats;
     lastCriteria: any;
   } {
     return {
