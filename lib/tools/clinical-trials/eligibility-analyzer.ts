@@ -333,10 +333,10 @@ export class EligibilityAnalyzer {
       });
     }
     
-    // Check mutations
-    if (profile.mutations) {
-      profile.mutations.forEach(mutation => {
-        if (trialText.includes(mutation.toLowerCase())) {
+    // Check mutations from molecular markers
+    if (profile.molecularMarkers) {
+      Object.entries(profile.molecularMarkers).forEach(([mutation, status]) => {
+        if (status === 'POSITIVE' && trialText.includes(mutation.toLowerCase().replace(/_/g, ' '))) {
           analysis.inclusionMatches.push(`${mutation} mutation matches trial`);
         }
       });
@@ -348,7 +348,7 @@ export class EligibilityAnalyzer {
     profile: HealthProfile,
     analysis: EligibilityAnalysis
   ): void {
-    const stage = profile.diseaseStage || profile.stage;
+    const stage = profile.diseaseStage;
     
     if (!stage) {
       analysis.missingInformation.push('Disease stage not specified in profile');
@@ -386,7 +386,7 @@ export class EligibilityAnalyzer {
     profile: HealthProfile,
     analysis: EligibilityAnalysis
   ): void {
-    const treatments = profile.treatments || profile.treatmentHistory;
+    const treatments = profile.treatmentHistory;
     if (!treatments) {
       analysis.missingInformation.push('Treatment history not specified in profile');
       return;
@@ -439,9 +439,9 @@ export class EligibilityAnalyzer {
           checkAgainst: ['mutations', 'priorTreatments', 'performanceStatus', 'organFunction'],
           profileMatches: context.healthProfile ? {
             hasCancerType: !!context.healthProfile.cancerType,
-            hasMutations: !!(context.healthProfile.molecularMarkers || context.healthProfile.mutations),
-            hasStage: !!(context.healthProfile.diseaseStage || context.healthProfile.stage),
-            hasPriorTreatments: !!(context.healthProfile.treatments || context.healthProfile.treatmentHistory)
+            hasMutations: !!context.healthProfile.molecularMarkers,
+            hasStage: !!context.healthProfile.diseaseStage,
+            hasPriorTreatments: !!context.healthProfile.treatmentHistory
           } : null
         }
       }
