@@ -183,9 +183,9 @@ export class EligibilityScorer {
     trial: ClinicalTrial,
     profile: HealthProfile
   ): number {
-    if (!profile.diseaseStage && !profile.stage) return 50; // No profile data
+    if (!profile.diseaseStage) return 50; // No profile data
 
-    const profileStage = (profile.diseaseStage || profile.stage || '').toLowerCase();
+    const profileStage = (profile.diseaseStage || '').toLowerCase();
     const criteria = trial.protocolSection?.eligibilityModule?.eligibilityCriteria?.toLowerCase() || '';
 
     // Check if trial accepts all stages
@@ -243,7 +243,7 @@ export class EligibilityScorer {
     trial: ClinicalTrial,
     profile: HealthProfile
   ): number {
-    if (!profile.molecularMarkers && !profile.mutations) return 50; // No profile data
+    if (!profile.molecularMarkers) return 50; // No profile data
 
     const criteria = trial.protocolSection?.eligibilityModule?.eligibilityCriteria?.toLowerCase() || '';
     
@@ -300,7 +300,9 @@ export class EligibilityScorer {
 
     // Check profile markers
     const profileMarkers = profile.molecularMarkers || {};
-    const mutations = profile.mutations || [];
+    const mutations = profile.molecularMarkers ? Object.entries(profile.molecularMarkers)
+      .filter(([_, status]) => status === 'POSITIVE')
+      .map(([marker]) => marker) : [];
     
     let matchedRequired = 0;
     let totalRequired = requiredMarkers.length;
@@ -340,7 +342,7 @@ export class EligibilityScorer {
     trial: ClinicalTrial,
     profile: HealthProfile
   ): number {
-    if (!profile.treatmentHistory && !profile.treatments) return 50; // No profile data
+    if (!profile.treatmentHistory) return 50; // No profile data
 
     const criteria = trial.protocolSection?.eligibilityModule?.eligibilityCriteria?.toLowerCase() || '';
     
@@ -355,7 +357,7 @@ export class EligibilityScorer {
       /no\s+prior\s+treatment/gi
     ];
 
-    const treatments = this.parseTreatmentHistory(profile.treatmentHistory || profile.treatments);
+    const treatments = this.parseTreatmentHistory(profile.treatmentHistory);
     
     let score = 75; // Default if no specific requirements
 
@@ -532,7 +534,7 @@ export class EligibilityScorer {
 
     // Check stage
     if (profile.diseaseStage) {
-      matchedCriteria.push(`Disease stage: ${profile.diseaseStage || profile.stage}`);
+      matchedCriteria.push(`Disease stage: ${profile.diseaseStage}`);
     }
 
     // Check markers
@@ -545,8 +547,8 @@ export class EligibilityScorer {
     }
 
     // Check treatments
-    if (profile.treatmentHistory || profile.treatments) {
-      const treatments = this.parseTreatmentHistory(profile.treatmentHistory || profile.treatments);
+    if (profile.treatmentHistory) {
+      const treatments = this.parseTreatmentHistory(profile.treatmentHistory);
       for (const treatment of treatments) {
         matchedCriteria.push(`Prior ${treatment.type}: ${treatment.name}`);
       }
@@ -589,7 +591,7 @@ export class EligibilityScorer {
 
     // Molecular marker recommendations
     if (breakdown.molecularMatch < 50) {
-      if (!profile.molecularMarkers && !profile.mutations) {
+      if (!profile.molecularMarkers) {
         recommendations.push('Consider molecular testing to determine eligibility for targeted therapy trials');
       } else {
         recommendations.push('Your molecular profile may not match the trial requirements');
