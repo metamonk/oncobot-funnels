@@ -1206,14 +1206,16 @@ export class SearchStrategyExecutor {
       this.buildCompressionContext(context)
     );
 
-    // Add metadata about composition
+    // Add composition scoring information to matches
     matches.forEach((match, index) => {
       const scoreData = paginatedTrials[index];
-      match.metadata = {
-        ...match.metadata,
-        compositionScore: scoreData.score,
-        sourcedStrategies: scoreData.sources
-      };
+      // Store composition score in relevanceScore
+      match.relevanceScore = scoreData.score;
+      // Add source strategies to match reason
+      const sourcesText = scoreData.sources.join(', ');
+      match.matchReason = match.matchReason 
+        ? `${match.matchReason}. Found via: ${sourcesText}`
+        : `Found via composed strategies: ${sourcesText}`;
     });
 
     return {
