@@ -337,10 +337,39 @@ export class SearchStrategyExecutor {
     });
 
     // Step 1: Broad search to get comprehensive results
+    // CRITICAL FIX: Include location in the initial search to avoid getting nationwide results
+    const searchOptions: any = { 
+      maxResults: 100 // Reduced from 200 to improve performance
+    };
+    
+    // Extract location from context if available
+    const location = context.user.location || this.extractLocationFromContext(context);
+    if (location?.city) {
+      searchOptions.locationCity = location.city;
+      searchOptions.locationState = location.state;
+      
+      // Use AI's geographic expansion if available
+      const searchStrategy = context.extracted?.location?.searchStrategy;
+      if (searchStrategy?.suggestedAdditionalCities && searchStrategy.suggestedAdditionalCities.length > 0) {
+        searchOptions.locationExpansion = searchStrategy.suggestedAdditionalCities;
+        debug.log(DebugCategory.SEARCH, 'Using AI-expanded location search in profile-based search', {
+          primaryCity: location.city,
+          additionalCities: searchStrategy.suggestedAdditionalCities,
+          rationale: searchStrategy.rationale,
+          confidence: searchStrategy.expansionConfidence
+        });
+      } else {
+        debug.log(DebugCategory.SEARCH, 'Including single location in profile-based search', {
+          city: location.city,
+          state: location.state
+        });
+      }
+    }
+    
     const { studies, totalCount } = await this.executeSingleSearch(
       broadQuery,
       'cond', // Use condition field for disease searches
-      { maxResults: 100 } // Reduced from 200 to improve performance
+      searchOptions
     );
 
     debug.log(DebugCategory.SEARCH, 'Broad search results', {
@@ -358,10 +387,16 @@ export class SearchStrategyExecutor {
     });
 
     // Step 3: Apply location filtering if specified
-    if (context.user.location && context.user.location.coordinates) {
-      filteredTrials = await this.applyLocationFiltering(filteredTrials, context.user.location);
+    // CRITICAL FIX: Apply location filtering even without coordinates
+    const extractedLocation = this.extractLocationFromContext(context);
+    const locationToUse = context.user.location || extractedLocation;
+    
+    if (locationToUse && (locationToUse.city || locationToUse.state)) {
+      filteredTrials = await this.applyLocationFiltering(filteredTrials, locationToUse);
       debug.log(DebugCategory.SEARCH, 'After location filtering', {
-        trialsWithLocation: filteredTrials.length
+        beforeFilter: filteredTrials.length,
+        location: locationToUse.city || locationToUse.state,
+        hasCoordinates: !!locationToUse.coordinates
       });
     }
 
@@ -419,14 +454,27 @@ export class SearchStrategyExecutor {
     const locationQuery = this.buildLocationQuery(location, baseQuery, context);
 
     // CRITICAL FIX: Pass the location to the search executor to use query.locn parameter
+    const searchOptions: any = { 
+      maxResults: 50,  // Reduced from 100 to prevent token overflow
+      locationCity: location.city,  // Pass location for query.locn parameter
+      locationState: location.state
+    };
+    
+    // Use AI's geographic expansion if available
+    const searchStrategy = context.extracted?.location?.searchStrategy;
+    if (searchStrategy?.suggestedAdditionalCities && searchStrategy.suggestedAdditionalCities.length > 0) {
+      searchOptions.locationExpansion = searchStrategy.suggestedAdditionalCities;
+      debug.log(DebugCategory.SEARCH, 'Using AI-expanded location search', {
+        primaryCity: location.city,
+        additionalCities: searchStrategy.suggestedAdditionalCities,
+        rationale: searchStrategy.rationale
+      });
+    }
+    
     const { studies, totalCount } = await this.executeSingleSearch(
       locationQuery,
       'term',  // Changed from '_fulltext' which is invalid - use 'term' for general search
-      { 
-        maxResults: 50,  // Reduced from 100 to prevent token overflow
-        locationCity: location.city,  // Pass location for query.locn parameter
-        locationState: location.state
-      }
+      searchOptions
     );
 
     // Apply distance-based ranking AND filtering
@@ -608,10 +656,26 @@ export class SearchStrategyExecutor {
       }
     }
 
+    // CRITICAL FIX: Include location in broad search to avoid nationwide results
+    const searchOptions: any = { 
+      maxResults: 50  // Reduced from 100 to prevent token overflow
+    };
+    
+    // Extract location from context if available
+    const location = context.user.location || this.extractLocationFromContext(context);
+    if (location?.city) {
+      searchOptions.locationCity = location.city;
+      searchOptions.locationState = location.state;
+      debug.log(DebugCategory.SEARCH, 'Including location in broad search', {
+        city: location.city,
+        state: location.state
+      });
+    }
+    
     const { studies, totalCount } = await this.executeSingleSearch(
       searchQuery,
       'term',
-      { maxResults: 50 }  // Reduced from 100 to prevent token overflow
+      searchOptions
     );
 
     // CRITICAL FIX: Apply location filtering for broad searches if user has location
@@ -1034,31 +1098,37 @@ export class SearchStrategyExecutor {
     trials: ClinicalTrial[], 
     location: UserLocation
   ): Promise<ClinicalTrial[]> {
-    if (!location.coordinates) {
-      // Filter by city/state text match
-      return trials.filter(trial => {
-        const locations = trial.protocolSection?.contactsLocationsModule?.locations;
-        if (!locations) return false;
-        return locations.some(loc => this.isLocationMatch(loc, location));
+    // When location is specified in the query AND passed to the API,
+    // the API already filters for us. We just need to sort by distance if coordinates available.
+    
+    let filteredTrials = trials;
+    
+    // If we have coordinates, sort by distance
+    if (location.coordinates) {
+      const locationContext = {
+        userLocation: {
+          coordinates: {
+            lat: location.coordinates.latitude,
+            lng: location.coordinates.longitude
+          },
+          city: location.city,
+          state: location.state
+        },
+        searchRadius: location.searchRadius || 100 // Default 100 miles
+      };
+      
+      // rankTrialsByProximity sorts by distance
+      filteredTrials = await this.locationService.rankTrialsByProximity(filteredTrials, locationContext);
+      
+      debug.log(DebugCategory.SEARCH, 'Sorted by distance from user', {
+        trialsCount: filteredTrials.length,
+        city: location.city,
+        state: location.state,
+        radius: locationContext.searchRadius
       });
     }
-
-    // Calculate distances and filter by radius
-    const locationContext = {
-      userLocation: {
-        coordinates: {
-          lat: location.coordinates.latitude,
-          lng: location.coordinates.longitude
-        },
-        city: location.city,
-        state: location.state
-      },
-      searchRadius: location.searchRadius || 100 // Default 100 miles
-    };
     
-    // rankTrialsByProximity already filters by radius if specified
-    const trialsWithDistance = await this.locationService.rankTrialsByProximity(trials, locationContext);
-    return trialsWithDistance;
+    return filteredTrials;
   }
 
   /**
@@ -1318,13 +1388,39 @@ export class SearchStrategyExecutor {
   private async executeSingleSearch(
     query: string,
     field: string,
-    options: { maxResults?: number; dataStream?: any; locationCity?: string; locationState?: string } = {}
+    options: { 
+      maxResults?: number; 
+      dataStream?: any; 
+      locationCity?: string; 
+      locationState?: string;
+      locationExpansion?: string[];  // AI-suggested additional cities
+    } = {}
   ): Promise<{ studies: ClinicalTrial[]; totalCount: number; error?: string }> {
+    // Build location query with AI expansion if available
+    let locationQuery: string | undefined;
+    
+    if (options.locationExpansion && options.locationExpansion.length > 0) {
+      // Use AI-suggested cities with OR syntax
+      const allCities = options.locationCity 
+        ? [options.locationCity, ...options.locationExpansion]
+        : options.locationExpansion;
+      locationQuery = `(${allCities.join(' OR ')})`;
+      
+      debug.log(DebugCategory.SEARCH, 'Using AI-expanded location search', {
+        primaryCity: options.locationCity,
+        expandedCities: options.locationExpansion,
+        query: locationQuery
+      });
+    } else if (options.locationCity) {
+      // Single city search
+      locationQuery = options.locationCity;
+    }
+    
     // Pass location information to the search executor
     const searchOptions = { 
       pageSize: options.maxResults || 50,
       countTotal: true,
-      locationCity: options.locationCity,
+      locationCity: locationQuery,  // This now might be an OR query
       locationState: options.locationState
     };
     

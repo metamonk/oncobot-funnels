@@ -57,6 +57,14 @@ const StructuredQuerySchema = z.object({
       latitude: z.number(),
       longitude: z.number(),
     }).nullable().describe('Specific coordinates if provided'),
+    // AI-driven geographic expansion strategy
+    searchStrategy: z.object({
+      primaryLocation: z.string().nullable().describe('Main city/location from query'),
+      suggestedAdditionalCities: z.array(z.string()).describe('AI-reasoned cities to include based on medical geography and context'),
+      estimatedReasonableRadius: z.number().describe('AI-reasoned search radius based on full context (miles)'),
+      rationale: z.string().describe('AI explanation of geographic search strategy'),
+      expansionConfidence: z.number().min(0).max(1).describe('Confidence in the expansion strategy (0-1)'),
+    }).nullable().describe('AI-reasoned geographic search strategy based on disease context and user intent'),
   }).describe('Location information from query'),
   
   identifiers: z.object({
@@ -259,6 +267,16 @@ export class StructuredQueryClassifier {
         ...classification.location.cities,
         ...classification.location.states,
       ],
+      // Include the full location object with AI-driven search strategy
+      location: {
+        cities: classification.location.cities,
+        states: classification.location.states,
+        countries: classification.location.countries,
+        isNearMe: classification.location.isNearMe,
+        radius: classification.location.radius,
+        coordinates: classification.location.coordinates,
+        searchStrategy: classification.location.searchStrategy
+      },
       drugs: classification.medical.drugs,
       treatments: [],  // Could be populated from interventions if available
       stages: classification.medical.stage ? [classification.medical.stage] : [],
@@ -357,9 +375,72 @@ Important guidelines:
 - Recognize medical abbreviations (NSCLC, SCLC, CRC, HCC, etc.)
 - Detect molecular markers (KRAS G12C, EGFR, ALK, PD-L1, etc.)
 - Identify drug names (pembrolizumab, nivolumab, sotorasib, etc.)
-- Parse location formats (city names, state abbreviations, "near me")
+
+CRITICAL LOCATION EXTRACTION:
+- ALWAYS extract city names (e.g., Chicago, Boston, New York, Los Angeles)
+- ALWAYS extract state names or abbreviations (IL, CA, NY, TX, etc.)
+- Common location patterns: "in [city]", "near [city]", "[city] area", "around [city]"
+- "near me" should set isNearMe to true
+- Examples:
+  * "trials in Chicago" → cities: ["Chicago"], states: ["Illinois"]
+  * "KRAS G12C trials chicago" → cities: ["Chicago"], states: ["Illinois"]
+  * "Boston MA trials" → cities: ["Boston"], states: ["Massachusetts"]
+  * "trials near me" → isNearMe: true
+
 - NCT IDs follow pattern: NCT followed by 8 digits
 - Default search radius is 300 miles unless specified
+
+INTELLIGENT GEOGRAPHIC SEARCH STRATEGY:
+When location is mentioned, reason about appropriate geographic expansion:
+
+Consider ALL of these factors together (not rigid rules):
+- Disease rarity and specialized treatment requirements
+- Query language indicating geographic flexibility ("near", "around", "area", "anywhere")
+- Stage/severity implications for travel willingness
+- Mutation rarity requiring specialized centers
+- Major medical center distributions and specializations
+
+Generate searchStrategy with:
+- primaryLocation: The main city mentioned or inferred
+- suggestedAdditionalCities: Additional locations to include (MIX of states AND cities)
+  * CRITICAL: Include BOTH state names AND specific cities in this array:
+    - Add the HOME STATE (e.g., for Chicago, add "Illinois" to the array)
+    - Add SURROUNDING STATES (e.g., "Wisconsin", "Indiana", "Iowa")
+    - Add specific MAJOR MEDICAL CENTERS by city (e.g., "Rochester" for Mayo)
+  * The array should contain strings like: ["Illinois", "Wisconsin", "Indiana", "Rochester"]
+  * THINK INTELLIGENTLY about geographic expansion:
+    - For a city query, include the state (e.g., Chicago → add "Illinois")
+    - For rare/complex conditions, add surrounding states (e.g., "Wisconsin", "Indiana", "Iowa")
+    - For specialized mutations, include specific cancer centers (e.g., "Rochester" for Mayo)
+  * State-level searching advantages:
+    - Automatically includes ALL suburbs and cities in the state
+    - Captures community cancer centers and satellite facilities
+    - No need to enumerate individual suburbs
+    - More comprehensive and elegant solution
+  * DO NOT use fixed lists - reason dynamically based on:
+    - Disease rarity and complexity
+    - Treatment specialization requirements  
+    - Regional medical infrastructure
+    - Patient travel considerations
+- estimatedReasonableRadius: Your reasoning about appropriate search distance
+  * State-level search effectively covers 200-400 mile radius
+  * Surrounding states extend coverage for rare conditions
+  * Balance comprehensive coverage with relevance
+- rationale: Explain your geographic reasoning including state-level strategy
+- expansionConfidence: How confident you are in the expansion strategy
+
+Examples of INTELLIGENT STATE-LEVEL reasoning (adapt based on context):
+- "KRAS G12C trials Chicago" with Stage IV NSCLC → 
+  suggestedAdditionalCities: ["Illinois", "Wisconsin", "Indiana", "Rochester"]
+  Rationale: "Illinois captures all Chicago metro trials, Wisconsin and Indiana for regional coverage, Rochester for Mayo's KRAS expertise"
+  
+- "trials near Boston" with common cancer → 
+  suggestedAdditionalCities: ["Massachusetts", "Rhode Island", "New Hampshire", "Connecticut"]
+  Rationale: "Massachusetts covers entire Boston metro area, nearby New England states for regional options"
+  
+- "rare sarcoma trials anywhere" → 
+  suggestedAdditionalCities: ["Texas", "Minnesota", "New York", "Massachusetts", "Houston", "Rochester", "Boston"]
+  Rationale: "Major states with cancer centers plus specific cities for NCI-designated comprehensive cancer centers"
 
 INTELLIGENT QUERY SCOPE DETECTION:
 Determine the queryScope based on these patterns:
@@ -456,14 +537,38 @@ If query mentions "near me" or similar, mark isNearMe as true.`;
       if (isContinuation && previousTrialIds.length > 0) {
         prompt += `
 
-IMPORTANT: This appears to be a continuation query in an ongoing conversation.
-The user has already seen ${previousTrialIds.length} trials.
+CRITICAL CONTINUATION QUERY HANDLING:
+This is a continuation query in an ongoing conversation.
+The user has already seen ${previousTrialIds.length} trials and expects consistency.
 
-For continuation queries like "show me more" or "any other trials":
-- The search intent should remain similar to the previous search
-- Consider this as looking for ADDITIONAL trials, not repeating the same ones
-- If the query mentions a specific location (e.g., "what about Boston?"), that's a location refinement
-- If the query mentions specific criteria (e.g., "any phase 1?"), that's a criteria refinement`;
+PRESERVATION RULES for continuation queries:
+1. For "show me more", "show me the others", "continue", "next batch":
+   - PRESERVE EXACT SEARCH PARAMETERS from the previous query
+   - DO NOT add new terms like "lung cancer" if they weren't in the original
+   - DO NOT change the query text at all - keep it IDENTICAL
+   - MAINTAIN the same geographic expansion (same cities, same suburbs)
+   - This is PAGINATION, not a new search
+   - CRITICAL: Keep medical.conditions EXACTLY as they were
+   - If original had medical.conditions = [], keep it EMPTY
+   - If original had medical.mutations = ["KRAS_G12C"], keep ONLY that
+   
+2. For location refinements ("what about suburbs?", "any in Aurora?"):
+   - ADD the new locations to existing search, don't replace
+   - Keep all original cities and ADD suburban areas
+   - This EXPANDS the search area, doesn't change it
+   
+3. For criteria refinements ("any phase 1?", "closer to home?"):
+   - Add new criteria AS FILTERS, not query modifications
+   - Preserve the base query exactly as it was
+   
+4. Geographic consistency is CRITICAL:
+   - If you suggested Chicago suburbs before, include them again
+   - Don't change from "Chicago, Aurora, Naperville" to just "Chicago, Milwaukee"
+   - Users expect the SAME total trial count for continuation
+   - PRESERVE THE EXACT SAME location.searchStrategy.suggestedAdditionalCities
+   - If you had 9 cities before (Chicago + 8 others), keep ALL 9 cities
+   - Example: If original had [Aurora, Naperville, Joliet, Evanston, Elgin, Milwaukee, Madison, Indianapolis, Rochester]
+     Then continuation MUST have the SAME list, not a subset`;
         
         // Add recent context if available
         const recentMessages = messages.slice(-2);
@@ -473,7 +578,23 @@ For continuation queries like "show me more" or "any other trials":
             prompt += `
 
 Previous query: "${previousQuery}"
-This helps understand the context of the current query.`;
+
+CRITICAL: For continuation queries, you should:
+1. Use THE EXACT SAME medical terms from the previous query
+2. Use THE EXACT SAME geographic expansion (all the same cities/suburbs)
+3. Preserve any specific markers or conditions mentioned
+4. The ONLY thing that changes is pagination/offset, NOT the search itself
+5. DO NOT add "lung cancer" if it wasn't in the original query
+6. For "show me the others" after "KRAS G12C trials Chicago":
+   - medical.conditions should be EMPTY [] (don't add "lung cancer") 
+   - medical.cancerTypes should be EMPTY [] (cancer type comes from profile)
+   - medical.mutations should be ["KRAS_G12C"] (preserved from original)
+   - location.searchStrategy.suggestedAdditionalCities should be IDENTICAL to previous
+   - If previous included states like ["Illinois", "Wisconsin", "Indiana"], keep ALL the same states
+   - If previous had specific cities like ["Chicago", "Rochester"], keep those too
+   - The enriched query will add NSCLC from profile automatically
+
+Remember: Users seeing "12 trials found" expect to see all 12 across pages, not 11 or 13!`;
           }
         }
       }
@@ -483,17 +604,24 @@ This helps understand the context of the current query.`;
 
 Classification rules:
 - 'nct_lookup': Query contains NCT ID(s)
-- 'location_based': Primary focus is on location
-- 'condition_based': Primary focus is on medical condition
+- 'location_based': Primary focus is on location OR location is explicitly mentioned
+- 'condition_based': Primary focus is on medical condition without location
 - 'drug_based': Asking about specific drug/treatment
 - 'mutation_based': Focused on molecular markers
 - 'profile_based': General query relying on user profile
-- 'combined': Multiple equal intents
+- 'combined': BOTH location AND medical terms present (e.g., "KRAS G12C trials Chicago")
+
+IMPORTANT: If query has BOTH medical terms AND location, classify as 'combined'!
+Examples:
+- "KRAS G12C trials chicago" → 'combined' (has mutation + location)
+- "lung cancer trials in Boston" → 'combined' (has condition + location)
+- "trials in Chicago" → 'location_based' (only location)
+- "KRAS G12C trials" → 'mutation_based' (only mutation)
 
 Strategy selection:
 - Use 'direct_nct' for NCT ID lookups
-- Use 'location_first' when location is primary concern
-- Use 'condition_first' when medical condition is primary
+- Use 'location_first' when location is explicitly mentioned (including combined queries)
+- Use 'condition_first' when medical condition is primary WITHOUT location
 - Use 'profile_first' when leveraging user profile
 - Use 'parallel_search' for balanced location + condition
 - Use 'broad_then_filter' for complex multi-criteria queries`;
