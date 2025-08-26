@@ -40,6 +40,24 @@ export interface ExtractedEntities {
   // Locations mentioned in query
   locations: string[];
   
+  // Location object with AI search strategy
+  location?: {
+    cities: string[];
+    states: string[];
+    countries: string[];
+    isNearMe: boolean;
+    radius: number | null;
+    coordinates: { latitude: number; longitude: number } | null;
+    // AI-driven geographic expansion strategy
+    searchStrategy?: {
+      primaryLocation: string | null;
+      suggestedAdditionalCities: string[];
+      estimatedReasonableRadius: number;
+      rationale: string;
+      expansionConfidence: number;
+    } | null;
+  };
+  
   // Medical conditions
   conditions: string[];
   cancerTypes: string[];
