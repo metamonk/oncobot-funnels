@@ -24,13 +24,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { getAllMemories, searchMemories, deleteMemory, MemoryItem } from '@/lib/memory-actions';
-import { Loader2, Search, Trash2, Settings, Search as SearchIcon, Zap, TrendingUp, User, TrendingUp as ChartLineUpIcon, Brain, Calendar, NotebookPen, Heart } from 'lucide-react';
+import { Loader2, Search, Trash2, Settings, Search as SearchIcon, Zap, TrendingUp, User, TrendingUp as ChartLineUpIcon, Brain, Calendar, NotebookPen, Heart, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { useTheme } from 'next-themes';
 import { Switch } from '@/components/ui/switch';
 import { HealthProfileSection } from '@/components/health-profile/HealthProfileSection';
+import { SavedTrialsSection } from '@/components/settings/saved-trials-section';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -622,6 +623,7 @@ export function SettingsDialog({
   const tabItems = [
     { value: 'profile', label: 'Account', icon: User },
     { value: 'health', label: 'Health Profile', icon: Heart },
+    { value: 'saved-trials', label: 'Saved Trials', icon: Bookmark },
     { value: 'usage', label: 'Usage', icon: ChartLineUpIcon },
     { value: 'instructions', label: 'Customize', icon: NotebookPen },
     { value: 'memories', label: 'Memories', icon: Brain },
@@ -635,6 +637,10 @@ export function SettingsDialog({
 
       <TabsContent value="health" className="mt-0">
         <HealthProfileSection user={user} />
+      </TabsContent>
+
+      <TabsContent value="saved-trials" className="mt-0">
+        <SavedTrialsSection />
       </TabsContent>
 
       <TabsContent value="usage" className="mt-0">
@@ -672,7 +678,7 @@ export function SettingsDialog({
 
               {/* Bottom tab navigation - compact and accessible */}
               <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-4 shrink-0">
-                <TabsList className="w-full h-14 p-1 bg-transparent rounded-none grid grid-cols-5 gap-1">
+                <TabsList className="w-full h-14 p-1 bg-transparent rounded-none grid grid-cols-6 gap-1">
                   {tabItems.map((item) => (
                     <TabsTrigger
                       key={item.value}
@@ -691,7 +697,9 @@ export function SettingsDialog({
                           currentTab === item.value ? 'text-foreground font-medium' : 'text-muted-foreground',
                         )}
                       >
-                        {item.label === 'Health Profile' ? 'Health' : item.label}
+                        {item.label === 'Health Profile' ? 'Health' : 
+                         item.label === 'Saved Trials' ? 'Saved' : 
+                         item.label}
                       </span>
                     </TabsTrigger>
                   ))}

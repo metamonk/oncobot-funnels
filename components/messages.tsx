@@ -407,6 +407,7 @@ const Messages: React.FC<MessagesProps> = React.memo(
                   key={`${messageIndex}-${partIndex}-tool`}
                   toolInvocations={[part.toolInvocation]}
                   annotations={message.annotations}
+                  isStreaming={status === 'streaming'}
                 />
               </div>
             );

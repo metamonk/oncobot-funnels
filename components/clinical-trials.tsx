@@ -20,10 +20,14 @@ import {
   Check,
   Info,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Bookmark,
+  BookmarkCheck
 } from 'lucide-react';
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { ProgressiveCriteria } from '@/components/clinical-trials/progressive-criteria';
+import { TrialSaveButton } from './clinical-trials/trial-save-button';
+import type { ClinicalTrial } from '@/lib/saved-trials/types';
 
 // Type definitions
 interface CriteriaItem {
@@ -157,6 +161,7 @@ interface ClinicalTrialResult {
 interface ClinicalTrialsProps {
   result: ClinicalTrialResult;
   action: 'search' | 'details' | 'eligibility_check';
+  isStreaming?: boolean;
 }
 
 // Component for toggleable criteria section
@@ -238,7 +243,17 @@ function NCTBadge({ nctId }: { nctId: string }) {
   );
 }
 
-export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) {
+// Component for save button that NEVER causes re-renders or scroll jumps
+function SaveButton({ trial }: { trial: ClinicalTrial }) {
+  const nctId = trial.identificationModule?.nctId;
+  
+  if (!nctId) return null;
+  
+  // Save button that syncs with Settings modal
+  return <TrialSaveButton nctId={nctId} trial={trial} />;
+}
+
+function ClinicalTrialsComponent({ result, action, isStreaming = false }: ClinicalTrialsProps) {
   const { track, trackSearch, trackTrialView, trackTrialContact, trackConversion, trackError } = useUnifiedAnalytics();
   const [hasContactedTrial, setHasContactedTrial] = useState(false);
   const [hasViewedContact, setHasViewedContact] = useState(false);
@@ -476,7 +491,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                       )}
                     </div>
                   </div>
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex items-start gap-2">
                     {hasProfile ? (
                       isEligible ? (
                         <div className="flex items-center gap-2">
@@ -505,13 +520,18 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
                   </div>
                 </div>
                 
-                {/* Location Summary */}
-                {match.locationSummary && (
-                  <div className="flex items-center gap-2 mb-2 text-xs text-neutral-600 dark:text-neutral-400">
-                    <MapPin className="h-3 w-3" />
-                    <span>{match.locationSummary}</span>
-                  </div>
-                )}
+                {/* Location Summary with Save Button */}
+                <div className="flex items-center justify-between mb-2">
+                  {match.locationSummary ? (
+                    <div className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+                      <MapPin className="h-3 w-3" />
+                      <span>{match.locationSummary}</span>
+                    </div>
+                  ) : (
+                    <div /> 
+                  )}
+                  <SaveButton trial={trial} />
+                </div>
 
                 {/* Recommendations (if available) */}
                 {match.recommendations && match.recommendations.length > 0 && (
@@ -1209,3 +1229,7 @@ export default function ClinicalTrials({ result, action }: ClinicalTrialsProps) 
     </Card>
   );
 }
+
+// Export memoized component to prevent unnecessary re-renders
+const ClinicalTrials = React.memo(ClinicalTrialsComponent);
+export default ClinicalTrials;

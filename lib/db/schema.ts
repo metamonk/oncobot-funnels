@@ -191,3 +191,39 @@ export const healthProfileResponseRelations = relations(healthProfileResponse, (
 export type HealthProfile = InferSelectModel<typeof healthProfile>;
 export type UserHealthProfile = InferSelectModel<typeof userHealthProfile>;
 export type HealthProfileResponse = InferSelectModel<typeof healthProfileResponse>;
+
+// Saved trials table
+export const savedTrials = pgTable('saved_trials', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateId()),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  nctId: text('nctId').notNull(),
+  title: text('title').notNull(),
+  notes: text('notes'),
+  tags: json('tags').$type<string[]>().default([]),
+  searchContext: json('searchContext').$type<{
+    query?: string;
+    healthProfileSnapshot?: any;
+    location?: string;
+  }>(),
+  trialSnapshot: json('trialSnapshot').notNull(), // Cached trial data
+  lastUpdated: timestamp('lastUpdated').notNull().defaultNow(),
+  savedAt: timestamp('savedAt').notNull().defaultNow(),
+  notificationSettings: json('notificationSettings').$type<{
+    statusChange?: boolean;
+    enrollmentClosing?: boolean;
+  }>().default({}),
+});
+
+// Relations for saved trials
+export const savedTrialsRelations = relations(savedTrials, ({ one }) => ({
+  user: one(user, {
+    fields: [savedTrials.userId],
+    references: [user.id],
+  }),
+}));
+
+export type SavedTrial = InferSelectModel<typeof savedTrials>;

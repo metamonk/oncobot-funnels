@@ -821,7 +821,7 @@ CopyButton.displayName = 'CopyButton';
 
 // Now let's add the ToolInvocationListView
 const ToolInvocationListView = memo(
-  ({ toolInvocations, annotations }: { toolInvocations: ToolInvocation[]; annotations: any }) => {
+  ({ toolInvocations, annotations, isStreaming = false }: { toolInvocations: ToolInvocation[]; annotations: any; isStreaming?: boolean }) => {
     const renderToolInvocation = useCallback(
       (toolInvocation: ToolInvocation, _index: number) => {
         const args = JSON.parse(JSON.stringify(toolInvocation.args));
@@ -1956,7 +1956,7 @@ const ToolInvocationListView = memo(
 
           return (
             <Suspense fallback={<ComponentLoader />}>
-              <ClinicalTrials result={result} action={action} />
+              <ClinicalTrials result={result} action={action} isStreaming={isStreaming} />
             </Suspense>
           );
         }
@@ -2148,7 +2148,9 @@ const ToolInvocationListView = memo(
     );
   },
   (prevProps, nextProps) => {
-    return prevProps.toolInvocations === nextProps.toolInvocations && prevProps.annotations === nextProps.annotations;
+    return prevProps.toolInvocations === nextProps.toolInvocations && 
+           prevProps.annotations === nextProps.annotations &&
+           prevProps.isStreaming === nextProps.isStreaming;
   },
 );
 

@@ -6,6 +6,37 @@
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
 
+/* Save button animation that doesn't trigger re-renders */
+@keyframes save-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.save-animation {
+  animation: save-pulse 0.3s ease-in-out;
+}
+
+.save-button:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.dark .save-button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Prevent layout shifts from save operations */
+.save-button {
+  contain: layout style paint;
+  will-change: transform;
+}
+
 @keyframes spinner-fade {
   0% {
     opacity: 0;

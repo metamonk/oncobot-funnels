@@ -17,7 +17,6 @@ import {
   LogOut,
   LogIn,
   UserCircle,
-  Bookmark,
   Eye,
   EyeOff,
   Info,
