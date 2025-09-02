@@ -54,7 +54,10 @@ export class SavedTrialsService {
       })
       .returning();
 
-    return savedTrial;
+    return {
+      ...savedTrial,
+      trialSnapshot: savedTrial.trialSnapshot as ClinicalTrial
+    };
   }
 
   /**
@@ -73,11 +76,16 @@ export class SavedTrialsService {
    * Get all saved trials for a user
    */
   async getUserSavedTrials(userId: string): Promise<SavedTrial[]> {
-    return await db
+    const trials = await db
       .select()
       .from(savedTrials)
       .where(eq(savedTrials.userId, userId))
       .orderBy(desc(savedTrials.savedAt));
+    
+    return trials.map(trial => ({
+      ...trial,
+      trialSnapshot: trial.trialSnapshot as ClinicalTrial
+    }));
   }
 
   /**
@@ -90,7 +98,12 @@ export class SavedTrialsService {
       .where(and(eq(savedTrials.userId, userId), eq(savedTrials.nctId, nctId)))
       .limit(1);
 
-    return trial || null;
+    if (!trial) return null;
+    
+    return {
+      ...trial,
+      trialSnapshot: trial.trialSnapshot as ClinicalTrial
+    };
   }
 
   /**
@@ -137,7 +150,10 @@ export class SavedTrialsService {
       throw new Error('Trial not found or unauthorized');
     }
 
-    return updated;
+    return {
+      ...updated,
+      trialSnapshot: updated.trialSnapshot as ClinicalTrial
+    };
   }
 
   /**

@@ -171,7 +171,10 @@ export function useSavedTrials() {
       lastUpdated: new Date(),
       notes: params.notes || null,
       tags: params.tags || [],
-      searchContext: params.searchContext || null
+      searchContext: params.searchContext || null,
+      lastEligibilityCheckId: null,
+      eligibilityCheckCompleted: false,
+      notificationSettings: null
     };
     
     // Update UI state immediately
