@@ -32,7 +32,7 @@ import { EligibilityCheckerModal } from './clinical-trials/eligibility-checker-m
 import type { EligibilityAssessment } from '@/lib/eligibility-checker';
 import type { ClinicalTrial } from '@/lib/saved-trials/types';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
-import type { HealthProfile, TreatmentHistoryItem, MolecularMarkers, Complication } from '@/lib/tools/clinical-trials/types';
+import type { HealthProfile, TreatmentHistoryItem, MolecularMarkers, Complication, ClinicalTrial as ClinicalTrialWithProtocol } from '@/lib/tools/clinical-trials/types';
 
 // Type definitions
 interface CriteriaItem {
@@ -300,6 +300,31 @@ function EligibilityCheckerButton({ trial }: { trial: ClinicalTrial }) {
     // User can close it manually when ready
   };
   
+  // Transform the saved-trials ClinicalTrial to the format expected by EligibilityCheckerModal
+  // The modal expects a trial with protocolSection wrapper
+  // The saved-trials type has a simpler structure, so we map only the available fields
+  const modalTrial: ClinicalTrialWithProtocol = {
+    protocolSection: {
+      identificationModule: trial.identificationModule ? {
+        nctId: trial.identificationModule.nctId,
+        briefTitle: trial.identificationModule.briefTitle || '',
+        officialTitle: trial.identificationModule.officialTitle
+      } : { nctId: '', briefTitle: '' },
+      descriptionModule: trial.descriptionModule,
+      statusModule: trial.statusModule,
+      sponsorCollaboratorsModule: trial.sponsorCollaboratorsModule,
+      contactsLocationsModule: trial.locationsModule ? {
+        locations: trial.locationsModule.locations
+      } : undefined,
+      eligibilityModule: trial.eligibilityModule,
+      // These modules don't exist in the saved-trials type, but may be required by the modal
+      conditionsModule: undefined,
+      designModule: undefined,
+      armsInterventionsModule: undefined,
+      outcomesModule: undefined
+    } as ClinicalTrialWithProtocol['protocolSection']
+  };
+  
   return (
     <>
       <Button
@@ -315,7 +340,7 @@ function EligibilityCheckerButton({ trial }: { trial: ClinicalTrial }) {
       <EligibilityCheckerModal
         open={modalOpen}
         onOpenChange={setModalOpen}
-        trial={trial}
+        trial={modalTrial}
         healthProfile={healthProfile}
         onComplete={handleComplete}
       />
