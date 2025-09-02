@@ -359,6 +359,30 @@ export async function markEmailSent(id: string) {
   }
 }
 
+// Save partial responses for resuming
+export async function savePartialResponses({
+  id,
+  responses,
+}: {
+  id: string;
+  responses: EligibilityResponseType[];
+}) {
+  try {
+    const [updated] = await db
+      .update(eligibilityCheck)
+      .set({
+        responses: responses as any,
+        updatedAt: new Date(),
+      })
+      .where(eq(eligibilityCheck.id, id))
+      .returning();
+      
+    return updated;
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to save partial responses');
+  }
+}
+
 // Delete eligibility check
 export async function deleteEligibilityCheck({
   id,

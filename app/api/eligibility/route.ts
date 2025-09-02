@@ -13,6 +13,7 @@ import {
   requestEmailForEligibilityCheck,
   markEmailSent,
   deleteEligibilityCheck,
+  savePartialResponses,
 } from '@/lib/db/eligibility-queries';
 
 const resend = new Resend(serverEnv.RESEND_API_KEY);
@@ -54,6 +55,14 @@ export async function POST(req: NextRequest) {
           uncertainCriteria: data.uncertainCriteria,
           completedAt: data.completedAt ? new Date(data.completedAt) : undefined,
           duration: data.duration,
+        });
+        return NextResponse.json(updated);
+      }
+
+      case 'savePartial': {
+        const updated = await savePartialResponses({
+          id: data.id,
+          responses: data.responses,
         });
         return NextResponse.json(updated);
       }

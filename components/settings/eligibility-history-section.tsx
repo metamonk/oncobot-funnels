@@ -19,7 +19,8 @@ import {
   XCircle,
   AlertCircle,
   ChevronRight,
-  Search
+  Search,
+  PlayCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -130,6 +131,18 @@ export function EligibilityHistorySection() {
     }
   };
 
+  const handleContinue = (check: EligibilityCheck) => {
+    // Store the check data for resuming
+    localStorage.setItem('resumeEligibilityCheck', JSON.stringify({
+      checkId: check.id,
+      nctId: check.nctId,
+      trialTitle: check.trialTitle
+    }));
+    
+    // Navigate to test eligibility page which will detect and resume
+    window.location.href = '/test-eligibility';
+  };
+
   const getStatusBadge = (check: EligibilityCheck) => {
     if (check.status === 'in_progress') {
       return (
@@ -233,7 +246,7 @@ export function EligibilityHistorySection() {
       <div className="flex-1 flex flex-col">
         <div className="flex-1">
           {filteredChecks.length === 0 ? (
-            <div className="flex flex-col justify-center items-center h-32 border border-dashed rounded-lg bg-muted/20">
+            <div className="flex flex-col justify-center items-center h-32 border border-dashed rounded-lg bg-secondary/10">
               {checks.length === 0 ? (
                 <>
                   <ClipboardCheck className="h-6 w-6 text-muted-foreground mb-2" />
@@ -261,7 +274,7 @@ export function EligibilityHistorySection() {
               {paginatedChecks.map((check) => (
                 <div 
                   key={check.id} 
-                  className="group relative bg-card/50 border rounded-lg p-2.5 hover:bg-card transition-all"
+                  className="group relative bg-secondary/20 border rounded-lg p-2.5 hover:bg-secondary/30 transition-all"
                 >
                   <div className="pr-20">
                     {/* Title */}
@@ -317,16 +330,28 @@ export function EligibilityHistorySection() {
                     "touch-manipulation",
                     isMobile && "opacity-100"
                   )}>
-                    <Link href={`/eligibility/${check.id}`}>
+                    {check.status === 'in_progress' ? (
                       <Button
                         size="icon"
                         variant="ghost"
+                        onClick={() => handleContinue(check)}
                         className="h-6 w-6"
-                        title="View Results"
+                        title="Continue Check"
                       >
-                        <ChevronRight className="h-3 w-3" />
+                        <PlayCircle className="h-3 w-3" />
                       </Button>
-                    </Link>
+                    ) : (
+                      <Link href={`/eligibility/${check.id}`}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          title="View Results"
+                        >
+                          <ChevronRight className="h-3 w-3" />
+                        </Button>
+                      </Link>
+                    )}
                     
                     <Button
                       size="icon"

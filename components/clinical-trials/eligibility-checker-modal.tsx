@@ -68,6 +68,7 @@ interface EligibilityCheckerModalProps {
   nctId?: string;
   trialTitle?: string;
   healthProfile?: HealthProfile | null;
+  existingCheckId?: string; // For resuming in-progress checks
   onComplete?: (assessment: EligibilityAssessment) => void;
 }
 
@@ -78,6 +79,7 @@ export function EligibilityCheckerModal({
   nctId: propNctId,
   trialTitle: propTrialTitle,
   healthProfile,
+  existingCheckId,
   onComplete,
 }: EligibilityCheckerModalProps) {
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -206,8 +208,37 @@ export function EligibilityCheckerModal({
         setEmailRequested(false);
         setEmailAddress('');
         
-        // Create eligibility check record in database if user is logged in
-        if (user?.id) {
+        // Handle existing check (resuming) or create new one
+        if (existingCheckId) {
+          // Load existing check from database
+          try {
+            const response = await fetch(`/api/eligibility?id=${existingCheckId}`);
+            if (response.ok) {
+              const check = await response.json();
+              setEligibilityCheck(check);
+              
+              // If there are saved responses, restore them
+              if (check.responses && Array.isArray(check.responses)) {
+                const restoredResponses: Record<string, EligibilityResponse> = {};
+                check.responses.forEach((r: EligibilityResponse) => {
+                  restoredResponses[r.questionId] = r;
+                });
+                setResponses(restoredResponses);
+                
+                // Find the first unanswered question
+                const firstUnansweredIndex = generatedQuestions.findIndex(
+                  q => !restoredResponses[q.id]
+                );
+                setCurrentQuestionIndex(firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0);
+              }
+            } else {
+              console.error('Failed to load existing eligibility check');
+            }
+          } catch (error) {
+            console.error('Failed to load existing eligibility check:', error);
+          }
+        } else if (user?.id) {
+          // Create new eligibility check record in database if user is logged in
           try {
             const response = await fetch('/api/eligibility', {
               method: 'POST',
@@ -243,7 +274,7 @@ export function EligibilityCheckerModal({
     };
     
     initializeEligibility();
-  }, [open, trial, propNctId, propTrialTitle, healthProfile, user?.id]);
+  }, [open, trial, propNctId, propTrialTitle, healthProfile, user?.id, existingCheckId]);
   
   // Calculate progress
   const progress = questions.length > 0 
@@ -254,6 +285,27 @@ export function EligibilityCheckerModal({
   const currentQuestion = questions[currentQuestionIndex];
   const currentResponse = currentQuestion ? responses[currentQuestion.id] : undefined;
   
+  // Save partial responses to database
+  const savePartialResponses = useCallback(async (newResponses: Record<string, EligibilityResponse>) => {
+    if (!eligibilityCheck?.id) return;
+    
+    try {
+      const responseArray = Object.values(newResponses);
+      await fetch('/api/eligibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'savePartial',
+          id: eligibilityCheck.id,
+          responses: responseArray,
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to save partial responses:', error);
+      // Non-critical, continue without saving
+    }
+  }, [eligibilityCheck?.id]);
+
   // Handle response submission with proper typing
   const handleResponse = useCallback((value: ResponseValue) => {
     if (!currentQuestion) return;
@@ -265,11 +317,16 @@ export function EligibilityCheckerModal({
       timestamp: new Date(),
     };
     
-    setResponses(prev => ({
-      ...prev,
+    const newResponses = {
+      ...responses,
       [currentQuestion.id]: response,
-    }));
-  }, [currentQuestion]);
+    };
+    
+    setResponses(newResponses);
+    
+    // Save partial responses after each answer
+    savePartialResponses(newResponses);
+  }, [currentQuestion, responses, savePartialResponses]);
   
   // Navigate to previous question
   const handlePrevious = useCallback(() => {
