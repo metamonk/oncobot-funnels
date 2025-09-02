@@ -115,6 +115,12 @@ export function EligibilityCheckerModal({
   useEffect(() => {
     if (!open) return;
     
+    // Don't reinitialize if we're showing results
+    if (showingResults && assessment) {
+      setLoading(false);
+      return;
+    }
+    
     // Validate we have either a trial object or NCT ID
     if (!trial?.protocolSection && !propNctId) {
       setError('Invalid trial data. Please try again.');
@@ -200,13 +206,14 @@ export function EligibilityCheckerModal({
         
         setQuestions(generatedQuestions);
         
-        // Reset state for new check
-        setCurrentQuestionIndex(0);
-        setResponses({});
-        setAssessment(null);
-        setShowingResults(false);
-        setEmailRequested(false);
-        setEmailAddress('');
+        // Reset state for new check only if not showing results
+        if (!showingResults) {
+          setCurrentQuestionIndex(0);
+          setResponses({});
+          setAssessment(null);
+          setEmailRequested(false);
+          setEmailAddress('');
+        }
         
         // Handle existing check (resuming) or create new one
         if (existingCheckId) {
@@ -274,7 +281,7 @@ export function EligibilityCheckerModal({
     };
     
     initializeEligibility();
-  }, [open, trial, propNctId, propTrialTitle, healthProfile, user?.id, existingCheckId]);
+  }, [open, trial, propNctId, propTrialTitle, healthProfile, user?.id, existingCheckId, showingResults, assessment]);
   
   // Calculate progress
   const progress = questions.length > 0 
@@ -413,6 +420,9 @@ export function EligibilityCheckerModal({
         
         // Show results instead of closing
         setShowingResults(true);
+        
+        // Show success toast
+        toast.success('Eligibility check completed! Review your results below.');
         
         // Call completion callback
         if (onComplete) {
@@ -751,15 +761,23 @@ export function EligibilityCheckerModal({
             </Button>
           )}
           
-          {/* Add close button only when no other actions available */}
-          {!smartCTA && !eligibilityCheck?.id && (
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Close
-            </Button>
-          )}
+          {/* Always show close button for results */}
+          <Button
+            variant={smartCTA || eligibilityCheck?.id ? "ghost" : "outline"}
+            onClick={() => {
+              // Reset state when closing from results
+              if (showingResults) {
+                setShowingResults(false);
+                setAssessment(null);
+                setCurrentQuestionIndex(0);
+                setResponses({});
+              }
+              onOpenChange(false);
+            }}
+            className="flex-1 sm:flex-initial"
+          >
+            {showingResults ? 'Done' : 'Close'}
+          </Button>
         </div>
       </div>
     );

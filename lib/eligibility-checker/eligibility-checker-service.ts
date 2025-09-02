@@ -1,12 +1,12 @@
 /**
- * Eligibility Checker Service
+ * Eligibility Checker Service - AI-Driven Architecture
  * 
  * CONTEXT-AWARE implementation following CLAUDE.md principles:
- * - Proper TypeScript types (no 'any')
- * - Environment-aware API calls
- * - Caching for performance
- * - Simplified question generation
- * - Better error handling
+ * - AI-driven question generation (no brittle patterns)
+ * - Two-level caching for performance
+ * - NO hardcoded transformations (no toLowerCase, no patterns)
+ * - Temperature 0.0 for determinism
+ * - Clean, single implementation (no versioning)
  */
 
 import { ClinicalTrial, HealthProfile } from '@/lib/tools/clinical-trials/types';
@@ -17,76 +17,22 @@ import type {
   EligibilityResponse,
   EligibilityAssessment,
   ParsedCriteriaResponse,
-  QuestionConfig,
   ResponseValue
 } from './types';
 
 /**
- * Question generation patterns - configuration-driven approach
+ * Minimal medical terms for basic context
+ * AI will expand on these dynamically
  */
-const QUESTION_PATTERNS: QuestionConfig[] = [
-  {
-    pattern: /\bage\s+(\d+|≥|>=|≤|<=)/i,
-    type: 'NUMERIC',
-    generator: () => 'What is your age?'
-  },
-  {
-    pattern: /\becog\b|\bperformance status\b/i,
-    type: 'SINGLE_CHOICE',
-    generator: () => 'What is your current activity level?',
-    options: [
-      '0 - Fully active',
-      '1 - Restricted but ambulatory',
-      '2 - Ambulatory but unable to work',
-      '3 - Limited self-care',
-      '4 - Completely disabled'
-    ]
-  },
-  {
-    pattern: /\bpregnant\b|\bnursing\b|\bbreastfeeding\b/i,
-    type: 'BOOLEAN',
-    generator: () => 'Are you currently pregnant or nursing?'
-  },
-  {
-    pattern: /\bconsent\b|\bwilling\b/i,
-    type: 'BOOLEAN',
-    generator: (text: string) => `Are you willing and able to: ${text}?`
-  },
-  {
-    pattern: /\badequate\s+(organ|marrow|function)\b/i,
-    type: 'BOOLEAN',
-    generator: () => 'Do you have adequate organ function as determined by recent lab tests?'
-  },
-  {
-    pattern: /\bbrain\s+metastas/i,
-    type: 'BOOLEAN',
-    generator: () => 'Do you have brain metastases (cancer that has spread to the brain)?'
-  }
-];
-
-/**
- * Medical term replacements for simplification
- */
-const MEDICAL_TERMS: Record<string, string> = {
-  'ECOG': 'Eastern Cooperative Oncology Group performance status',
+const CORE_MEDICAL_CONTEXT = {
+  'ECOG': 'performance status scale',
+  'NSCLC': 'non-small cell lung cancer',
   'metastatic': 'cancer that has spread',
   'refractory': 'not responding to treatment',
-  'contraindicated': 'should not be used',
-  'hepatic': 'liver',
-  'renal': 'kidney',
-  'cardiac': 'heart',
-  'pulmonary': 'lung',
-  'hematologic': 'blood-related',
-  'CNS': 'central nervous system (brain and spinal cord)',
-  'NSCLC': 'non-small cell lung cancer',
-  'SCLC': 'small cell lung cancer',
-  'PD-L1': 'programmed death-ligand 1',
-  'KRAS': 'a gene that can contribute to cancer growth',
-  'G12C': 'a specific type of KRAS mutation'
 };
 
 export class EligibilityCheckerService {
-  // Cache for parsed criteria to avoid redundant AI calls
+  // In-memory cache for current session
   private criteriaCache = new Map<string, InterpretedCriterion[]>();
   
   /**
@@ -94,16 +40,15 @@ export class EligibilityCheckerService {
    */
   private getApiUrl(path: string): string {
     if (typeof window !== 'undefined') {
-      // Browser context
       return path;
     }
-    // Server/test context
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     return `${baseUrl}${path}`;
   }
 
   /**
    * Parse raw eligibility criteria using AI with caching
+   * AI now generates questions directly
    */
   async parseEligibilityCriteria(
     trial: ClinicalTrial
@@ -117,16 +62,18 @@ export class EligibilityCheckerService {
 
     const nctId = trial.protocolSection?.identificationModule?.nctId || 'unknown';
     
-    // Check cache first
+    // Check in-memory cache first (fastest)
     if (this.criteriaCache.has(nctId)) {
-      debug.log(DebugCategory.ASSESSMENT, 'Using cached criteria', { nctId });
+      debug.log(DebugCategory.ASSESSMENT, 'Using in-memory cached criteria', { nctId });
       return this.criteriaCache.get(nctId)!;
     }
+    
+    // Database caching happens in the API route now
 
-    debug.log(DebugCategory.ASSESSMENT, 'Parsing eligibility criteria', { nctId });
+    debug.log(DebugCategory.ASSESSMENT, 'Parsing eligibility criteria with AI', { nctId });
 
     try {
-      // Call the AI parsing API with proper URL
+      // Call the enhanced AI parsing API
       const response = await fetch(this.getApiUrl('/api/eligibility/parse'), {
         method: 'POST',
         headers: {
@@ -149,209 +96,121 @@ export class EligibilityCheckerService {
         throw new Error('Invalid response format from AI parsing');
       }
       
-      // Check for truncation
-      if (this.hasTruncation(data.criteria)) {
-        console.warn('AI response contains truncated criteria, using fallback parser');
-        const fallbackCriteria = this.simpleParser(eligibilityCriteria, nctId);
-        this.criteriaCache.set(nctId, fallbackCriteria);
-        return fallbackCriteria;
-      }
+      const criteria = data.criteria;
       
-      // Map to internal format with proper types
-      const criteria = this.mapApiResponseToCriteria(data.criteria);
-      
-      // Cache the result
+      // Cache in memory only (database caching happens in API route)
       this.criteriaCache.set(nctId, criteria);
       
-      return criteria;
+      debug.log(DebugCategory.ASSESSMENT, 'Successfully parsed criteria', {
+        nctId,
+        count: criteria.length
+      });
       
+      return criteria;
     } catch (error) {
-      debug.log(DebugCategory.ERROR, 'AI parsing failed, using fallback parser', { error });
-      const fallbackCriteria = this.simpleParser(eligibilityCriteria, nctId);
-      this.criteriaCache.set(nctId, fallbackCriteria);
-      return fallbackCriteria;
+      debug.error(DebugCategory.ERROR, 'AI parsing failed', error);
+      
+      // Enhanced fallback for complete AI failure
+      return this.minimalFallback(eligibilityCriteria, nctId);
     }
   }
 
   /**
-   * Type guard for API response validation
+   * Validate API response structure
    */
-  private isValidCriteriaResponse(data: unknown): data is ParsedCriteriaResponse {
+  private isValidCriteriaResponse(data: any): data is ParsedCriteriaResponse {
     return (
-      typeof data === 'object' &&
-      data !== null &&
-      'success' in data &&
-      'criteria' in data &&
-      Array.isArray((data as ParsedCriteriaResponse).criteria)
+      data &&
+      data.success === true &&
+      Array.isArray(data.criteria) &&
+      data.criteria.every((c: any) => 
+        c.id && 
+        c.question && 
+        c.category && 
+        c.originalText
+      )
     );
   }
 
   /**
-   * Check if criteria contain truncation markers
+   * Parse eligibility criteria with raw text
+   * This overload is for testing or when we have raw text
    */
-  private hasTruncation(criteria: InterpretedCriterion[]): boolean {
-    return criteria.some(c => {
-      const text = c.originalText || '';
-      return (
-        text.includes('more characters') ||
-        text.match(/\(\d+ more/) !== null ||
-        (text.includes('...') && text.length < 50)
-      );
+  async parseEligibilityCriteriaFromText(
+    nctId: string,
+    criteriaText: string
+  ): Promise<InterpretedCriterion[]> {
+    // Check cache
+    if (this.criteriaCache.has(nctId)) {
+      return this.criteriaCache.get(nctId)!;
+    }
+
+    try {
+      const response = await fetch(this.getApiUrl('/api/eligibility/parse'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eligibilityCriteria: criteriaText,
+          nctId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`AI parsing failed: ${response.statusText}`);
+      }
+
+      const data: ParsedCriteriaResponse = await response.json();
+      if (!this.isValidCriteriaResponse(data)) {
+        throw new Error('Invalid response format');
+      }
+
+      const criteria = data.criteria;
+      this.criteriaCache.set(nctId, criteria);
+      return criteria;
+    } catch (error) {
+      debug.error(DebugCategory.ERROR, 'Failed to parse criteria text', error);
+      return this.minimalFallback(criteriaText, nctId);
+    }
+  }
+
+  /**
+   * Minimal fallback when AI completely fails
+   * AI-DRIVEN: No transformations, preserve text exactly
+   */
+  private minimalFallback(
+    criteriaText: string,
+    nctId: string
+  ): InterpretedCriterion[] {
+    // Split into basic inclusion/exclusion
+    const lines = criteriaText.split('\n').filter(line => line.trim().length > 10);
+    let isExclusion = false;
+    
+    return lines.slice(0, 10).map((line, index) => {
+      // AI-DRIVEN: Check for exclusion without transformation
+      if (line.includes('Exclusion') || line.includes('exclusion') || line.includes('EXCLUSION')) {
+        isExclusion = true;
+      }
+      
+      return {
+        id: `${nctId}_${index}`,
+        originalText: line.trim(),
+        interpretedText: line.trim(),
+        category: isExclusion ? 'EXCLUSION' : 'INCLUSION',
+        domain: 'CURRENT_CONDITION' as const,
+        importance: 'REQUIRED' as const,
+        requiresValue: true,
+        expectedValueType: 'BOOLEAN' as const,
+        question: `Does this apply to you: "${line.trim()}"?`,
+        helpText: 'Please answer based on your current medical situation'
+      };
     });
   }
 
   /**
-   * Map API response to internal criterion format
-   */
-  private mapApiResponseToCriteria(apiCriteria: InterpretedCriterion[]): InterpretedCriterion[] {
-    return apiCriteria.map(c => ({
-      id: c.id,
-      originalText: c.originalText,
-      interpretedText: c.interpretedText || this.simplifyMedicalLanguage(c.originalText),
-      category: this.normalizeCategory(c.category),
-      domain: c.domain,
-      importance: c.importance,
-      requiresValue: c.requiresValue !== false,
-      expectedValueType: c.expectedValueType,
-      validationRules: c.validationRules
-    }));
-  }
-
-  /**
-   * Normalize category to uppercase
-   */
-  private normalizeCategory(category: string): 'INCLUSION' | 'EXCLUSION' {
-    return category.toUpperCase() as 'INCLUSION' | 'EXCLUSION';
-  }
-
-  /**
-   * Simple parser fallback when AI parsing fails
-   */
-  private simpleParser(
-    criteriaText: string,
-    nctId: string
-  ): InterpretedCriterion[] {
-    const lines = criteriaText.split('\n').map(line => line.trim()).filter(Boolean);
-    const criteria: InterpretedCriterion[] = [];
-    
-    let currentSection: 'INCLUSION' | 'EXCLUSION' = 'INCLUSION';
-    let criterionIndex = 0;
-
-    for (const line of lines) {
-      const lineLower = line.toLowerCase();
-      
-      // Detect section changes
-      if (lineLower.includes('inclusion')) {
-        currentSection = 'INCLUSION';
-        continue;
-      }
-      if (lineLower.includes('exclusion')) {
-        currentSection = 'EXCLUSION';
-        continue;
-      }
-
-      // Skip headers and short lines
-      if (line.length < 10 || lineLower.includes('criteria:')) {
-        continue;
-      }
-
-      // Clean up common prefixes
-      const cleanedLine = line
-        .replace(/^[-•*]\s*/, '')
-        .replace(/^\d+\.\s*/, '')
-        .trim();
-      
-      if (cleanedLine.length < 5) {
-        continue;
-      }
-      
-      // Create interpreted criterion
-      const criterion: InterpretedCriterion = {
-        id: `${nctId}_${currentSection}_${criterionIndex++}`,
-        originalText: cleanedLine,
-        interpretedText: this.simplifyMedicalLanguage(cleanedLine),
-        category: currentSection,
-        domain: this.detectDomain(cleanedLine),
-        importance: 'REQUIRED',
-        requiresValue: true,
-        expectedValueType: this.determineValueType(cleanedLine)
-      };
-
-      criteria.push(criterion);
-    }
-
-    return criteria;
-  }
-
-  /**
-   * Simplify medical language using term replacements
-   */
-  private simplifyMedicalLanguage(text: string): string {
-    let simplified = text;
-    
-    for (const [term, replacement] of Object.entries(MEDICAL_TERMS)) {
-      const regex = new RegExp(`\\b${term}\\b`, 'gi');
-      simplified = simplified.replace(regex, replacement);
-    }
-    
-    return simplified;
-  }
-
-  /**
-   * Detect domain based on criterion text
-   */
-  private detectDomain(text: string): InterpretedCriterion['domain'] {
-    const lower = text.toLowerCase();
-    
-    if (lower.includes('age') || lower.includes('gender') || lower.includes('sex')) {
-      return 'DEMOGRAPHICS';
-    }
-    if (lower.includes('history') || lower.includes('previous') || lower.includes('prior')) {
-      return 'MEDICAL_HISTORY';
-    }
-    if (lower.includes('stage') || lower.includes('diagnosis') || lower.includes('cancer')) {
-      return 'CURRENT_CONDITION';
-    }
-    if (lower.includes('mutation') || lower.includes('marker') || lower.includes('gene')) {
-      return 'BIOMARKERS';
-    }
-    if (lower.includes('treatment') || lower.includes('therapy') || lower.includes('drug')) {
-      return 'TREATMENT';
-    }
-    if (lower.includes('pregnant') || lower.includes('smoking') || lower.includes('alcohol')) {
-      return 'LIFESTYLE';
-    }
-    if (lower.includes('consent') || lower.includes('willing') || lower.includes('able')) {
-      return 'ADMINISTRATIVE';
-    }
-    
-    return 'CURRENT_CONDITION';
-  }
-
-  /**
-   * Determine expected value type from text
-   */
-  private determineValueType(text: string): InterpretedCriterion['expectedValueType'] {
-    const lower = text.toLowerCase();
-    
-    // Check against patterns
-    for (const config of QUESTION_PATTERNS) {
-      if (config.pattern.test(lower)) {
-        switch (config.type) {
-          case 'NUMERIC': return 'NUMERIC';
-          case 'DATE': return 'DATE';
-          case 'SINGLE_CHOICE':
-          case 'MULTIPLE_CHOICE': return 'CHOICE';
-          default: return 'BOOLEAN';
-        }
-      }
-    }
-    
-    return 'BOOLEAN';
-  }
-
-  /**
-   * Generate questions from interpreted criteria
+   * Generate questions from AI-interpreted criteria
+   * Since AI already generated questions, this just formats them
    */
   async generateQuestions(
     criteria: InterpretedCriterion[],
@@ -360,87 +219,31 @@ export class EligibilityCheckerService {
     const questions: EligibilityQuestion[] = [];
     
     for (const criterion of criteria) {
-      const question = this.createQuestionFromCriterion(criterion, healthProfile);
+      // Use AI-generated question or create a simple one
+      const questionText = criterion.question || 
+        this.createSimpleQuestion(criterion);
+      
+      const question: EligibilityQuestion = {
+        id: criterion.id,
+        criterionId: criterion.id,
+        question: questionText,
+        type: 'BOOLEAN', // Always use BOOLEAN for standardized yes/no/maybe responses
+        options: ['Yes', 'No', 'Maybe/Uncertain'], // Standard options for all questions
+        context: criterion.interpretedText !== criterion.originalText ? 
+          criterion.originalText : undefined,
+        helperText: criterion.helpText,
+        placeholder: criterion.placeholder,
+        category: criterion.category,
+        allowUncertain: true,
+        validation: {
+          required: true
+        }
+      };
+      
       questions.push(question);
     }
     
-    // Sort by priority and group
-    return this.sortQuestions(questions);
-  }
-
-  /**
-   * Create a question from a criterion
-   */
-  private createQuestionFromCriterion(
-    criterion: InterpretedCriterion,
-    healthProfile?: HealthProfile | null
-  ): EligibilityQuestion {
-    // Find matching pattern
-    const config = QUESTION_PATTERNS.find(p => p.pattern.test(criterion.originalText));
-    
-    let questionText: string;
-    let questionType: EligibilityQuestion['type'];
-    let options: string[] | undefined;
-    
-    if (config) {
-      questionText = config.generator(criterion.interpretedText, criterion.category);
-      questionType = config.type;
-      options = config.options;
-    } else {
-      // Default question generation
-      questionText = this.generateDefaultQuestion(criterion);
-      questionType = 'BOOLEAN';
-    }
-    
-    return {
-      id: criterion.id,
-      criterionId: criterion.id,
-      question: questionText,
-      type: questionType,
-      options,
-      context: criterion.interpretedText !== criterion.originalText ? criterion.originalText : undefined,
-      helperText: this.extractHelpText(criterion.originalText),
-      category: criterion.category,
-      allowUncertain: true
-    };
-  }
-
-  /**
-   * Generate default question based on category
-   */
-  private generateDefaultQuestion(criterion: InterpretedCriterion): string {
-    const simplified = criterion.interpretedText;
-    
-    if (criterion.category === 'EXCLUSION') {
-      if (criterion.originalText.toLowerCase().includes('history')) {
-        return `Do you have a history of: ${simplified}?`;
-      }
-      return `Do you currently have: ${simplified}?`;
-    }
-    
-    return `Does this describe you: ${simplified}?`;
-  }
-
-  /**
-   * Extract help text for medical terms
-   */
-  private extractHelpText(text: string): string | undefined {
-    const helpTexts: string[] = [];
-    
-    for (const [term, explanation] of Object.entries(MEDICAL_TERMS)) {
-      if (text.toLowerCase().includes(term.toLowerCase())) {
-        helpTexts.push(`${term}: ${explanation}`);
-      }
-    }
-    
-    return helpTexts.length > 0 ? helpTexts.join('; ') : undefined;
-  }
-
-  /**
-   * Sort questions by priority
-   */
-  private sortQuestions(questions: EligibilityQuestion[]): EligibilityQuestion[] {
-    // Group by category first (inclusion before exclusion)
+    // Sort: inclusion before exclusion
     return questions.sort((a, b) => {
       if (a.category === 'INCLUSION' && b.category === 'EXCLUSION') return -1;
       if (a.category === 'EXCLUSION' && b.category === 'INCLUSION') return 1;
@@ -449,64 +252,83 @@ export class EligibilityCheckerService {
   }
 
   /**
-   * Assess eligibility based on user responses
+   * Minimal fallback - AI should ALWAYS provide questions
+   * Following AI-DRIVEN ARCHITECTURE: NO hardcoded transformations
+   */
+  private createSimpleQuestion(criterion: InterpretedCriterion): string {
+    // AI-DRIVEN: Never transform text - preserve exactly as is
+    // If AI didn't provide a question, use the most basic format
+    // This should almost never happen with proper AI prompting
+    return `Does the following apply to you: "${criterion.interpretedText}"?`;
+  }
+
+  /**
+   * Process a batch of responses and calculate eligibility
+   * Core assessment logic that evaluates all responses together
    */
   async assessEligibility(
+    responses: EligibilityResponse[],
     criteria: InterpretedCriterion[],
-    responses: EligibilityResponse[]
+    trialId: string,
+    healthProfile?: HealthProfile | null
   ): Promise<EligibilityAssessment> {
-    const responseMap = new Map(responses.map(r => [r.questionId, r]));
-    
     let inclusionMet = 0;
     let inclusionTotal = 0;
     let exclusionHit = 0;
     let exclusionTotal = 0;
-    const concerns: string[] = [];
+    
     const qualifications: string[] = [];
-
-    for (const criterion of criteria) {
-      const response = responseMap.get(criterion.id);
+    const concerns: string[] = [];
+    
+    // Process each response against its criterion
+    for (const response of responses) {
+      const criterion = criteria.find(c => c.id === response.criterionId);
+      if (!criterion) continue;
       
-      if (!response) {
-        concerns.push(`No response for: ${criterion.interpretedText}`);
-        continue;
-      }
-
+      const meets = this.evaluateResponse(response, criterion);
+      
       if (criterion.category === 'INCLUSION') {
         inclusionTotal++;
-        if (this.meetsInclusionCriterion(criterion, response)) {
+        if (meets) {
           inclusionMet++;
-          qualifications.push(criterion.interpretedText);
+          qualifications.push(`Meets: ${criterion.interpretedText}`);
         } else {
           concerns.push(`Does not meet: ${criterion.interpretedText}`);
         }
       } else {
         exclusionTotal++;
-        if (this.hitsExclusionCriterion(criterion, response)) {
+        if (!meets) {
           exclusionHit++;
           concerns.push(`Excluded due to: ${criterion.interpretedText}`);
         }
       }
     }
-
-    // Calculate overall eligibility
-    const inclusionScore = inclusionTotal > 0 ? inclusionMet / inclusionTotal : 0;
-    const hasExclusions = exclusionHit > 0;
     
-    let overallEligibility: EligibilityAssessment['overallEligibility'];
+    // Calculate overall eligibility
+    const inclusionPercentage = inclusionTotal > 0 ? 
+      (inclusionMet / inclusionTotal) * 100 : 0;
+    const exclusionPercentage = exclusionTotal > 0 ? 
+      (exclusionHit / exclusionTotal) * 100 : 0;
+    
+    let overallEligibility: 'ELIGIBLE' | 'LIKELY_ELIGIBLE' | 'POSSIBLY_ELIGIBLE' | 
+                            'UNLIKELY_ELIGIBLE' | 'NOT_ELIGIBLE';
     let confidence: number;
     
-    if (inclusionScore >= 0.8 && !hasExclusions) {
-      overallEligibility = 'ELIGIBLE';
-      confidence = 0.9;
-    } else if (inclusionScore >= 0.5 && !hasExclusions) {
-      overallEligibility = 'POSSIBLY_ELIGIBLE';
-      confidence = 0.6;
-    } else if (inclusionScore < 0.3 || hasExclusions) {
+    // AI-driven eligibility determination
+    if (exclusionHit > 0) {
       overallEligibility = 'NOT_ELIGIBLE';
-      confidence = 0.8;
+      confidence = 0.9;
+    } else if (inclusionPercentage >= 90) {
+      overallEligibility = 'ELIGIBLE';
+      confidence = 0.85;
+    } else if (inclusionPercentage >= 70) {
+      overallEligibility = 'LIKELY_ELIGIBLE';
+      confidence = 0.7;
+    } else if (inclusionPercentage >= 50) {
+      overallEligibility = 'POSSIBLY_ELIGIBLE';
+      confidence = 0.5;
     } else {
-      overallEligibility = 'INSUFFICIENT_DATA';
+      overallEligibility = 'UNLIKELY_ELIGIBLE';
       confidence = 0.4;
     }
 
@@ -533,95 +355,92 @@ export class EligibilityCheckerService {
   }
 
   /**
-   * Check if response meets inclusion criterion
+   * Standardized response evaluation for yes/no/maybe answers
+   * All questions now use consistent yes/no/maybe format
    */
-  private meetsInclusionCriterion(
-    criterion: InterpretedCriterion,
-    response: EligibilityResponse
+  private evaluateResponse(
+    response: EligibilityResponse,
+    criterion: InterpretedCriterion
   ): boolean {
     const value = response.value;
     
-    // Handle boolean responses
-    if (typeof value === 'boolean') {
-      return value;
+    // AI-DRIVEN: Handle responses without hardcoded transformations
+    // Conservative approach for uncertain responses
+    if (response.confidence === 'LOW' || 
+        value === 'uncertain' || 
+        value === 'maybe' || 
+        value === 'Maybe' ||
+        value === 'Uncertain' ||
+        value === 'Maybe/Uncertain') {
+      return false; // Conservative approach for uncertain responses
     }
     
-    // Handle string responses that mean "yes"
+    // AI-DRIVEN: Direct value matching without transformations
     if (typeof value === 'string') {
-      return value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+      // Check exact matches - no transformations
+      const isYes = value === 'Yes' || value === 'yes' || value === 'YES' || 
+                    value === 'true' || value === 'TRUE' || 
+                    value === 'positive' || value === 'POSITIVE';
+      const isNo = value === 'No' || value === 'no' || value === 'NO' || 
+                   value === 'false' || value === 'FALSE' || 
+                   value === 'negative' || value === 'NEGATIVE';
+      
+      // For inclusion criteria: "yes" means they meet it
+      // For exclusion criteria: "yes" means they're excluded (so return false for eligibility)
+      if (criterion.category === 'INCLUSION') {
+        return isYes;
+      } else {
+        // For exclusion: "no" means they don't have the excluding condition (good)
+        return isNo;
+      }
     }
     
-    // For other types, check if value exists and is not negative
-    return value !== null && value !== undefined && (typeof value !== 'string' || (value !== 'no' && value !== 'false'));
-  }
-
-  /**
-   * Check if response hits exclusion criterion
-   */
-  private hitsExclusionCriterion(
-    criterion: InterpretedCriterion,
-    response: EligibilityResponse
-  ): boolean {
-    const value = response.value;
-    
-    // For exclusion, a positive response means exclusion
+    // Boolean evaluation (backward compatibility)
     if (typeof value === 'boolean') {
-      return value;
+      return criterion.category === 'INCLUSION' ? value : !value;
     }
     
-    if (typeof value === 'string') {
-      return value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
-    }
-    
+    // Default: conservative approach
     return false;
   }
 
   /**
-   * Generate summary text
+   * Generate human-readable summary
    */
   private generateSummary(
-    eligibility: EligibilityAssessment['overallEligibility'],
+    eligibility: string,
     inclusionMet: number,
     inclusionTotal: number,
     exclusionHit: number,
     exclusionTotal: number
   ): string {
-    const parts: string[] = [];
-
+    const inclusionPercent = inclusionTotal > 0 ? 
+      Math.round((inclusionMet / inclusionTotal) * 100) : 0;
+    
     switch (eligibility) {
       case 'ELIGIBLE':
-        parts.push('Based on your responses, you appear to be eligible for this trial.');
-        break;
+        return `You appear to be eligible for this trial, meeting ${inclusionMet}/${inclusionTotal} inclusion criteria (${inclusionPercent}%) with no exclusions.`;
+      case 'LIKELY_ELIGIBLE':
+        return `You are likely eligible for this trial, meeting ${inclusionMet}/${inclusionTotal} inclusion criteria (${inclusionPercent}%) with no exclusions.`;
       case 'POSSIBLY_ELIGIBLE':
-        parts.push('Based on your responses, you may be eligible for this trial.');
-        break;
+        return `You may be eligible for this trial, meeting ${inclusionMet}/${inclusionTotal} inclusion criteria (${inclusionPercent}%).`;
+      case 'UNLIKELY_ELIGIBLE':
+        return `You are unlikely to be eligible, meeting only ${inclusionMet}/${inclusionTotal} inclusion criteria (${inclusionPercent}%).`;
       case 'NOT_ELIGIBLE':
-        parts.push('Based on your responses, you may not be eligible for this trial.');
-        break;
+        return exclusionHit > 0 
+          ? `You do not appear eligible due to ${exclusionHit} exclusion criteria.`
+          : `You do not meet the minimum inclusion criteria (${inclusionMet}/${inclusionTotal}).`;
       default:
-        parts.push('We need more information to determine your eligibility.');
+        return 'Unable to determine eligibility.';
     }
-
-    if (inclusionTotal > 0) {
-      parts.push(`You meet ${inclusionMet} out of ${inclusionTotal} inclusion criteria.`);
-    }
-
-    if (exclusionHit > 0) {
-      parts.push(`You have ${exclusionHit} exclusion criteria that may disqualify you.`);
-    }
-
-    return parts.join(' ');
   }
 
   /**
-   * Clear cache for a specific trial or all trials
+   * Clear cache for a specific trial
+   * Useful when criteria are updated
    */
-  clearCache(nctId?: string): void {
-    if (nctId) {
-      this.criteriaCache.delete(nctId);
-    } else {
-      this.criteriaCache.clear();
-    }
+  async clearCache(nctId: string): Promise<void> {
+    this.criteriaCache.delete(nctId);
   }
 
   /**

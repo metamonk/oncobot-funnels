@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { openai } from '@ai-sdk/openai';
 import { generateText } from 'ai';
+import { db } from '@/lib/db';
+import { eq } from 'drizzle-orm';
+import { parsedCriteriaCache } from '@/lib/db/schema';
 import type { InterpretedCriterion } from '@/lib/eligibility-checker/types';
 
 // System prompt for AI to interpret eligibility criteria
@@ -31,12 +34,57 @@ For each criterion, determine:
 1. Whether it's an inclusion or exclusion criterion
 2. The domain (demographics, medical history, current condition, biomarkers, treatment, lifestyle, administrative)
 3. The importance level (required, preferred, optional) - but remember ALL are required for eligibility confirmation
-4. What type of data is needed (boolean yes/no, numeric value, date, text, or choice from options)
-5. Any validation rules (min/max values, specific options, etc.)
+4. ALWAYS use BOOLEAN type - all questions must be yes/no format for standardized data handling
+5. Frame the question to be answerable with Yes/No/Maybe (convert numeric thresholds to yes/no questions)
+6. A clear, patient-friendly yes/no question that captures the criterion
+7. Help text explaining any medical terms in simple language
 
 Convert medical jargon into plain language that patients can understand.
 Be thorough but clear - ensure patients can accurately self-assess their eligibility.
 Remember: We are confirming eligibility, not filtering - EVERY criterion becomes a question.
+
+CRITICAL REQUIREMENT - GENERATE PROPER QUESTIONS:
+YOU MUST generate grammatically correct questions, NOT statements with question marks!
+
+WRONG (statements with question marks - NEVER DO THIS):
+❌ "Age 18 Years and older?"
+❌ "ECOG performance status should be 0 or 1?"
+❌ "Patient must be able to swallow pills?"
+❌ "Presence of KRAS G12C mutation in the cancer?"
+❌ "Stage III or IV disease?"
+
+CORRECT (proper grammatical questions):
+✅ "Are you 18 years or older?"
+✅ "Is your ECOG performance status 0 or 1?"
+✅ "Are you able to swallow pills?"
+✅ "Do you have a KRAS G12C mutation in your cancer?"
+✅ "Do you have Stage III or IV disease?"
+
+MORE EXAMPLES OF PROPER TRANSFORMATIONS:
+- "Presence of KRAS G12C mutation" → "Do you have a KRAS G12C mutation?"
+- "Stage III disease" → "Do you have Stage III disease?" (preserve capitalization of medical terms!)
+- "Unresectable KRAS G12C-mutant Non-Small Cell Lung Cancer" → "Do you have unresectable KRAS G12C-mutant non-small cell lung cancer?"
+- "Life expectancy greater than 3 months" → "Is your life expectancy greater than 3 months?"
+- "Adequate organ function" → "Do you have adequate organ function?"
+
+TRANSFORMATION RULES:
+- NEVER just prepend "Are you" to the criterion text
+- NEVER lowercase medical terms like "Stage III", "KRAS", "G12C", "NSCLC"
+- Age criteria → "Are you [age] years or older/younger?"
+- Disease/conditions → "Do you have [condition]?" NOT "Are you [condition]?"
+- Mutations/markers → "Do you have [mutation]?" NOT "Are you presence of [mutation]?"
+- Stage → "Do you have Stage [X] disease?" (keep Stage capitalized)
+- Status/scores → "Is your [status] [value]?"
+- Abilities → "Are you able to [action]?"
+- Time requirements → "Has it been [time] since [event]?"
+
+EVERY question field MUST:
+1. Start with a question word (Are, Do, Have, Is, Has, Can, Will)
+2. Be a complete grammatical sentence
+3. End with a question mark
+4. Be answerable with Yes/No/Maybe
+
+DO NOT just copy the criterion text and add a question mark!
 
 IMPORTANT: Return ONLY valid JSON without any markdown formatting, code blocks, or additional text.
 Do NOT wrap the response in \`\`\`json\`\`\` or any other markdown syntax.
@@ -53,13 +101,16 @@ Return a JSON object with interpreted criteria following this exact structure:
       "domain": "DEMOGRAPHICS" | "MEDICAL_HISTORY" | "CURRENT_CONDITION" | "BIOMARKERS" | "TREATMENT" | "LIFESTYLE" | "ADMINISTRATIVE",
       "importance": "REQUIRED" | "PREFERRED" | "OPTIONAL",
       "requiresValue": true/false,
-      "expectedValueType": "BOOLEAN" | "NUMERIC" | "DATE" | "TEXT" | "CHOICE",
+      "expectedValueType": "BOOLEAN",
       "validationRules": {
         "min": number (optional),
         "max": number (optional),
         "pattern": "regex pattern" (optional),
         "options": ["option1", "option2"] (optional)
-      }
+      },
+      "question": "Clear patient-friendly question that is grammatically correct (starts with Are/Do/Have/Is/Can/Will)",
+      "helpText": "Optional explanation of medical terms (optional)",
+      "placeholder": "Optional placeholder text for input fields (optional)"
     }
   ]
 }`;
@@ -72,6 +123,35 @@ export async function POST(request: NextRequest) {
     }
 
     const { eligibilityCriteria, nctId } = await request.json();
+    
+    // Check database cache first (server-side only)
+    if (nctId && nctId !== 'unknown') {
+      try {
+        const [cached] = await db
+          .select()
+          .from(parsedCriteriaCache)
+          .where(eq(parsedCriteriaCache.nctId, nctId))
+          .limit(1);
+        
+        if (cached) {
+          // Check if cache is still valid (30 days)
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          
+          if (cached.createdAt > thirtyDaysAgo) {
+            console.log(`[Eligibility Parser] Using cached criteria for ${nctId}`);
+            return NextResponse.json({
+              success: true,
+              criteria: cached.criteria as InterpretedCriterion[],
+              usage: { cached: true }
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Cache lookup failed:', error);
+        // Continue with parsing if cache fails
+      }
+    }
 
     if (!eligibilityCriteria) {
       return NextResponse.json(
@@ -159,7 +239,7 @@ FINAL REMINDER:
 - DO NOT stop after 5-6 criteria - CONTINUE until you've parsed ALL bullets
 - Each bullet point = one criterion = one question for the patient
 - Return the complete JSON with ALL criteria, not a partial response`,
-      temperature: 0.1, // Even lower temperature for more deterministic parsing
+      temperature: 0.0, // Zero temperature for completely deterministic parsing
       maxTokens: 16000, // Further increased to ensure complete responses
     });
 
@@ -194,6 +274,34 @@ FINAL REMINDER:
       
       // Log successful parsing
       console.log(`[Eligibility Parser] Successfully parsed ${parsedCriteria.length} criteria for ${nctId}`);
+      
+      // Cache in database for next time (server-side only)
+      if (nctId && nctId !== 'unknown') {
+        try {
+          await db
+            .insert(parsedCriteriaCache)
+            .values({
+              nctId,
+              criteria: parsedCriteria as any,
+              rawText: eligibilityCriteria,
+              version: '1.0',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: parsedCriteriaCache.nctId,
+              set: {
+                criteria: parsedCriteria as any,
+                rawText: eligibilityCriteria,
+                updatedAt: new Date(),
+              },
+            });
+          console.log(`[Eligibility Parser] Cached criteria for ${nctId}`);
+        } catch (error) {
+          console.error('Failed to cache criteria:', error);
+          // Non-critical, continue
+        }
+      }
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
       console.error('AI response:', result.text);
@@ -275,6 +383,17 @@ function parseBasicCriteria(criteriaText: string): InterpretedCriterion[] {
       
       // Only add if it's substantial text
       if (criterionText.length > 5) {
+        // Simple fallback question generation - AI should handle complex cases
+        // This is only used when AI parsing completely fails
+        // Generate a proper question, not a statement with a question mark
+        let question: string;
+        if (currentCategory === 'EXCLUSION') {
+          question = `Do you currently have ${criterionText.toLowerCase()}?`;
+        } else {
+          // Try to form a proper question
+          question = `Are you ${criterionText.toLowerCase()}?`;
+        }
+        
         criteria.push({
           id: `criterion_${criterionIndex++}`,
           originalText: criterionText, // FULL text, never truncated
@@ -284,6 +403,8 @@ function parseBasicCriteria(criteriaText: string): InterpretedCriterion[] {
           importance: 'REQUIRED',
           requiresValue: true,
           expectedValueType: 'BOOLEAN',
+          question: question,
+          helpText: 'Please answer Yes, No, or Maybe/Uncertain',
           validationRules: {}
         });
       }

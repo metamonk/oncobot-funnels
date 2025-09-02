@@ -26,6 +26,10 @@ export interface InterpretedCriterion {
     pattern?: string;
     options?: string[];
   };
+  // AI-generated question fields
+  question?: string;
+  helpText?: string;
+  placeholder?: string;
 }
 
 /**

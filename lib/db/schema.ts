@@ -343,5 +343,16 @@ export const eligibilityResponseRelations = relations(eligibilityResponse, ({ on
   }),
 }));
 
+// Parsed criteria cache table for persistent storage
+export const parsedCriteriaCache = pgTable('parsed_criteria_cache', {
+  nctId: text('nctId').primaryKey(),
+  criteria: json('criteria').notNull(), // Array of InterpretedCriterion
+  rawText: text('rawText').notNull(), // Original eligibility text
+  version: varchar('version', { length: 10 }).notNull().default('1.0'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
 export type EligibilityCheck = InferSelectModel<typeof eligibilityCheck>;
 export type EligibilityResponse = InferSelectModel<typeof eligibilityResponse>;
+export type ParsedCriteriaCache = InferSelectModel<typeof parsedCriteriaCache>;
