@@ -192,6 +192,7 @@ export type HealthProfile = InferSelectModel<typeof healthProfile>;
 export type UserHealthProfile = InferSelectModel<typeof userHealthProfile>;
 export type HealthProfileResponse = InferSelectModel<typeof healthProfileResponse>;
 
+
 // Saved trials table
 export const savedTrials = pgTable('saved_trials', {
   id: text('id')
@@ -210,6 +211,11 @@ export const savedTrials = pgTable('saved_trials', {
     location?: string;
   }>(),
   trialSnapshot: json('trialSnapshot').notNull(), // Cached trial data
+  
+  // Eligibility check reference (will be updated via relation)
+  lastEligibilityCheckId: text('lastEligibilityCheckId'),
+  eligibilityCheckCompleted: boolean('eligibilityCheckCompleted').notNull().default(false),
+  
   lastUpdated: timestamp('lastUpdated').notNull().defaultNow(),
   savedAt: timestamp('savedAt').notNull().defaultNow(),
   notificationSettings: json('notificationSettings').$type<{
@@ -238,24 +244,55 @@ export const eligibilityCheck = pgTable('eligibility_check', {
     .references(() => user.id, { onDelete: 'cascade' }),
   trialId: text('trialId').notNull(), // NCT ID or internal ID
   nctId: text('nctId').notNull(),
+  trialTitle: text('trialTitle').notNull(),
   healthProfileId: text('healthProfileId')
     .references(() => healthProfile.id, { onDelete: 'set null' }),
   
+  // Check status
+  status: varchar('status', { 
+    enum: ['in_progress', 'completed', 'abandoned'] 
+  }).notNull().default('in_progress'),
+  
+  // Eligibility outcome
+  eligibilityStatus: varchar('eligibilityStatus', { 
+    enum: ['LIKELY_ELIGIBLE', 'POSSIBLY_ELIGIBLE', 'UNCERTAIN', 'LIKELY_INELIGIBLE', 'INELIGIBLE'] 
+  }),
+  eligibilityScore: integer('eligibilityScore'), // 0-100
+  confidence: varchar('confidence', { 
+    enum: ['high', 'medium', 'low'] 
+  }),
+  
   // Parsed criteria (for audit trail)
-  criteria: json('criteria').notNull(), // InterpretedCriterion[]
+  criteria: json('criteria'), // InterpretedCriterion[]
   
   // Questions presented to user
-  questions: json('questions').notNull(), // EligibilityQuestion[]
+  questions: json('questions'), // EligibilityQuestion[]
   
   // User responses
-  responses: json('responses').notNull(), // EligibilityResponse[]
+  responses: json('responses'), // EligibilityResponse[]
   
   // Final assessment
-  assessment: json('assessment').notNull(), // EligibilityAssessment
+  assessment: json('assessment'), // EligibilityAssessment
+  
+  // Criteria matching
+  matchedCriteria: json('matchedCriteria'), // Array of matched criteria IDs
+  unmatchedCriteria: json('unmatchedCriteria'), // Array of unmatched criteria IDs
+  uncertainCriteria: json('uncertainCriteria'), // Array of uncertain criteria IDs
+  
+  // Sharing and visibility
+  visibility: varchar('visibility', { 
+    enum: ['public', 'private'] 
+  }).notNull().default('private'),
+  shareToken: text('shareToken'), // For public sharing
+  
+  // Email functionality
+  emailRequested: boolean('emailRequested').notNull().default(false),
+  emailAddress: text('emailAddress'),
+  emailSentAt: timestamp('emailSentAt'),
   
   // Metadata
-  completedAt: timestamp('completedAt').notNull(),
-  duration: integer('duration').notNull(), // in seconds
+  completedAt: timestamp('completedAt'),
+  duration: integer('duration'), // in seconds
   userAgent: text('userAgent'),
   ipAddress: text('ipAddress'),
   
