@@ -205,11 +205,12 @@ export class TrialCompressor {
         sex: eligibility.sex
       };
       
-      // Add truncated eligibility criteria if available
-      // Full parsing happens BEFORE compression in smart-router
+      // IMPORTANT: Do NOT truncate eligibility criteria!
+      // The eligibility checker modal needs the FULL text to parse all criteria
+      // Truncating to 500 chars was causing only 5-6 criteria to show instead of 20+
       if (eligibility.eligibilityCriteria) {
         compressed.protocolSection.eligibilityModule.eligibilityCriteria = 
-          this.truncateText(eligibility.eligibilityCriteria, 500);
+          eligibility.eligibilityCriteria; // Keep FULL text for proper parsing
       }
     }
     

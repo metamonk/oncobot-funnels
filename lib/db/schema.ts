@@ -227,3 +227,83 @@ export const savedTrialsRelations = relations(savedTrials, ({ one }) => ({
 }));
 
 export type SavedTrial = InferSelectModel<typeof savedTrials>;
+
+// Eligibility checker tables
+export const eligibilityCheck = pgTable('eligibility_check', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateId()),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  trialId: text('trialId').notNull(), // NCT ID or internal ID
+  nctId: text('nctId').notNull(),
+  healthProfileId: text('healthProfileId')
+    .references(() => healthProfile.id, { onDelete: 'set null' }),
+  
+  // Parsed criteria (for audit trail)
+  criteria: json('criteria').notNull(), // InterpretedCriterion[]
+  
+  // Questions presented to user
+  questions: json('questions').notNull(), // EligibilityQuestion[]
+  
+  // User responses
+  responses: json('responses').notNull(), // EligibilityResponse[]
+  
+  // Final assessment
+  assessment: json('assessment').notNull(), // EligibilityAssessment
+  
+  // Metadata
+  completedAt: timestamp('completedAt').notNull(),
+  duration: integer('duration').notNull(), // in seconds
+  userAgent: text('userAgent'),
+  ipAddress: text('ipAddress'),
+  
+  // Medical-legal compliance
+  consentGiven: boolean('consentGiven').notNull().default(false),
+  disclaimerAccepted: boolean('disclaimerAccepted').notNull().default(false),
+  dataRetentionConsent: boolean('dataRetentionConsent').notNull().default(false),
+  
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+// Individual eligibility responses for detailed tracking
+export const eligibilityResponse = pgTable('eligibility_response', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateId()),
+  checkId: text('checkId')
+    .notNull()
+    .references(() => eligibilityCheck.id, { onDelete: 'cascade' }),
+  questionId: text('questionId').notNull(),
+  criterionId: text('criterionId').notNull(),
+  value: json('value'), // Can be boolean, string, number, array, etc.
+  confidence: varchar('confidence', { enum: ['HIGH', 'MEDIUM', 'LOW'] }),
+  notes: text('notes'),
+  timestamp: timestamp('timestamp').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+});
+
+// Relations for eligibility checker
+export const eligibilityCheckRelations = relations(eligibilityCheck, ({ one, many }) => ({
+  user: one(user, {
+    fields: [eligibilityCheck.userId],
+    references: [user.id],
+  }),
+  healthProfile: one(healthProfile, {
+    fields: [eligibilityCheck.healthProfileId],
+    references: [healthProfile.id],
+  }),
+  responses: many(eligibilityResponse),
+}));
+
+export const eligibilityResponseRelations = relations(eligibilityResponse, ({ one }) => ({
+  check: one(eligibilityCheck, {
+    fields: [eligibilityResponse.checkId],
+    references: [eligibilityCheck.id],
+  }),
+}));
+
+export type EligibilityCheck = InferSelectModel<typeof eligibilityCheck>;
+export type EligibilityResponse = InferSelectModel<typeof eligibilityResponse>;

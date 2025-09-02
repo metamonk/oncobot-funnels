@@ -22,12 +22,16 @@ import {
   ChevronDown,
   ChevronUp,
   Bookmark,
-  BookmarkCheck
+  BookmarkCheck,
+  ClipboardCheck
 } from 'lucide-react';
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { ProgressiveCriteria } from '@/components/clinical-trials/progressive-criteria';
 import { TrialSaveButton } from './clinical-trials/trial-save-button';
+import { EligibilityCheckerModal } from './clinical-trials/eligibility-checker-modal';
+import type { EligibilityAssessment } from '@/lib/eligibility-checker';
 import type { ClinicalTrial } from '@/lib/saved-trials/types';
+import { getUserHealthProfile, type HealthProfile } from '@/lib/health-profile-actions';
 
 // Type definitions
 interface CriteriaItem {
@@ -251,6 +255,62 @@ function SaveButton({ trial }: { trial: ClinicalTrial }) {
   
   // Save button that syncs with Settings modal
   return <TrialSaveButton nctId={nctId} trial={trial} />;
+}
+
+// Component for eligibility checker button
+function EligibilityCheckerButton({ trial }: { trial: ClinicalTrial }) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [healthProfile, setHealthProfile] = useState<HealthProfile | null>(null);
+  const { track } = useUnifiedAnalytics();
+  
+  // Load health profile when modal opens
+  useEffect(() => {
+    if (modalOpen) {
+      getUserHealthProfile().then(data => {
+        if (data?.profile) {
+          setHealthProfile(data.profile);
+        }
+      }).catch(console.error);
+    }
+  }, [modalOpen]);
+  
+  const handleClick = () => {
+    track('eligibility_check_started', {
+      nctId: trial.identificationModule?.nctId
+    });
+    setModalOpen(true);
+  };
+  
+  const handleComplete = (assessment: any) => {
+    track('eligibility_check_completed', {
+      nctId: trial.identificationModule?.nctId,
+      eligibility: assessment.overallEligibility,
+      confidence: assessment.confidence
+    });
+    setModalOpen(false);
+  };
+  
+  return (
+    <>
+      <Button
+        onClick={handleClick}
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
+      >
+        <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
+        Check Eligibility
+      </Button>
+      
+      <EligibilityCheckerModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        trial={trial}
+        healthProfile={healthProfile}
+        onComplete={handleComplete}
+      />
+    </>
+  );
 }
 
 function ClinicalTrialsComponent({ result, action, isStreaming = false }: ClinicalTrialsProps) {
@@ -520,7 +580,7 @@ function ClinicalTrialsComponent({ result, action, isStreaming = false }: Clinic
                   </div>
                 </div>
                 
-                {/* Location Summary with Save Button */}
+                {/* Location Summary with Save and Eligibility Buttons */}
                 <div className="flex items-center justify-between mb-2">
                   {match.locationSummary ? (
                     <div className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
@@ -530,7 +590,10 @@ function ClinicalTrialsComponent({ result, action, isStreaming = false }: Clinic
                   ) : (
                     <div /> 
                   )}
-                  <SaveButton trial={trial} />
+                  <div className="flex items-center gap-2">
+                    <EligibilityCheckerButton trial={match.trial} />
+                    <SaveButton trial={trial} />
+                  </div>
                 </div>
 
                 {/* Recommendations (if available) */}

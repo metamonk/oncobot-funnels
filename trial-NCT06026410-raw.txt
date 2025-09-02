@@ -1,0 +1,26 @@
+Inclusion Criteria:
+
+* At least 18 years of age.
+* Histologically or cytologically confirmed advanced solid tumors
+
+  * Arm #1 (Monotherapy): HRAS-mutant and/or amplified tumors (any solid tumor type); HRAS overexpression (only for HNSCC tumors); KRAS and/or NRAS, and/or HRAS-mutant and/or amplified NSCLC or CRC; KRAS-mutant and/or amplified PDAC
+  * Arm #2 (Combination): Must have received at least 1 prior systemic therapy with IO-based treatment for locally advanced or metastatic RCC
+  * Arm #3 (Combination): Must have KRAS G12C-mutant locally advanced or metastatic NSCLC, CRC, or PDAC and have received at least 1 prior systemic therapy for advanced or metastatic disease
+* Measurable disease by Response Evaluation Criteria in Solid Tumors (RECIST) v1.1.
+* Karnofsky Performance Status of 70 or higher with no clinically significant deterioration over the previous 2 weeks.
+* Acceptable liver, renal, endocrine, and hematologic function.
+* Other protocol-defined inclusion criteria may apply.
+
+Exclusion Criteria:
+
+* Ongoing treatment with certain anticancer agents.
+* Prior treatment with an FTI or HRAS inhibitor.
+* Major surgery, other than local procedures, within 28 days prior to Cycle 1 Day 1, without complete recovery.
+* Spinal cord compression, leptomeningeal disease, or clinically active CNS metastases.
+* Toxicity (excluding alopecia) from prior therapy that has not been completely resolved to baseline at the time of consent.
+* Active or prior documented autoimmune or inflammatory disorders within the past 5 years prior to Cycle 1 Day 1 (with exceptions).
+* Active, uncontrolled bacterial, viral, or fungal infections requiring systemic therapy.
+* Inability to swallow, impairment of gastrointestinal (GI) function or GI disease that may significantly alter the absorption of the trial drugs.
+* Inadequate cardiac and/or vascular function, including receipt of treatment for unstable angina, myocardial infarction, and/or cerebro-vascular attack within the prior 6 months, mean QTcF ≥470 ms, or Class II or greater congestive heart failure.
+* Other invasive malignancy within 2 years.
+* Other protocol-defined exclusion criteria may apply.

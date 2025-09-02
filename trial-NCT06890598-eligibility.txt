@@ -1,0 +1,26 @@
+Inclusion Criteria:
+
+* Histological or cytological confirmation of NSCLC.
+
+  * Part A
+
+    1. Clinical Stage II-IIIB (N2) treated with presurgical chemoimmunotherapy, with residual tumor present at time of surgery. Patients with a pathologic complete response are not eligible.
+    2. Pathologic Stage II-IIIB (N2) NSCLC treated with initial upfront resection.
+  * Part B - Clinical Stage III, unresectable NSCLC, without progression on concurrent platinum-based chemoradiotherapy.
+* Must have disease with evidence of KRAS G12C mutation.
+* Must have known programmed death-ligand 1 (PD-L1) expression
+* Must have an ECOG performance status of 0 or 1.
+* Able to swallow oral medication.
+* Must have adequate laboratory parameters.
+* Contraceptive use should be consistent with local regulations for those participating in clinical studies.
+* Women of childbearing potential must
+
+  * Have a negative pregnancy test.
+  * Not be breastfeeding during treatment
+
+Exclusion Criteria:
+
+* Have known changes in the EGFR or ALK genes.
+* Have another type of cancer that is progressing or required active treatment within the past 3 years before screening.
+* Have an active autoimmune disease that required systemic treatment in the past 2 years. Endocrine replacement therapy is allowed.
+* Had any immune-related side effect or allergic reaction (Grade 3 or higher) from a previous immunotherapy medicine, or any immune-related side effect greater than Grade 1 that has not resolved. This does not apply for people with hormone-related diseases who are now on stable hormone replacement therapy.
