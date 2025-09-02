@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils';
 import { 
   ChevronLeft, 
   ChevronRight, 
-  X, 
   Check, 
   ClipboardCheck, 
   AlertCircle, 
@@ -41,7 +40,7 @@ import {
   type EligibilityCheck 
 } from '@/lib/db/eligibility-queries';
 import { useSession } from '@/lib/auth-client';
-import { Mail, ExternalLink, Share2 } from 'lucide-react';
+import { Mail, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
 interface EligibilityCheckerModalProps {

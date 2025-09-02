@@ -6,7 +6,7 @@
  */
 
 import type { ClinicalTrial } from '@/lib/tools/clinical-trials/types';
-import type { HealthProfile } from '@/lib/health-profile-actions';
+import type { HealthProfile } from '@/lib/db/schema';
 
 /**
  * Represents a single eligibility criterion after AI interpretation

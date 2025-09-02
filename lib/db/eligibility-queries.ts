@@ -10,6 +10,12 @@ import {
 } from './schema';
 import { ChatSDKError } from '../errors';
 import { db } from './index';
+import type {
+  InterpretedCriterion,
+  EligibilityQuestion,
+  EligibilityResponse as EligibilityResponseType,
+  EligibilityAssessment,
+} from '@/lib/eligibility-checker/types';
 
 // Re-export types
 export type { EligibilityCheck, EligibilityResponse } from './schema';
@@ -73,10 +79,10 @@ export async function updateEligibilityCheck({
   eligibilityStatus: EligibilityStatus;
   eligibilityScore: number;
   confidence: 'high' | 'medium' | 'low';
-  criteria?: any;
-  questions?: any;
-  responses?: any;
-  assessment?: any;
+  criteria?: InterpretedCriterion[];
+  questions?: EligibilityQuestion[];
+  responses?: EligibilityResponseType[];
+  assessment?: EligibilityAssessment;
   matchedCriteria?: string[];
   unmatchedCriteria?: string[];
   uncertainCriteria?: string[];
@@ -260,7 +266,7 @@ export async function saveEligibilityCheckProgress({
   currentQuestionIndex,
 }: {
   id: string;
-  responses: any;
+  responses: EligibilityResponseType[];
   currentQuestionIndex?: number;
 }) {
   try {

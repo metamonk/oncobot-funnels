@@ -9,27 +9,28 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import {
   Check,
-  X,
   AlertCircle,
   Info,
   Share2,
   Mail,
-  ExternalLink,
   ClipboardCheck,
   Clock,
   Shield,
   Eye,
   EyeOff,
-  Copy,
   CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { EligibilityCheck } from '@/lib/db/eligibility-queries';
 import { updateEligibilityCheckVisibility, requestEmailForEligibilityCheck } from '@/lib/db/eligibility-queries';
+import type {
+  EligibilityQuestion,
+  EligibilityResponse as EligibilityResponseType,
+  EligibilityAssessment,
+} from '@/lib/eligibility-checker/types';
 
 interface EligibilityCheckResultsProps {
   check: EligibilityCheck;
@@ -40,7 +41,6 @@ export function EligibilityCheckResults({ check, isOwner }: EligibilityCheckResu
   const [visibility, setVisibility] = useState<'public' | 'private'>(check.visibility);
   const [emailAddress, setEmailAddress] = useState('');
   const [emailRequested, setEmailRequested] = useState(check.emailRequested);
-  const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
   
   // Get eligibility status display
@@ -109,10 +109,10 @@ export function EligibilityCheckResults({ check, isOwner }: EligibilityCheckResu
     }
   };
   
-  // Parse stored data
-  const assessment = check.assessment as any;
-  const questions = (check.questions as any[]) || [];
-  const responses = (check.responses as any[]) || [];
+  // Parse stored data with proper types
+  const assessment = check.assessment as EligibilityAssessment | null;
+  const questions = (check.questions as EligibilityQuestion[]) || [];
+  const responses = (check.responses as EligibilityResponseType[]) || [];
   const matchedCriteria = (check.matchedCriteria as string[]) || [];
   const unmatchedCriteria = (check.unmatchedCriteria as string[]) || [];
   const uncertainCriteria = (check.uncertainCriteria as string[]) || [];
@@ -278,8 +278,8 @@ export function EligibilityCheckResults({ check, isOwner }: EligibilityCheckResu
         
         <TabsContent value="responses" className="space-y-4">
           {questions.length > 0 ? (
-            questions.map((question: any, index: number) => {
-              const response = responses.find((r: any) => r.questionId === question.id);
+            questions.map((question, index) => {
+              const response = responses.find((r) => r.questionId === question.id);
               return (
                 <Card key={index}>
                   <CardHeader className="pb-3">
@@ -293,7 +293,15 @@ export function EligibilityCheckResults({ check, isOwner }: EligibilityCheckResu
                   <CardContent>
                     <div className="flex items-center gap-2">
                       <Badge variant={response?.value === true ? 'default' : response?.value === false ? 'destructive' : 'outline'}>
-                        {response?.value === true ? 'Yes' : response?.value === false ? 'No' : response?.value || 'Not Answered'}
+                        {response?.value === true 
+                          ? 'Yes' 
+                          : response?.value === false 
+                          ? 'No' 
+                          : response?.value instanceof Date 
+                          ? format(response.value, 'MMM d, yyyy')
+                          : Array.isArray(response?.value)
+                          ? response.value.join(', ')
+                          : String(response?.value || 'Not Answered')}
                       </Badge>
                     </div>
                   </CardContent>
