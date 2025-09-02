@@ -38,7 +38,7 @@ interface EligibilityCheck {
   duration?: number | null;
 }
 
-const ITEMS_PER_PAGE = 3; // Show fewer items to fit modal height without scrolling
+const ITEMS_PER_PAGE = 2; // Show only 2 items for better visual balance in modal
 
 export function EligibilityHistorySection() {
   const [checks, setChecks] = useState<EligibilityCheck[]>([]);
@@ -135,38 +135,66 @@ export function EligibilityHistorySection() {
     switch (status) {
       case 'LIKELY_ELIGIBLE':
       case 'ELIGIBLE':
-        return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+        return <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />;
       case 'POSSIBLY_ELIGIBLE':
-        return <AlertCircle className="h-4 w-4 text-yellow-600" />;
+        return <AlertCircle className="h-3.5 w-3.5 text-yellow-600" />;
       case 'UNCERTAIN':
-        return <AlertCircle className="h-4 w-4 text-gray-600" />;
+        return <AlertCircle className="h-3.5 w-3.5 text-gray-500" />;
       case 'LIKELY_INELIGIBLE':
+        return <AlertCircle className="h-3.5 w-3.5 text-orange-600" />;
       case 'INELIGIBLE':
-        return <XCircle className="h-4 w-4 text-red-600" />;
+        return <XCircle className="h-3.5 w-3.5 text-red-600" />;
       default:
-        return <Clock className="h-4 w-4 text-muted-foreground" />;
+        return <Clock className="h-3.5 w-3.5 text-muted-foreground" />;
     }
   };
 
   const getStatusBadge = (check: EligibilityCheck) => {
     if (check.status === 'in_progress') {
-      return <Badge variant="secondary">In Progress</Badge>;
+      return (
+        <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+          In Progress
+        </Badge>
+      );
     }
     
     if (check.status === 'abandoned') {
-      return <Badge variant="outline">Incomplete</Badge>;
+      return (
+        <Badge variant="outline" className="text-muted-foreground">
+          Incomplete
+        </Badge>
+      );
     }
     
     const statusMap = {
-      'LIKELY_ELIGIBLE': { label: 'Likely Eligible', variant: 'default' as const },
-      'POSSIBLY_ELIGIBLE': { label: 'Possibly Eligible', variant: 'secondary' as const },
-      'UNCERTAIN': { label: 'Uncertain', variant: 'outline' as const },
-      'LIKELY_INELIGIBLE': { label: 'Likely Ineligible', variant: 'secondary' as const },
-      'INELIGIBLE': { label: 'Ineligible', variant: 'destructive' as const },
+      'LIKELY_ELIGIBLE': { 
+        label: 'Likely Eligible', 
+        className: 'bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/20'
+      },
+      'POSSIBLY_ELIGIBLE': { 
+        label: 'Possibly Eligible', 
+        className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20 hover:bg-yellow-500/20'
+      },
+      'UNCERTAIN': { 
+        label: 'Uncertain', 
+        className: 'bg-gray-500/10 text-gray-600 border-gray-500/20 hover:bg-gray-500/20'
+      },
+      'LIKELY_INELIGIBLE': { 
+        label: 'Likely Ineligible', 
+        className: 'bg-orange-500/10 text-orange-600 border-orange-500/20 hover:bg-orange-500/20'
+      },
+      'INELIGIBLE': { 
+        label: 'Ineligible', 
+        className: 'bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/20'
+      },
     };
     
     const status = statusMap[check.eligibilityStatus || 'UNCERTAIN'];
-    return status ? <Badge variant={status.variant}>{status.label}</Badge> : null;
+    return status ? (
+      <Badge variant="outline" className={cn("border", status.className)}>
+        {status.label}
+      </Badge>
+    ) : null;
   };
 
   if (loading) {
@@ -248,55 +276,70 @@ export function EligibilityHistorySection() {
               )}
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {paginatedChecks.map((check) => (
-          <Card key={check.id} className="overflow-hidden">
-            <CardHeader className="pb-2 px-3 py-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <CardTitle className="line-clamp-1 text-sm">
-                    {check.trialTitle}
-                  </CardTitle>
-                  <CardDescription className="mt-0.5 text-xs">
-                    <span className="flex items-center gap-1">
-                      {getStatusIcon(check.eligibilityStatus)}
-                      <span>{check.nctId}</span>
-                      {check.completedAt && (
-                        <>
-                          <span className="mx-1">•</span>
-                          <span>{format(new Date(check.completedAt), 'MMM d')}</span>
-                        </>
-                      )}
-                    </span>
-                  </CardDescription>
+          <Card key={check.id} className="overflow-hidden border bg-card/50 hover:bg-card/80 transition-colors">
+            <CardHeader className="p-4">
+              <div className="space-y-3">
+                {/* Top Section: Title and Status Badge */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-sm font-medium leading-none tracking-tight line-clamp-2">
+                      {check.trialTitle}
+                    </CardTitle>
+                  </div>
+                  <div className="flex-shrink-0">
+                    {getStatusBadge(check)}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {getStatusBadge(check)}
-                </div>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="pt-0 px-3 pb-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  {check.eligibilityScore !== null && check.status === 'completed' && (
-                    <span>Score: {check.eligibilityScore}%</span>
-                  )}
-                  {check.confidence && (
-                    <span>Confidence: {check.confidence}</span>
-                  )}
-                  {check.duration && (
-                    <span>{Math.floor(check.duration / 60)}m {check.duration % 60}s</span>
+                
+                {/* Middle Section: NCT ID and Date */}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {getStatusIcon(check.eligibilityStatus)}
+                  <span className="font-mono">{check.nctId}</span>
+                  {check.completedAt && (
+                    <>
+                      <span className="text-muted-foreground/50">•</span>
+                      <span>{format(new Date(check.completedAt), 'MMM d, yyyy')}</span>
+                    </>
                   )}
                 </div>
                 
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    asChild
-                    className="h-8 px-2"
-                  >
+                {/* Bottom Section: Metrics and Actions */}
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="flex items-center gap-3">
+                    {check.eligibilityScore !== null && check.status === 'completed' && (
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">Score</span>
+                        <span className="text-sm font-medium">{check.eligibilityScore}%</span>
+                      </div>
+                    )}
+                    {check.confidence && (
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">Confidence</span>
+                        <span className="text-sm font-medium capitalize">{check.confidence}</span>
+                      </div>
+                    )}
+                    {check.duration && (
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">Duration</span>
+                        <span className="text-sm font-medium">
+                          {check.duration < 60 
+                            ? `${check.duration}s`
+                            : `${Math.floor(check.duration / 60)}m ${check.duration % 60}s`
+                          }
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="h-8 px-3 hover:bg-background"
+                    >
                     <Link href={`/eligibility/${check.id}`}>
                       <span className={cn("mr-1", isMobile && "sr-only")}>View</span>
                       <ChevronRight className="h-3 w-3" />
@@ -306,13 +349,14 @@ export function EligibilityHistorySection() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDelete(check.id)}
-                    className="h-8 px-2 text-destructive hover:text-destructive"
+                    className="h-8 px-2 text-muted-foreground hover:text-destructive"
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
-            </CardContent>
+            </div>
+          </CardHeader>
           </Card>
               ))}
             </div>
