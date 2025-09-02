@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { EligibilityCheckerModal } from '@/components/clinical-trials/eligibility-checker-modal';
+import type { HealthProfile } from '@/lib/tools/clinical-trials/types';
 
 interface EligibilityCheck {
   id: string;
@@ -46,11 +48,27 @@ export function EligibilityHistorySection() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [resumeCheck, setResumeCheck] = useState<EligibilityCheck | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [healthProfile, setHealthProfile] = useState<HealthProfile | null>(null);
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   useEffect(() => {
     fetchEligibilityHistory();
+    fetchHealthProfile();
   }, []);
+
+  const fetchHealthProfile = async () => {
+    try {
+      const response = await fetch('/api/health-profile');
+      if (response.ok) {
+        const profile = await response.json();
+        setHealthProfile(profile);
+      }
+    } catch (error) {
+      console.error('Failed to load health profile:', error);
+    }
+  };
 
   const fetchEligibilityHistory = async () => {
     try {
@@ -132,15 +150,9 @@ export function EligibilityHistorySection() {
   };
 
   const handleContinue = (check: EligibilityCheck) => {
-    // Store the check data for resuming
-    localStorage.setItem('resumeEligibilityCheck', JSON.stringify({
-      checkId: check.id,
-      nctId: check.nctId,
-      trialTitle: check.trialTitle
-    }));
-    
-    // Navigate to test eligibility page which will detect and resume
-    window.location.href = '/test-eligibility';
+    // Open modal directly with the check to resume
+    setResumeCheck(check);
+    setModalOpen(true);
   };
 
   const getStatusBadge = (check: EligibilityCheck) => {
@@ -388,6 +400,31 @@ export function EligibilityHistorySection() {
           </div>
         )}
       </div>
+      
+      {/* Eligibility Checker Modal for resuming */}
+      {resumeCheck && (
+        <EligibilityCheckerModal
+          open={modalOpen}
+          onOpenChange={(open) => {
+            setModalOpen(open);
+            if (!open) {
+              setResumeCheck(null);
+              // Refresh the list after closing
+              fetchEligibilityHistory();
+            }
+          }}
+          nctId={resumeCheck.nctId}
+          trialTitle={resumeCheck.trialTitle}
+          existingCheckId={resumeCheck.id}
+          healthProfile={healthProfile}
+          onComplete={() => {
+            setModalOpen(false);
+            setResumeCheck(null);
+            // Refresh the list to show updated status
+            fetchEligibilityHistory();
+          }}
+        />
+      )}
     </div>
   );
 }
