@@ -34,14 +34,20 @@ export async function POST(request: NextRequest) {
     if (trials && trials.length > 0) {
       const savePromises = trials.map(async (trial) => {
         try {
+          // Skip trials without required fields
+          if (!trial.title || !trial.trialSnapshot) {
+            results.errors.push({
+              nctId: trial.nctId,
+              error: 'Missing required fields'
+            });
+            return;
+          }
+          
           await savedTrialsService.saveTrial({
             userId: user.id,
             nctId: trial.nctId,
             title: trial.title,
-            trialSnapshot: trial.trialSnapshot,
-            searchContext: trial.searchContext,
-            notes: trial.notes,
-            tags: trial.tags
+            trialSnapshot: trial.trialSnapshot
           });
           results.saved.push(trial.nctId);
         } catch (error) {

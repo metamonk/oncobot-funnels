@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { SimplePagination, PaginationInfo } from '@/components/ui/simple-pagination';
 import { 
   Bookmark, 
   ExternalLink, 
@@ -16,15 +16,19 @@ import {
   Trash2,
   Edit2,
   Save,
-  X,
   FileDown,
-  Loader2
+  Loader2,
+  ClipboardCheck,
+  CheckCircle2
 } from 'lucide-react';
 import { useSavedTrials } from '@/hooks/use-saved-trials';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import type { SavedTrial, ClinicalTrial } from '@/lib/saved-trials/types';
+import type { SavedTrial as SavedTrialDB } from '@/lib/db/schema';
+import type { ClinicalTrial } from '@/lib/tools/clinical-trials/types';
+import { EligibilityCheckerModal } from '@/components/clinical-trials/eligibility-checker-modal';
+import Link from 'next/link';
 
 interface EditingState {
   id: string;
@@ -32,23 +36,61 @@ interface EditingState {
   tags: string[];
 }
 
+interface SavedTrialItem {
+  id: string;
+  userId: string;
+  nctId: string;
+  title: string;
+  notes: string | null;
+  tags: string[] | null;
+  savedAt: Date;
+  trialSnapshot: unknown;
+  lastEligibilityCheckId?: string | null;
+  eligibilityCheckCompleted?: boolean;
+}
+
+const ITEMS_PER_PAGE = 3; // Show fewer items to fit modal height without scrolling
+
 export function SavedTrialsSection() {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { savedTrials, loading, count, unsaveTrial, updateTrial, refresh } = useSavedTrials();
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [editingTrial, setEditingTrial] = useState<EditingState | null>(null);
   const [tagInput, setTagInput] = useState('');
+  const [eligibilityModalOpen, setEligibilityModalOpen] = useState(false);
+  const [selectedTrialForEligibility, setSelectedTrialForEligibility] = useState<{ nctId: string; title: string } | null>(null);
 
   // Filter trials based on search query
-  const filteredTrials = savedTrials.filter(trial => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      trial.title.toLowerCase().includes(searchLower) ||
-      trial.nctId.toLowerCase().includes(searchLower) ||
-      trial.notes?.toLowerCase().includes(searchLower) ||
-      trial.tags?.some(tag => tag.toLowerCase().includes(searchLower))
-    );
-  });
+  const filteredTrials = useMemo(() => {
+    return savedTrials.filter(trial => {
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        trial.title.toLowerCase().includes(searchLower) ||
+        trial.nctId.toLowerCase().includes(searchLower) ||
+        trial.notes?.toLowerCase().includes(searchLower) ||
+        trial.tags?.some(tag => tag.toLowerCase().includes(searchLower))
+      );
+    });
+  }, [savedTrials, searchQuery]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredTrials.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedTrials = filteredTrials.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  // Adjust current page if it's out of bounds after data changes
+  React.useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handleDelete = async (nctId: string) => {
     if (confirm('Are you sure you want to remove this trial from your saved list?')) {
@@ -56,7 +98,7 @@ export function SavedTrialsSection() {
     }
   };
 
-  const handleEdit = (trial: SavedTrial) => {
+  const handleEdit = (trial: SavedTrialItem) => {
     setEditingTrial({
       id: trial.id,
       notes: trial.notes || '',
@@ -86,6 +128,11 @@ export function SavedTrialsSection() {
   const handleCancelEdit = () => {
     setEditingTrial(null);
     setTagInput('');
+  };
+
+  const handleCheckEligibility = (trial: SavedTrialItem) => {
+    setSelectedTrialForEligibility({ nctId: trial.nctId, title: trial.title });
+    setEligibilityModalOpen(true);
   };
 
   const exportTrials = () => {
@@ -127,15 +174,15 @@ export function SavedTrialsSection() {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header with title and description - matching Customization tab style */}
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col h-full">
+      {/* Header with title and description - compact */}
+      <div className="flex items-center justify-between mb-3">
         <div>
           <Label className="text-sm font-medium">
             Saved Clinical Trials
           </Label>
-          <p className="text-xs text-muted-foreground mt-1">
-            Manage your saved trials and export them for medical appointments
+          <p className="text-xs text-muted-foreground">
+            {count} {count === 1 ? 'trial' : 'trials'} saved
           </p>
         </div>
         <Button
@@ -143,39 +190,37 @@ export function SavedTrialsSection() {
           variant="outline"
           size="sm"
           disabled={filteredTrials.length === 0}
-          className="h-9"
+          className="h-8 px-2"
         >
-          <FileDown className="h-3.5 w-3.5 mr-2" />
-          Export CSV
+          <FileDown className="h-3.5 w-3.5" />
+          <span className="ml-1.5 hidden sm:inline">Export</span>
         </Button>
       </div>
 
-      {/* Search and Count */}
-      <div className="space-y-3">
+      {/* Search - compact */}
+      <div className="mb-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search saved trials by title, NCT ID, notes, or tags..."
+            placeholder="Search trials..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 text-sm"
+            className="pl-8 h-8 text-sm"
           />
         </div>
         
-        {count > 0 && (
-          <p className="text-xs text-muted-foreground">
-            {filteredTrials.length === count 
-              ? `${count} ${count === 1 ? 'trial' : 'trials'} saved`
-              : `Showing ${filteredTrials.length} of ${count} saved ${count === 1 ? 'trial' : 'trials'}`
-            }
+        {searchQuery && filteredTrials.length !== count && (
+          <p className="text-xs text-muted-foreground mt-1">
+            Found {filteredTrials.length} of {count}
           </p>
         )}
       </div>
 
-      {/* Trials List */}
-      <ScrollArea className="h-[40vh] pr-1">
-        {filteredTrials.length === 0 ? (
+      {/* Trials List - fixed height */}
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1">
+          {filteredTrials.length === 0 ? (
           <div className="flex flex-col justify-center items-center h-32 border border-dashed rounded-lg bg-muted/20">
             {savedTrials.length === 0 ? (
               <>
@@ -199,16 +244,16 @@ export function SavedTrialsSection() {
               </>
             )}
           </div>
-        ) : (
-          <div className="space-y-2 pr-1">
-            {filteredTrials.map((trial) => {
-              const trialData = trial.trialSnapshot as ClinicalTrial;
+          ) : (
+            <div className="space-y-2">
+              {paginatedTrials.map((trial) => {
+              const trialData = (trial as SavedTrialItem).trialSnapshot as ClinicalTrial;
               const isEditing = editingTrial?.id === trial.id;
               
               return (
                 <div 
                   key={trial.id} 
-                  className="group relative bg-card/50 border rounded-lg p-3 hover:bg-card transition-all"
+                  className="group relative bg-card/50 border rounded-lg p-2.5 hover:bg-card transition-all"
                 >
                   <div className="pr-20">
                     <h4 className="font-medium text-sm line-clamp-2 mb-1.5">
@@ -220,22 +265,22 @@ export function SavedTrialsSection() {
                         {trial.nctId}
                       </Badge>
                       
-                      {trialData?.statusModule?.overallStatus && (
+                      {trialData?.protocolSection?.statusModule?.overallStatus && (
                         <Badge 
-                          variant={trialData.statusModule.overallStatus === 'RECRUITING' ? 'default' : 'secondary'}
+                          variant={trialData.protocolSection.statusModule.overallStatus === 'RECRUITING' ? 'default' : 'secondary'}
                           className="text-xs"
                         >
-                          {trialData.statusModule.overallStatus.replace(/_/g, ' ')}
+                          {trialData.protocolSection.statusModule.overallStatus.replace(/_/g, ' ')}
                         </Badge>
                       )}
                     </div>
 
                     {/* Location and Date */}
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      {trialData?.contactsLocationsModule?.locations?.[0] && (
+                      {trialData?.protocolSection?.contactsLocationsModule?.locations?.[0] && (
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
-                          {trialData.contactsLocationsModule.locations[0].city}
+                          {trialData.protocolSection.contactsLocationsModule.locations[0].city}
                         </span>
                       )}
                       <span className="flex items-center gap-1">
@@ -243,6 +288,22 @@ export function SavedTrialsSection() {
                         {new Date(trial.savedAt).toLocaleDateString()}
                       </span>
                     </div>
+
+                    {/* Eligibility Status */}
+                    {trial.eligibilityCheckCompleted && trial.lastEligibilityCheckId && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="outline" className="text-xs">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Eligibility Checked
+                        </Badge>
+                        <Link
+                          href={`/eligibility/${trial.lastEligibilityCheckId}`}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          View Results
+                        </Link>
+                      </div>
+                    )}
 
                     {/* Tags */}
                     {trial.tags && trial.tags.length > 0 && !isEditing && (
@@ -308,6 +369,18 @@ export function SavedTrialsSection() {
                       "touch-manipulation",
                       isMobile && "opacity-100"
                     )}>
+                      {!trial.eligibilityCheckCompleted && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleCheckEligibility(trial)}
+                          className="h-6 w-6"
+                          title="Check Eligibility"
+                        >
+                          <ClipboardCheck className="h-3 w-3" />
+                        </Button>
+                      )}
+                      
                       <Button
                         size="icon"
                         variant="ghost"
@@ -339,10 +412,45 @@ export function SavedTrialsSection() {
                   )}
                 </div>
               );
-            })}
+              })}
+            </div>
+          )}
+        </div>
+        
+        {/* Pagination - compact */}
+        {filteredTrials.length > 0 && totalPages > 1 && (
+          <div className="border-t pt-3 mt-auto">
+            <SimplePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              className="justify-center"
+              showPageNumbers={totalPages <= 5}
+            />
+            <PaginationInfo
+              currentPage={currentPage}
+              pageSize={ITEMS_PER_PAGE}
+              totalItems={filteredTrials.length}
+              className="text-center text-xs text-muted-foreground mt-2"
+            />
           </div>
         )}
-      </ScrollArea>
+      </div>
+      
+      {/* Eligibility Checker Modal */}
+      {selectedTrialForEligibility && (
+        <EligibilityCheckerModal
+          open={eligibilityModalOpen}
+          onOpenChange={setEligibilityModalOpen}
+          nctId={selectedTrialForEligibility.nctId}
+          trialTitle={selectedTrialForEligibility.title}
+          onComplete={() => {
+            // Don't close the modal - let user review results
+            // Just refresh the saved trials list to show the updated status
+            refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

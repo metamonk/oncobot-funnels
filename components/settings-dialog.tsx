@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import {
   getHistoricalUsage,
@@ -24,7 +23,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { getAllMemories, searchMemories, deleteMemory, MemoryItem } from '@/lib/memory-actions';
-import { Loader2, Search, Trash2, Settings, Search as SearchIcon, Zap, TrendingUp, User, TrendingUp as ChartLineUpIcon, Brain, Calendar, NotebookPen, Heart, Bookmark } from 'lucide-react';
+import { Loader2, Search, Trash2, Settings, Search as SearchIcon, Zap, TrendingUp, User, TrendingUp as ChartLineUpIcon, Brain, Calendar, NotebookPen, Heart, Bookmark, ClipboardCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
@@ -32,6 +31,7 @@ import { useTheme } from 'next-themes';
 import { Switch } from '@/components/ui/switch';
 import { HealthProfileSection } from '@/components/health-profile/HealthProfileSection';
 import { SavedTrialsSection } from '@/components/settings/saved-trials-section';
+import { EligibilityHistorySection } from '@/components/settings/eligibility-history-section';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -624,9 +624,11 @@ export function SettingsDialog({
     { value: 'profile', label: 'Account', icon: User },
     { value: 'health', label: 'Health Profile', icon: Heart },
     { value: 'saved-trials', label: 'Saved Trials', icon: Bookmark },
+    { value: 'eligibility', label: 'Eligibility', icon: ClipboardCheck },
     { value: 'usage', label: 'Usage', icon: ChartLineUpIcon },
     { value: 'instructions', label: 'Customize', icon: NotebookPen },
-    { value: 'memories', label: 'Memories', icon: Brain },
+    // Hidden but not removed - memories feature still functional
+    // { value: 'memories', label: 'Memories', icon: Brain },
   ];
 
   const contentSections = (
@@ -641,6 +643,10 @@ export function SettingsDialog({
 
       <TabsContent value="saved-trials" className="mt-0">
         <SavedTrialsSection />
+      </TabsContent>
+
+      <TabsContent value="eligibility" className="mt-0">
+        <EligibilityHistorySection />
       </TabsContent>
 
       <TabsContent value="usage" className="mt-0">
@@ -678,7 +684,7 @@ export function SettingsDialog({
 
               {/* Bottom tab navigation - compact and accessible */}
               <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-4 shrink-0">
-                <TabsList className="w-full h-14 p-1 bg-transparent rounded-none grid grid-cols-6 gap-1">
+                <TabsList className="w-full h-14 p-1 bg-transparent rounded-none grid grid-cols-7 gap-1">
                   {tabItems.map((item) => (
                     <TabsTrigger
                       key={item.value}
@@ -714,12 +720,12 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-4xl !w-full max-h-[85vh] !p-0 gap-0 overflow-hidden">
-        <DialogHeader className="p-4 !m-0">
+      <DialogContent className="!max-w-4xl !w-full h-[85vh] !p-0 gap-0 flex flex-col">
+        <DialogHeader className="p-4 !m-0 shrink-0">
           <DialogTitle className="text-xl font-medium tracking-normal">Settings</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 min-h-0">
           {/* Sidebar Navigation */}
           <div className="w-48 !m-0">
             <div className="p-2 !gap-1 flex flex-col">
@@ -742,15 +748,13 @@ export function SettingsDialog({
             </div>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-hidden">
-            <ScrollArea className="h-[calc(85vh-120px)]">
-              <div className="p-6 pb-8">
-                <Tabs value={currentTab} onValueChange={setCurrentTab} orientation="vertical">
-                  {contentSections}
-                </Tabs>
-              </div>
-            </ScrollArea>
+          {/* Content - no scrolling, fixed height */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 p-6 overflow-hidden">
+              <Tabs value={currentTab} onValueChange={setCurrentTab} orientation="vertical" className="h-full">
+                {contentSections}
+              </Tabs>
+            </div>
           </div>
         </div>
       </DialogContent>

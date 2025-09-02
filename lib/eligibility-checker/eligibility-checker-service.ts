@@ -127,7 +127,7 @@ export class EligibilityCheckerService {
 
     try {
       // Call the AI parsing API with proper URL
-      const response = await fetch(this.getApiUrl('/api/eligibility-check/parse'), {
+      const response = await fetch(this.getApiUrl('/api/eligibility/parse'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

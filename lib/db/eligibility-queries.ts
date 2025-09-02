@@ -1,5 +1,3 @@
-import 'server-only';
-
 import { and, desc, eq, type SQL } from 'drizzle-orm';
 import { generateId } from 'ai';
 import {
@@ -47,10 +45,16 @@ export async function createEligibilityCheck({
       nctId,
       trialId,
       trialTitle,
-      healthProfileId,
+      healthProfileId: healthProfileId || null,
       shareToken,
       status: 'in_progress',
       visibility: 'private',
+      emailRequested: false,
+      consentGiven: false,
+      disclaimerAccepted: false,
+      dataRetentionConsent: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }).returning();
     
     return check;
@@ -72,6 +76,7 @@ export async function updateEligibilityCheck({
   matchedCriteria,
   unmatchedCriteria,
   uncertainCriteria,
+  excludedCriteria,
   completedAt,
   duration,
 }: {
@@ -86,10 +91,16 @@ export async function updateEligibilityCheck({
   matchedCriteria?: string[];
   unmatchedCriteria?: string[];
   uncertainCriteria?: string[];
-  completedAt?: Date;
+  excludedCriteria?: string[];
+  completedAt?: Date | string;
   duration?: number;
 }) {
   try {
+    // Ensure completedAt is a Date object
+    const completedDate = completedAt 
+      ? (typeof completedAt === 'string' ? new Date(completedAt) : completedAt)
+      : new Date();
+      
     const [updated] = await db
       .update(eligibilityCheck)
       .set({
@@ -104,7 +115,8 @@ export async function updateEligibilityCheck({
         matchedCriteria,
         unmatchedCriteria,
         uncertainCriteria,
-        completedAt: completedAt || new Date(),
+        excludedCriteria,
+        completedAt: completedDate,
         duration,
         updatedAt: new Date(),
       })
@@ -200,6 +212,7 @@ export async function getEligibilityChecksByUserId({
       
     return checks;
   } catch (error) {
+    console.error('Database error in getEligibilityChecksByUserId:', error);
     throw new ChatSDKError('bad_request:database', 'Failed to get eligibility checks by user id');
   }
 }

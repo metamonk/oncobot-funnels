@@ -25,7 +25,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import type { ClinicalTrial } from '@/lib/tools/clinical-trials/types';
-import type { HealthProfile } from '@/lib/db/schema';
+import type { HealthProfile } from '@/lib/tools/clinical-trials/types';
 import { 
   eligibilityCheckerService,
   type InterpretedCriterion, 
@@ -34,19 +34,39 @@ import {
   type EligibilityAssessment,
   type ResponseValue
 } from '@/lib/eligibility-checker';
-import { 
-  createEligibilityCheck, 
-  updateEligibilityCheck,
-  type EligibilityCheck 
-} from '@/lib/db/eligibility-queries';
+// Database types only - operations via API
+export type EligibilityCheck = {
+  id: string;
+  userId: string;
+  nctId: string;
+  trialId: string;
+  trialTitle: string;
+  healthProfileId?: string | null;
+  status: 'in_progress' | 'completed' | 'abandoned';
+  eligibilityStatus?: 'LIKELY_ELIGIBLE' | 'POSSIBLY_ELIGIBLE' | 'UNCERTAIN' | 'LIKELY_INELIGIBLE' | 'INELIGIBLE' | null;
+  eligibilityScore?: number | null;
+  confidence?: 'high' | 'medium' | 'low' | null;
+  visibility: 'public' | 'private';
+  shareToken?: string | null;
+  emailRequested: boolean;
+  emailAddress?: string | null;
+  emailSentAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt?: Date | null;
+  duration?: number | null;
+};
 import { useSession } from '@/lib/auth-client';
 import { Mail, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
+// Support both full trial object or just NCT ID and title
 interface EligibilityCheckerModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  trial: ClinicalTrial;
+  trial?: ClinicalTrial;
+  nctId?: string;
+  trialTitle?: string;
   healthProfile?: HealthProfile | null;
   onComplete?: (assessment: EligibilityAssessment) => void;
 }
@@ -55,6 +75,8 @@ export function EligibilityCheckerModal({
   open,
   onOpenChange,
   trial,
+  nctId: propNctId,
+  trialTitle: propTrialTitle,
   healthProfile,
   onComplete,
 }: EligibilityCheckerModalProps) {
@@ -77,19 +99,22 @@ export function EligibilityCheckerModal({
   const [emailAddress, setEmailAddress] = useState('');
   const [startTime] = useState(Date.now());
   
-  // Get trial title for display
-  const trialTitle = trial.protocolSection?.identificationModule?.briefTitle || 
-                    trial.protocolSection?.identificationModule?.nctId || 
+  // Get trial title and NCT ID - support both full trial object and direct props
+  const trialTitle = propTrialTitle || 
+                    trial?.protocolSection?.identificationModule?.briefTitle || 
+                    trial?.protocolSection?.identificationModule?.nctId || 
                     'Clinical Trial';
   
-  const nctId = trial.protocolSection?.identificationModule?.nctId || 'Unknown';
+  const nctId = propNctId || 
+               trial?.protocolSection?.identificationModule?.nctId || 
+               'Unknown';
   
   // Initialize eligibility check
   useEffect(() => {
     if (!open) return;
     
-    // Validate trial data
-    if (!trial?.protocolSection) {
+    // Validate we have either a trial object or NCT ID
+    if (!trial?.protocolSection && !propNctId) {
       setError('Invalid trial data. Please try again.');
       setLoading(false);
       return;
@@ -105,27 +130,45 @@ export function EligibilityCheckerModal({
         // This ensures we get the latest parsing logic, not old cached results
         eligibilityCheckerService.clearCache(nctId);
         
-        // IMPORTANT: Fetch FULL trial data from API instead of using compressed version
-        // The trial prop may be compressed with truncated eligibility criteria (500 chars)
-        // We need the FULL text to parse all 20+ criteria correctly
+        // IMPORTANT: Fetch FULL trial data from API
+        // Either because we only have NCT ID, or because the trial prop may be compressed
         let fullTrial = trial;
-        try {
-          console.log(`[Eligibility Checker] Fetching full trial data for ${nctId}`);
-          const response = await fetch(`https://clinicaltrials.gov/api/v2/studies/${nctId}`);
-          if (response.ok) {
-            fullTrial = await response.json();
-            const fullCriteriaLength = fullTrial.protocolSection?.eligibilityModule?.eligibilityCriteria?.length || 0;
-            console.log(`[Eligibility Checker] Got full trial data: ${fullCriteriaLength} chars of criteria`);
-          } else {
-            console.warn(`[Eligibility Checker] Could not fetch full trial, using provided data`);
+        
+        // Always fetch if we don't have a trial object, or if we need full criteria
+        if (!trial || propNctId) {
+          try {
+            console.log(`[Eligibility Checker] Fetching full trial data for ${nctId}`);
+            const response = await fetch(`https://clinicaltrials.gov/api/v2/studies/${nctId}`);
+            if (response.ok) {
+              fullTrial = await response.json();
+              const fullCriteriaLength = fullTrial?.protocolSection?.eligibilityModule?.eligibilityCriteria?.length || 0;
+              console.log(`[Eligibility Checker] Got full trial data: ${fullCriteriaLength} chars of criteria`);
+            } else {
+              console.error(`[Eligibility Checker] Failed to fetch trial data for ${nctId}`);
+              if (!trial) {
+                setError('Failed to load trial information. Please try again.');
+                setLoading(false);
+                return;
+              }
+            }
+          } catch (fetchError) {
+            console.error(`[Eligibility Checker] Error fetching full trial:`, fetchError);
+            if (!trial) {
+              setError('Failed to load trial information. Please try again.');
+              setLoading(false);
+              return;
+            }
           }
-        } catch (fetchError) {
-          console.warn(`[Eligibility Checker] Error fetching full trial:`, fetchError);
-          // Continue with the provided trial data
         }
         
         // Parse eligibility criteria using AI or fallback
-        const parsedCriteria = await eligibilityCheckerService.parseEligibilityCriteria(fullTrial);
+        const trialToUse = fullTrial || trial;
+        if (!trialToUse) {
+          setError('No trial data available.');
+          setLoading(false);
+          return;
+        }
+        const parsedCriteria = await eligibilityCheckerService.parseEligibilityCriteria(trialToUse);
         
         // Log for debugging in production
         console.log(`[Eligibility Checker] Trial ${nctId}:`);
@@ -148,7 +191,7 @@ export function EligibilityCheckerModal({
         // Generate questions based on criteria
         const generatedQuestions = await eligibilityCheckerService.generateQuestions(
           parsedCriteria, 
-          healthProfile
+          healthProfile as HealthProfile | null | undefined
         );
         
         console.log(`  Generated ${generatedQuestions.length} questions`);
@@ -166,14 +209,25 @@ export function EligibilityCheckerModal({
         // Create eligibility check record in database if user is logged in
         if (user?.id) {
           try {
-            const check = await createEligibilityCheck({
-              userId: user.id,
-              nctId,
-              trialId: nctId,
-              trialTitle,
-              healthProfileId: healthProfile?.id,
+            const response = await fetch('/api/eligibility', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'create',
+                userId: user.id,
+                nctId,
+                trialId: nctId,
+                trialTitle,
+                healthProfileId: healthProfile?.id,
+              }),
             });
-            setEligibilityCheck(check);
+            
+            if (response.ok) {
+              const check = await response.json();
+              setEligibilityCheck(check);
+            } else {
+              console.error('Failed to create eligibility check record');
+            }
           } catch (dbError) {
             console.error('Failed to create eligibility check record:', dbError);
             // Continue without saving - non-critical
@@ -189,7 +243,7 @@ export function EligibilityCheckerModal({
     };
     
     initializeEligibility();
-  }, [open, trial, healthProfile, user?.id]);
+  }, [open, trial, propNctId, propTrialTitle, healthProfile, user?.id]);
   
   // Calculate progress
   const progress = questions.length > 0 
@@ -269,21 +323,31 @@ export function EligibilityCheckerModal({
         if (eligibilityCheck?.id && user?.id) {
           try {
             const duration = Math.floor((Date.now() - startTime) / 1000);
-            await updateEligibilityCheck({
-              id: eligibilityCheck.id,
-              eligibilityStatus,
-              eligibilityScore,
-              confidence,
-              criteria,
-              questions,
-              responses: responseArray,
-              assessment: finalAssessment,
-              matchedCriteria: finalAssessment.qualifications,
-              unmatchedCriteria: finalAssessment.concerns,
-              uncertainCriteria: [],
-              completedAt: new Date(),
-              duration,
+            const response = await fetch('/api/eligibility', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'update',
+                id: eligibilityCheck.id,
+                eligibilityStatus,
+                eligibilityScore,
+                confidence,
+                criteria,
+                questions,
+                responses: responseArray,
+                assessment: finalAssessment,
+                matchedCriteria: finalAssessment.matchedInclusionCriteria || finalAssessment.qualifications,
+                unmatchedCriteria: finalAssessment.unmatchedInclusionCriteria || finalAssessment.concerns.filter((c: string) => !c.startsWith('Excluded due to:')),
+                uncertainCriteria: [],
+                excludedCriteria: finalAssessment.triggeredExclusionCriteria || finalAssessment.concerns.filter((c: string) => c.startsWith('Excluded due to:')),
+                completedAt: new Date(),
+                duration,
+              }),
             });
+            
+            if (!response.ok) {
+              console.error('Failed to save eligibility check');
+            }
           } catch (saveError) {
             console.error('Failed to save eligibility check:', saveError);
             // Don't show error to user as this is non-critical
@@ -442,7 +506,7 @@ export function EligibilityCheckerModal({
           action: () => {
             // TODO: Trigger business backend automation
             toast.success('Your interest has been recorded. Our team will contact you soon.');
-            onOpenChange(false);
+            // Keep modal open so user can see results, use email feature, etc.
           }
         };
       case 'POSSIBLY_ELIGIBLE':
@@ -452,7 +516,7 @@ export function EligibilityCheckerModal({
           action: () => {
             // TODO: Trigger expert review workflow
             toast.success('Your case has been submitted for expert review.');
-            onOpenChange(false);
+            // Keep modal open so user can see results, use email feature, etc.
           }
         };
       case 'UNCERTAIN':
@@ -462,7 +526,7 @@ export function EligibilityCheckerModal({
           action: () => {
             // TODO: Trigger review workflow
             toast.success('Your eligibility check has been submitted for review.');
-            onOpenChange(false);
+            // Keep modal open so user can see results, use email feature, etc.
           }
         };
       case 'LIKELY_INELIGIBLE':
@@ -470,7 +534,10 @@ export function EligibilityCheckerModal({
         return {
           label: 'See other trials',
           variant: 'outline' as const,
-          action: () => onOpenChange(false)
+          action: () => {
+            // Navigate to search or close modal
+            onOpenChange(false);
+          }
         };
       default:
         return null;
@@ -482,9 +549,22 @@ export function EligibilityCheckerModal({
     if (!emailAddress || !eligibilityCheck?.id) return;
     
     try {
-      // TODO: Implement email API endpoint
-      toast.success('Results will be emailed to you shortly.');
-      setEmailRequested(true);
+      const response = await fetch('/api/eligibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'requestEmail',
+          id: eligibilityCheck.id,
+          emailAddress,
+        }),
+      });
+      
+      if (response.ok) {
+        toast.success('Results will be emailed to you shortly.');
+        setEmailRequested(true);
+      } else {
+        toast.error('Failed to send email. Please try again.');
+      }
     } catch (error) {
       toast.error('Failed to send email. Please try again.');
     }
@@ -504,22 +584,25 @@ export function EligibilityCheckerModal({
     const smartCTA = getSmartCTA();
     
     return (
-      <div className="space-y-6">
-        {/* Results Header */}
-        <div className={cn("p-6 rounded-lg border-2 text-center space-y-3", eligibilityColor)}>
-          <div className="text-2xl font-bold">
-            {assessment.overallEligibility.replace(/_/g, ' ')}
-          </div>
-          <div className="text-sm opacity-90">
-            Confidence Level: {Math.round(assessment.confidence * 100)}%
-          </div>
-          {assessment.summary && (
-            <p className="text-sm mt-2 opacity-80">{assessment.summary}</p>
-          )}
-        </div>
-        
-        {/* Detailed Results */}
-        <div className="space-y-4">
+      <div className="flex flex-col h-full">
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto pr-2 -mr-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-muted/30 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50">
+          <div className="space-y-6">
+            {/* Results Header */}
+            <div className={cn("p-6 rounded-lg border-2 text-center space-y-3", eligibilityColor)}>
+              <div className="text-2xl font-bold">
+                {assessment.overallEligibility.replace(/_/g, ' ')}
+              </div>
+              <div className="text-sm opacity-90">
+                Confidence Level: {Math.round(assessment.confidence * 100)}%
+              </div>
+              {assessment.summary && (
+                <p className="text-sm mt-2 opacity-80">{assessment.summary}</p>
+              )}
+            </div>
+            
+            {/* Detailed Results */}
+            <div className="space-y-4">
           {assessment.qualifications.length > 0 && (
             <div className="space-y-2">
               <h4 className="font-semibold flex items-center gap-2">
@@ -547,37 +630,47 @@ export function EligibilityCheckerModal({
               </ul>
             </div>
           )}
-        </div>
-        
-        {/* Email Results Option */}
-        {!emailRequested && user && (
-          <div className="border-t pt-4">
-            <div className="space-y-3">
-              <Label htmlFor="email">Email results to:</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter email address"
-                  value={emailAddress}
-                  onChange={(e) => setEmailAddress(e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  onClick={handleEmailRequest}
-                  disabled={!emailAddress}
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  Send
-                </Button>
-              </div>
+            </div>
+            
+            {/* Email Results CTA - Single unified form */}
+            {!emailRequested && eligibilityCheck?.id && (
+          <div className="border rounded-lg p-4 space-y-3 bg-muted/30 mb-6">
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-muted-foreground" />
+              <p className="text-sm font-medium">Get Results via Email</p>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="Enter your email address"
+                value={emailAddress}
+                onChange={(e) => setEmailAddress(e.target.value)}
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleEmailRequest}
+                disabled={!emailAddress}
+                size="sm"
+              >
+                Send
+              </Button>
             </div>
           </div>
-        )}
+            )}
+            
+            {emailRequested && (
+              <Alert className="mb-6">
+                <Check className="w-4 h-4" />
+                <AlertDescription>
+                  Results have been sent to your email address.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </div>
         
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-4">
+        {/* Sticky Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-4 mt-auto border-t">
           {smartCTA && (
             <Button
               className="flex-1"
@@ -594,22 +687,23 @@ export function EligibilityCheckerModal({
               className="flex-1"
               asChild
             >
-              <Link href={`/eligibility-check/${eligibilityCheck.id}`} target="_blank">
+              <Link href={`/eligibility/${eligibilityCheck.id}`} target="_blank">
                 <ExternalLink className="w-4 h-4 mr-2" />
                 View Full Results
               </Link>
             </Button>
           )}
-        </div>
-        
-        {/* Close button for non-eligible cases */}
-        {!smartCTA && (
-          <div className="flex justify-center">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+          
+          {/* Add close button only when no other actions available */}
+          {!smartCTA && !eligibilityCheck?.id && (
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Close
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   };
@@ -618,7 +712,8 @@ export function EligibilityCheckerModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={cn(
         showingResults ? "max-w-3xl" : "max-w-2xl",
-        isMobile && "h-full max-h-full rounded-none"
+        isMobile && "h-full max-h-full rounded-none",
+        !isMobile && showingResults && "h-[85vh] flex flex-col"
       )}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -637,6 +732,10 @@ export function EligibilityCheckerModal({
           </div>
         </DialogHeader>
         
+        <div className={cn(
+          "flex-1 min-h-0",
+          showingResults && "flex flex-col"
+        )}>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -649,7 +748,7 @@ export function EligibilityCheckerModal({
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
-        ) : assessment ? (
+        ) : showingResults && assessment ? (
           renderAssessment()
         ) : currentQuestion ? (
           <div className="space-y-6">
@@ -717,6 +816,7 @@ export function EligibilityCheckerModal({
             </div>
           </div>
         ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   );

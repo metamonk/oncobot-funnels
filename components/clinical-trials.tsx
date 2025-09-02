@@ -31,7 +31,8 @@ import { TrialSaveButton } from './clinical-trials/trial-save-button';
 import { EligibilityCheckerModal } from './clinical-trials/eligibility-checker-modal';
 import type { EligibilityAssessment } from '@/lib/eligibility-checker';
 import type { ClinicalTrial } from '@/lib/saved-trials/types';
-import { getUserHealthProfile, type HealthProfile } from '@/lib/health-profile-actions';
+import { getUserHealthProfile } from '@/lib/health-profile-actions';
+import type { HealthProfile } from '@/lib/tools/clinical-trials/types';
 
 // Type definitions
 interface CriteriaItem {
@@ -287,7 +288,8 @@ function EligibilityCheckerButton({ trial }: { trial: ClinicalTrial }) {
       eligibility: assessment.overallEligibility,
       confidence: assessment.confidence
     });
-    setModalOpen(false);
+    // Don't close modal - let user review results and use features
+    // User can close it manually when ready
   };
   
   return (

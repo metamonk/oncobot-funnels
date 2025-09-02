@@ -275,9 +275,10 @@ export const eligibilityCheck = pgTable('eligibility_check', {
   assessment: json('assessment'), // EligibilityAssessment
   
   // Criteria matching
-  matchedCriteria: json('matchedCriteria'), // Array of matched criteria IDs
-  unmatchedCriteria: json('unmatchedCriteria'), // Array of unmatched criteria IDs
-  uncertainCriteria: json('uncertainCriteria'), // Array of uncertain criteria IDs
+  matchedCriteria: json('matchedCriteria'), // Array of matched inclusion criteria
+  unmatchedCriteria: json('unmatchedCriteria'), // Array of unmatched inclusion criteria
+  uncertainCriteria: json('uncertainCriteria'), // Array of uncertain criteria
+  excludedCriteria: json('excludedCriteria'), // Array of triggered exclusion criteria
   
   // Sharing and visibility
   visibility: varchar('visibility', { 

@@ -64,12 +64,18 @@ export interface SavedTrial {
   nctId: string;
   title: string;
   notes?: string | null;
-  tags?: string[];
+  tags?: string[] | null;
   searchContext?: SearchContext | null;
   trialSnapshot: ClinicalTrial;
   lastUpdated: Date;
   savedAt: Date;
   healthProfileSnapshot?: HealthProfileSnapshot | null;
+  lastEligibilityCheckId?: string | null;
+  eligibilityCheckCompleted?: boolean;
+  notificationSettings?: {
+    statusChange?: boolean;
+    enrollmentClosing?: boolean;
+  } | null;
 }
 
 // Search context when a trial was saved

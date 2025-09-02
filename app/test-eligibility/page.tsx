@@ -22,7 +22,7 @@ export default function TestEligibilityPage() {
       const eligibilityCriteria = trial.protocolSection?.eligibilityModule?.eligibilityCriteria || '';
       
       // Parse eligibility
-      const parseResponse = await fetch('/api/eligibility-check/parse', {
+      const parseResponse = await fetch('/api/eligibility/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ eligibilityCriteria, nctId }),

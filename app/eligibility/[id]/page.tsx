@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     description: 'Clinical trial eligibility check results',
     openGraph: {
       title,
-      url: `${config.app.url}/eligibility-check/${id}`,
+      url: `${config.app.url}/eligibility/${id}`,
       description: 'Clinical trial eligibility check results',
       siteName: 'OncoBot',
       images: [
@@ -52,9 +52,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     twitter: {
       card: 'summary_large_image',
       title,
-      url: `${config.app.url}/eligibility-check/${id}`,
       description: 'Clinical trial eligibility check results',
-      siteName: 'OncoBot',
+      site: '@oncobot',
       creator: '@oncobot',
       images: [
         {
@@ -65,7 +64,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       ],
     },
     alternates: {
-      canonical: `${config.app.url}/eligibility-check/${id}`,
+      canonical: `${config.app.url}/eligibility/${id}`,
     },
   };
 }
@@ -102,5 +101,20 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     return notFound();
   }
   
-  return <EligibilityCheckResults check={check} isOwner={accessMode === 'owner'} />;
+  // Fetch trial locations
+  let trialLocations = [];
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/clinical-trials/details?nctId=${check.nctId}`,
+      { cache: 'force-cache' }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      trialLocations = data?.protocolSection?.contactsLocationsModule?.locations || [];
+    }
+  } catch (error) {
+    console.error('Failed to fetch trial locations:', error);
+  }
+  
+  return <EligibilityCheckResults check={check} isOwner={accessMode === 'owner'} trialLocations={trialLocations} />;
 }
