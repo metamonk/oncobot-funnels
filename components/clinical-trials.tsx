@@ -32,7 +32,7 @@ import { EligibilityCheckerModal } from './clinical-trials/eligibility-checker-m
 import type { EligibilityAssessment } from '@/lib/eligibility-checker';
 import type { ClinicalTrial } from '@/lib/saved-trials/types';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
-import type { HealthProfile } from '@/lib/tools/clinical-trials/types';
+import type { HealthProfile, TreatmentHistoryItem, MolecularMarkers, Complication } from '@/lib/tools/clinical-trials/types';
 
 // Type definitions
 interface CriteriaItem {
@@ -269,7 +269,15 @@ function EligibilityCheckerButton({ trial }: { trial: ClinicalTrial }) {
     if (modalOpen) {
       getUserHealthProfile().then(data => {
         if (data?.profile) {
-          setHealthProfile(data.profile);
+          // Cast the profile data to properly typed HealthProfile
+          const typedProfile: HealthProfile = {
+            ...data.profile,
+            dateOfBirth: data.profile.dateOfBirth || undefined, // Convert null to undefined
+            treatmentHistory: data.profile.treatmentHistory as string[] | TreatmentHistoryItem[] | undefined,
+            molecularMarkers: data.profile.molecularMarkers as MolecularMarkers | undefined,
+            complications: data.profile.complications as string[] | Complication[] | undefined,
+          };
+          setHealthProfile(typedProfile);
         }
       }).catch(console.error);
     }
