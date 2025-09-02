@@ -361,9 +361,12 @@ export function EligibilityCheckerModal({
         const responseArray = Object.values(responses);
         
         // Perform eligibility assessment
+        // Parameters: responses, criteria, trialId, healthProfile (optional)
         const finalAssessment = await eligibilityCheckerService.assessEligibility(
+          responseArray,
           criteria,
-          responseArray
+          nctId,
+          healthProfile
         );
         
         // Add trial ID to assessment

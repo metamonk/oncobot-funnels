@@ -117,8 +117,10 @@ async function testEligibilityChecker() {
     console.log('------------------------');
     
     const assessment = await eligibilityCheckerService.assessEligibility(
+      mockResponses,
       criteria,
-      mockResponses
+      nctId,
+      null
     );
     
     console.log(`Overall Eligibility: ${assessment.overallEligibility}`);

@@ -131,8 +131,10 @@ async function testEligibilityChecker() {
     }));
     
     const assessment = await eligibilityCheckerService.assessEligibility(
+      mockResponses,
       criteria,
-      mockResponses
+      'NCT-TEST-001',
+      null
     );
     
     console.log(`Overall Eligibility: ${assessment.overallEligibility}`);

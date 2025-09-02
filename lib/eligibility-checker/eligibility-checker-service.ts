@@ -322,13 +322,13 @@ export class EligibilityCheckerService {
       overallEligibility = 'ELIGIBLE';
       confidence = 0.85;
     } else if (inclusionPercentage >= 70) {
-      overallEligibility = 'LIKELY_ELIGIBLE';
+      overallEligibility = 'POSSIBLY_ELIGIBLE';
       confidence = 0.7;
     } else if (inclusionPercentage >= 50) {
       overallEligibility = 'POSSIBLY_ELIGIBLE';
       confidence = 0.5;
     } else {
-      overallEligibility = 'UNLIKELY_ELIGIBLE';
+      overallEligibility = 'NOT_ELIGIBLE';
       confidence = 0.4;
     }
 
@@ -420,16 +420,14 @@ export class EligibilityCheckerService {
     switch (eligibility) {
       case 'ELIGIBLE':
         return `You appear to be eligible for this trial, meeting ${inclusionMet}/${inclusionTotal} inclusion criteria (${inclusionPercent}%) with no exclusions.`;
-      case 'LIKELY_ELIGIBLE':
-        return `You are likely eligible for this trial, meeting ${inclusionMet}/${inclusionTotal} inclusion criteria (${inclusionPercent}%) with no exclusions.`;
       case 'POSSIBLY_ELIGIBLE':
         return `You may be eligible for this trial, meeting ${inclusionMet}/${inclusionTotal} inclusion criteria (${inclusionPercent}%).`;
-      case 'UNLIKELY_ELIGIBLE':
-        return `You are unlikely to be eligible, meeting only ${inclusionMet}/${inclusionTotal} inclusion criteria (${inclusionPercent}%).`;
       case 'NOT_ELIGIBLE':
         return exclusionHit > 0 
           ? `You do not appear eligible due to ${exclusionHit} exclusion criteria.`
           : `You do not meet the minimum inclusion criteria (${inclusionMet}/${inclusionTotal}).`;
+      case 'INSUFFICIENT_DATA':
+        return `Unable to determine eligibility due to insufficient information.`;
       default:
         return 'Unable to determine eligibility.';
     }
