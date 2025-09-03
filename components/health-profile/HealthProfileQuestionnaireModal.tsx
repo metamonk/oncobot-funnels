@@ -21,6 +21,10 @@ import { createHealthProfile, updateHealthProfile, saveHealthProfileResponse } f
 import { toast } from 'sonner';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
+import { ConsentDialog } from '@/components/consent/consent-dialog';
+import { ConsentService } from '@/lib/consent/consent-service';
+import { useSession } from '@/lib/auth-client';
+import { useConsentGuard } from '@/hooks/use-consent-guard';
 
 // Helper function to derive cancer region from cancer type responses
 function deriveRegionFromResponses(responses: Record<string, any>): string | null {
@@ -159,6 +163,13 @@ export function HealthProfileQuestionnaireModal({
   const [hasInitialized, setHasInitialized] = useState(false);
   const [sessionStartTime] = useState(Date.now());
   const [questionsAnswered, setQuestionsAnswered] = useState(0);
+  
+  // Consent management state
+  const [showConsentDialog, setShowConsentDialog] = useState(false);
+  const [hasConsent, setHasConsent] = useState(false);
+  const [consentCheckComplete, setConsentCheckComplete] = useState(false);
+  const { session } = useSession();
+  const { checkConsent } = useConsentGuard();
 
   // Check if question should be shown based on dependencies
   const shouldShowQuestion = useCallback((question: Question): boolean => {
@@ -177,6 +188,24 @@ export function HealthProfileQuestionnaireModal({
   const questions = selectedRegion ? getQuestionsForRegion(selectedRegion) : universalQuestions;
   const currentQuestion = questions[currentQuestionIndex];
   const progress = selectedRegion ? calculateProgress(responses, selectedRegion) : 0;
+
+  // Check for consent when modal opens
+  useEffect(() => {
+    const checkForConsent = async () => {
+      if (open && session?.user?.id && !consentCheckComplete) {
+        const hasRequiredConsent = await checkConsent('create_health_profile');
+        setHasConsent(hasRequiredConsent);
+        setConsentCheckComplete(true);
+        
+        if (!hasRequiredConsent && !existingProfile) {
+          // Need to show consent dialog for new profiles
+          setShowConsentDialog(true);
+        }
+      }
+    };
+    
+    checkForConsent();
+  }, [open, session, checkConsent, consentCheckComplete, existingProfile]);
 
   // Initialize to first valid question on mount
   useEffect(() => {
@@ -498,8 +527,75 @@ export function HealthProfileQuestionnaireModal({
     onOpenChange(newOpen);
   };
   
+  // Handle consent acceptance
+  const handleConsentAccept = async () => {
+    if (session?.user?.id) {
+      try {
+        // Grant core consents
+        await ConsentService.grantCoreConsents(session.user.id);
+        setHasConsent(true);
+        setShowConsentDialog(false);
+        toast.success('Thank you for your consent. Let\'s create your health profile!');
+        
+        // Track consent granted
+        track('Consent Granted', {
+          context: 'health_profile',
+          categories: ['eligibility_checks', 'trial_matching', 'contact_sharing', 'data_sharing']
+        });
+      } catch (error) {
+        console.error('Failed to save consent:', error);
+        toast.error('Failed to save your consent preferences');
+      }
+    }
+  };
+  
+  // Handle consent decline
+  const handleConsentDecline = () => {
+    setShowConsentDialog(false);
+    onOpenChange(false);
+    toast.info('You can create a health profile anytime from your settings');
+    
+    // Track consent declined
+    track('Consent Declined', {
+      context: 'health_profile'
+    });
+  };
+  
+  // Get required consents for display
+  const requiredConsents = [
+    {
+      category: 'eligibility_checks' as const,
+      consented: false,
+      consentedAt: null,
+      required: true,
+      description: 'Use your health information to check trial eligibility'
+    },
+    {
+      category: 'trial_matching' as const,
+      consented: false,
+      consentedAt: null,
+      required: true,
+      description: 'Match you with relevant clinical trials based on your profile'
+    },
+    {
+      category: 'contact_sharing' as const,
+      consented: false,
+      consentedAt: null,
+      required: true,
+      description: 'Share your contact information with trial sites and sponsors'
+    },
+    {
+      category: 'data_sharing' as const,
+      consented: false,
+      consentedAt: null,
+      required: true,
+      description: 'Share your health data with research partners for matching'
+    }
+  ];
+  
   return (
-    <Dialog open={open} onOpenChange={handleModalClose}>
+    <>
+      <Dialog open={open} onOpenChange={handleModalClose}>
       <DialogContent 
         className={cn(
           "!max-w-full !w-full !h-screen !m-0 !rounded-none flex flex-col",
@@ -737,5 +833,15 @@ export function HealthProfileQuestionnaireModal({
         </div>
       </DialogContent>
     </Dialog>
+    
+    {/* Consent Dialog */}
+    <ConsentDialog
+      open={showConsentDialog}
+      onAccept={handleConsentAccept}
+      onDecline={handleConsentDecline}
+      requiredConsents={requiredConsents}
+      context="health_profile"
+    />
+    </>
   );
 }

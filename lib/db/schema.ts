@@ -353,6 +353,20 @@ export const parsedCriteriaCache = pgTable('parsed_criteria_cache', {
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });
 
+// User consent management table
+export const userConsent = pgTable('user_consent', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  category: varchar('category', { length: 50 }).notNull(), // eligibility_checks, trial_matching, etc.
+  consented: boolean('consented').notNull().default(false),
+  consentedAt: timestamp('consentedAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
 export type EligibilityCheck = InferSelectModel<typeof eligibilityCheck>;
 export type EligibilityResponse = InferSelectModel<typeof eligibilityResponse>;
 export type ParsedCriteriaCache = InferSelectModel<typeof parsedCriteriaCache>;
+export type UserConsent = InferSelectModel<typeof userConsent>;
