@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { ConsentService } from '@/lib/consent/consent-service';
+import { getSession } from '@/lib/auth-utils';
+import { ConsentServiceServer } from '@/lib/consent/consent-server';
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession();
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const consents = await ConsentService.getUserConsents(session.user.id);
+    const consents = await ConsentServiceServer.getUserConsents(session.user.id);
     
     return NextResponse.json({
       consents,
-      hasRequiredConsents: await ConsentService.hasRequiredConsents(session.user.id)
+      hasRequiredConsents: await ConsentServiceServer.hasRequiredConsents(session.user.id)
     });
   } catch (error) {
     console.error('Error fetching consents:', error);
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession();
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -42,11 +42,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await ConsentService.updateConsents(session.user.id, updates);
+    await ConsentServiceServer.updateConsents(session.user.id, updates);
     
     return NextResponse.json({
       success: true,
-      consents: await ConsentService.getUserConsents(session.user.id)
+      consents: await ConsentServiceServer.getUserConsents(session.user.id)
     });
   } catch (error) {
     console.error('Error updating consents:', error);
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession();
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -68,9 +68,9 @@ export async function PUT(req: NextRequest) {
     const { action } = await req.json();
     
     if (action === 'grant_core') {
-      await ConsentService.grantCoreConsents(session.user.id);
+      await ConsentServiceServer.grantCoreConsents(session.user.id);
     } else if (action === 'revoke_all') {
-      await ConsentService.revokeAllConsents(session.user.id);
+      await ConsentServiceServer.revokeAllConsents(session.user.id);
     } else {
       return NextResponse.json(
         { error: 'Invalid action' },
@@ -80,7 +80,7 @@ export async function PUT(req: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      consents: await ConsentService.getUserConsents(session.user.id)
+      consents: await ConsentServiceServer.getUserConsents(session.user.id)
     });
   } catch (error) {
     console.error('Error updating consents:', error);

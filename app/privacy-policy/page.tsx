@@ -175,7 +175,7 @@ export default function PrivacyPage() {
             <li>Secure authentication requirements</li>
           </ul>
 
-          <h2>Your Privacy Rights</h2>
+          <h2 id="your-privacy-rights">Your Privacy Rights</h2>
           <p>You have complete control over your data:</p>
           <ul>
             <li>Access all information we have about you</li>
@@ -186,6 +186,37 @@ export default function PrivacyPage() {
             <li>Delete your account and all associated data</li>
           </ul>
           <p>To exercise any of these rights, contact us at hi@onco.bot</p>
+
+          <h2>Consent Management</h2>
+          <p>
+            OncoBot uses a progressive consent system that gives you granular control over how your data is used.
+            You can manage your consent preferences directly in the app through the Settings menu.
+          </p>
+          
+          <h3>Core Permissions (Required for Service)</h3>
+          <p>These permissions are essential for OncoBot to function and provide personalized trial matching:</p>
+          <ul>
+            <li><strong>Eligibility Checks:</strong> Use your health information to check trial eligibility</li>
+            <li><strong>Trial Matching:</strong> Match you with relevant clinical trials based on your profile</li>
+            <li><strong>Contact Sharing:</strong> Share your contact information with trial sites and sponsors when you express interest</li>
+            <li><strong>Data Sharing:</strong> Share your health data with research partners for matching purposes</li>
+          </ul>
+          
+          <h3>Optional Permissions</h3>
+          <p>These enhance your experience but are not required:</p>
+          <ul>
+            <li><strong>Marketing Communications:</strong> Receive updates about new trials and OncoBot features</li>
+            <li><strong>Analytics:</strong> Help us improve our service through usage data collection</li>
+            <li><strong>Research Insights:</strong> Contribute anonymized data for cancer research insights</li>
+          </ul>
+          
+          <h3>Managing Your Consent</h3>
+          <p>
+            You can update your consent preferences at any time through the Privacy tab in Settings. 
+            Disabling core permissions will limit OncoBot&apos;s ability to provide personalized recommendations, 
+            but you can still use the general search features. Your consent choices are remembered and can be 
+            changed whenever your preferences change.
+          </p>
 
           <h2>Data Retention</h2>
           <ul>

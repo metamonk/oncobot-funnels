@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { ConsentService, ConsentCategory } from '@/lib/consent/consent-service';
+import { ConsentService, ConsentCategory } from '@/lib/consent/consent-client';
 import { useSession } from '@/lib/auth-client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface UseConsentGuardResult {
   checkConsent: (action: string) => Promise<boolean>;
@@ -17,16 +17,11 @@ interface UseConsentGuardResult {
  */
 export function useConsentGuard(): UseConsentGuardResult {
   const [isLoading, setIsLoading] = useState(false);
-  const { session } = useSession();
-  const { toast } = useToast();
+  const { data: session } = useSession();
 
   const checkConsent = useCallback(async (action: string): Promise<boolean> => {
     if (!session?.user?.id) {
-      toast({
-        title: 'Authentication Required',
-        description: 'Please sign in to continue',
-        variant: 'destructive'
-      });
+      toast.error('Please sign in to continue');
       return false;
     }
 
@@ -58,16 +53,12 @@ export function useConsentGuard(): UseConsentGuardResult {
       return true;
     } catch (error) {
       console.error('Error checking consent:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to verify consent status',
-        variant: 'destructive'
-      });
+      toast.error('Failed to verify consent status');
       return false;
     } finally {
       setIsLoading(false);
     }
-  }, [session, toast]);
+  }, [session]);
 
   const hasRequiredConsents = useCallback(async (): Promise<boolean> => {
     if (!session?.user?.id) {

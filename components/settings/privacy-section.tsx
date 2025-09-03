@@ -4,19 +4,26 @@ import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Shield, Info, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Shield, AlertCircle, ExternalLink, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ConsentService, ConsentStatus, ConsentCategory } from '@/lib/consent/consent-service';
+import { ConsentService, ConsentStatus, ConsentCategory } from '@/lib/consent/consent-client';
 import { useSession } from '@/lib/auth-client';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export function PrivacySection() {
   const [consents, setConsents] = useState<ConsentStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [localChanges, setLocalChanges] = useState<Record<ConsentCategory, boolean>>({} as any);
-  const { session } = useSession();
+  const { data: session } = useSession();
 
   // Load user consents on mount
   useEffect(() => {
@@ -108,144 +115,198 @@ export function PrivacySection() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-40 w-full" />
+      <div className="space-y-4">
+        <Skeleton className="h-16 w-full" />
         <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-24 w-full" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="p-2 rounded-lg bg-blue-500/10">
-          <Shield className="h-5 w-5 text-blue-600" />
-        </div>
-        <div>
-          <h3 className="font-semibold text-base">Privacy & Data Consent</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage how OncoBot uses and shares your health information
-          </p>
-        </div>
-      </div>
-
-      {/* Core Warning */}
-      {!allCoreEnabled && (
-        <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
-          <div className="flex gap-3">
-            <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
-                Limited Functionality
-              </p>
-              <p className="text-sm text-orange-700 dark:text-orange-200">
-                Some core permissions are disabled. OncoBot cannot provide personalized trial matches without these permissions.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Core Consents */}
+    <TooltipProvider>
       <div className="space-y-4">
-        <div>
-          <h4 className="text-sm font-medium mb-3">Core Permissions (Required for Service)</h4>
-          <div className="bg-muted/30 rounded-lg border p-4 space-y-3">
-            {coreConsents.map((consent) => (
-              <div key={consent.category} className="flex items-start justify-between gap-4">
-                <div className="flex-1 space-y-1">
-                  <Label htmlFor={consent.category} className="text-sm font-medium cursor-pointer">
-                    {consent.description}
-                  </Label>
-                  {consent.consentedAt && (
-                    <p className="text-xs text-muted-foreground">
-                      Granted on {new Date(consent.consentedAt).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-                <Switch
-                  id={consent.category}
-                  checked={localChanges[consent.category] ?? consent.consented}
-                  onCheckedChange={(checked) => handleToggle(consent.category, checked)}
-                  className="data-[state=checked]:bg-green-600"
-                />
-              </div>
-            ))}
-            
-            <div className="pt-2 border-t">
-              <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground">
-                  These permissions are essential for OncoBot to match you with clinical trials and provide personalized recommendations.
+        {/* Compact Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-blue-600" />
+            <h3 className="font-semibold text-sm">Privacy & Data Consent</h3>
+          </div>
+          <Link 
+            href="/privacy-policy" 
+            target="_blank"
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+          >
+            Full Privacy Policy
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
+
+        {/* Core Warning - Compact */}
+        {!allCoreEnabled && (
+          <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+            <div className="flex gap-2">
+              <AlertCircle className="h-4 w-4 text-orange-600 flex-shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="text-xs font-medium text-orange-900 dark:text-orange-100">
+                  Limited Functionality
+                </p>
+                <p className="text-xs text-orange-700 dark:text-orange-200">
+                  Some core permissions are disabled. OncoBot needs these to provide personalized trial matches.
                 </p>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Optional Consents */}
+        {/* Core Consents - Compact Layout */}
         <div>
-          <h4 className="text-sm font-medium mb-3">Optional Permissions</h4>
-          <div className="bg-muted/30 rounded-lg border p-4 space-y-3">
-            {optionalConsents.map((consent) => (
-              <div key={consent.category} className="flex items-start justify-between gap-4">
-                <div className="flex-1 space-y-1">
-                  <Label htmlFor={consent.category} className="text-sm font-medium cursor-pointer">
-                    {consent.description}
-                  </Label>
-                  {consent.consentedAt && (
-                    <p className="text-xs text-muted-foreground">
-                      Granted on {new Date(consent.consentedAt).toLocaleDateString()}
-                    </p>
-                  )}
+          <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase tracking-wider">
+            Core Permissions (Required)
+          </h4>
+          <div className="bg-muted/30 rounded-lg border p-3 space-y-2">
+            {coreConsents.map((consent) => (
+              <div key={consent.category} className="flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Label 
+                        htmlFor={consent.category} 
+                        className="text-xs font-medium cursor-pointer truncate block"
+                      >
+                        {consent.description}
+                      </Label>
+                    </TooltipTrigger>
+                    {consent.consentedAt && (
+                      <TooltipContent side="top" className="text-xs">
+                        Granted on {new Date(consent.consentedAt).toLocaleDateString()}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
                 </div>
                 <Switch
                   id={consent.category}
                   checked={localChanges[consent.category] ?? consent.consented}
                   onCheckedChange={(checked) => handleToggle(consent.category, checked)}
+                  className="data-[state=checked]:bg-green-600 scale-90"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Optional Consents - Single Column */}
+        <div>
+          <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase tracking-wider">
+            Optional Permissions
+          </h4>
+          <div className="bg-muted/30 rounded-lg border p-3 space-y-2">
+            {optionalConsents.map((consent) => (
+              <div key={consent.category} className="flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Label 
+                        htmlFor={consent.category} 
+                        className="text-xs font-medium cursor-pointer truncate block"
+                      >
+                        {consent.description}
+                      </Label>
+                    </TooltipTrigger>
+                    {consent.consentedAt && (
+                      <TooltipContent side="top" className="text-xs">
+                        Granted on {new Date(consent.consentedAt).toLocaleDateString()}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </div>
+                <Switch
+                  id={consent.category}
+                  checked={localChanges[consent.category] ?? consent.consented}
+                  onCheckedChange={(checked) => handleToggle(consent.category, checked)}
+                  className="scale-90"
                 />
               </div>
             ))}
             
             {optionalConsents.length === 0 && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 No optional permissions available at this time.
               </p>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Privacy Policy Link */}
-      <div className="bg-muted/20 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <div className="space-y-2 flex-1">
-            <p className="text-sm font-medium">Your Privacy is Protected</p>
-            <ul className="text-xs text-muted-foreground space-y-1">
-              <li>• Your data is encrypted and stored securely</li>
-              <li>• We comply with HIPAA and all healthcare privacy regulations</li>
-              <li>• You can update or revoke consent at any time</li>
-              <li>• We never sell your personal information</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* Save Button */}
-      {hasChanges() && (
-        <div className="flex justify-end pt-2">
-          <Button 
-            onClick={handleSave}
-            disabled={saving}
-            size="sm"
+        {/* Compact Privacy Info with Link */}
+        <div className="bg-muted/20 rounded-lg p-3">
+          <Link 
+            href="/privacy-policy#your-privacy-rights" 
+            target="_blank"
+            className="group flex items-center justify-between hover:bg-muted/40 -m-1 p-1 rounded transition-colors"
           >
-            {saving ? 'Saving...' : 'Save Privacy Settings'}
-          </Button>
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-green-600" />
+              <div>
+                <p className="text-xs font-medium">Your Privacy is Protected</p>
+                <p className="text-xs text-muted-foreground">
+                  HIPAA compliant • Encrypted • Never sold • Learn more
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+          </Link>
         </div>
-      )}
-    </div>
+
+        {/* Save Button */}
+        {hasChanges() && (
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleSave}
+              disabled={saving}
+              size="sm"
+              className="h-8 text-xs"
+            >
+              {saving ? 'Saving...' : 'Save Privacy Settings'}
+            </Button>
+          </div>
+        )}
+
+        {/* Development Testing Helpers - Only show in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="border-t pt-3 mt-3 space-y-2">
+            <p className="text-xs text-muted-foreground font-medium">Development Testing</p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={async () => {
+                  try {
+                    await ConsentService.revokeAllConsents(session.user.id);
+                    await fetchConsents();
+                    toast.success('All consents cleared for testing');
+                  } catch (error) {
+                    toast.error('Failed to clear consents');
+                  }
+                }}
+              >
+                Reset All Consents
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => {
+                  // Trigger consent dialog by simulating health profile creation
+                  toast.info('Open health profile creation to test consent dialog');
+                }}
+              >
+                Test Consent Flow
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }

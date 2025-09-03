@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Shield, Info, AlertCircle } from 'lucide-react';
-import { ConsentCategory, ConsentStatus } from '@/lib/consent/consent-service';
+import { ConsentCategory, ConsentStatus } from '@/lib/consent/consent-client';
 
 interface ConsentDialogProps {
   open: boolean;

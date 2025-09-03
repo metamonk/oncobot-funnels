@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { ConsentDialog } from '@/components/consent/consent-dialog';
-import { ConsentService } from '@/lib/consent/consent-service';
+import { ConsentService } from '@/lib/consent/consent-client';
 import { useSession } from '@/lib/auth-client';
 import { useConsentGuard } from '@/hooks/use-consent-guard';
 
@@ -168,7 +168,7 @@ export function HealthProfileQuestionnaireModal({
   const [showConsentDialog, setShowConsentDialog] = useState(false);
   const [hasConsent, setHasConsent] = useState(false);
   const [consentCheckComplete, setConsentCheckComplete] = useState(false);
-  const { session } = useSession();
+  const { data: session } = useSession();
   const { checkConsent } = useConsentGuard();
 
   // Check if question should be shown based on dependencies
@@ -598,8 +598,9 @@ export function HealthProfileQuestionnaireModal({
       <Dialog open={open} onOpenChange={handleModalClose}>
       <DialogContent 
         className={cn(
-          "!max-w-full !w-full !h-screen !m-0 !rounded-none flex flex-col",
-          "!p-0 gap-0 overflow-hidden"
+          "!max-w-full !w-full !h-screen !max-h-screen !m-0 !rounded-none flex flex-col",
+          "!p-0 gap-0 overflow-hidden",
+          "!top-0 !left-0 !translate-x-0 !translate-y-0"
         )}
         showCloseButton={false}
       >
