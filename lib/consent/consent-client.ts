@@ -100,20 +100,39 @@ export class ConsentService {
   }
 
   /**
-   * Check if user has specific consent
+   * Check if user has specific consent with retry logic
    */
   static async hasConsent(
     userId: string, 
-    category: ConsentCategory
+    category: ConsentCategory,
+    options: { retries?: number; fallbackToRequired?: boolean } = {}
   ): Promise<boolean> {
-    try {
-      const consents = await this.getUserConsents(userId);
-      const consent = consents.find(c => c.category === category);
-      return consent?.consented ?? false;
-    } catch (error) {
-      console.error('Error checking consent:', error);
-      return false;
+    const { retries = 2, fallbackToRequired = true } = options;
+    
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const consents = await this.getUserConsents(userId);
+        const consent = consents.find(c => c.category === category);
+        return consent?.consented ?? false;
+      } catch (error) {
+        console.error(`Error checking consent (attempt ${attempt + 1}/${retries + 1}):`, error);
+        
+        // If this is the last attempt
+        if (attempt === retries) {
+          // For safety, require consent if we can't verify (GDPR compliance)
+          if (fallbackToRequired && CORE_CONSENTS.includes(category)) {
+            console.warn(`Falling back to require consent for ${category} due to error`);
+            return false; // Safer to require consent if we can't verify
+          }
+          return false;
+        }
+        
+        // Exponential backoff before retry
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 100));
+      }
     }
+    
+    return false;
   }
 
   /**
@@ -135,18 +154,52 @@ export class ConsentService {
   }
 
   /**
-   * Grant all core consents (used during initial onboarding)
+   * Grant all core consents (used during initial onboarding) with retry logic
    */
   static async grantCoreConsents(userId: string): Promise<void> {
-    const response = await fetch('/api/consent', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'grant_core' })
-    });
+    const maxRetries = 3;
+    let lastError: Error | null = null;
     
-    if (!response.ok) {
-      throw new Error('Failed to grant core consents');
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const response = await fetch('/api/consent', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'grant_core' })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to grant core consents: ${response.statusText}`);
+        }
+        
+        return; // Success
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`Failed to grant core consents (attempt ${attempt + 1}/${maxRetries}):`, error);
+        
+        // If network error, wait and retry
+        if (error instanceof Error && 
+            (error.message.includes('network') || 
+             error.message.includes('fetch') ||
+             error.message.includes('Failed to fetch'))) {
+          // Exponential backoff: 500ms, 1s, 2s
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 500));
+          continue;
+        }
+        
+        // If server error (5xx), retry
+        if (error instanceof Error && error.message.includes('500')) {
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 500));
+          continue;
+        }
+        
+        // If other error (4xx, etc), don't retry
+        throw error;
+      }
     }
+    
+    // All retries failed
+    throw new Error(`Failed to grant core consents after ${maxRetries} attempts: ${lastError?.message}`);
   }
 
   /**

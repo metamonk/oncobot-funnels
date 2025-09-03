@@ -33,13 +33,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { updates } = await req.json();
+    const body = await req.json();
+    const { updates } = body;
     
+    // Enhanced validation
     if (!Array.isArray(updates)) {
       return NextResponse.json(
-        { error: 'Invalid request body' },
+        { error: 'Invalid request body: updates must be an array' },
         { status: 400 }
       );
+    }
+    
+    // Validate each update
+    const validCategories = [
+      'eligibility_checks', 'trial_matching', 'contact_sharing', 
+      'data_sharing', 'marketing', 'analytics', 'research'
+    ];
+    
+    for (const update of updates) {
+      if (!update.category || typeof update.category !== 'string') {
+        return NextResponse.json(
+          { error: 'Invalid update: category is required and must be a string' },
+          { status: 400 }
+        );
+      }
+      
+      if (!validCategories.includes(update.category)) {
+        return NextResponse.json(
+          { error: `Invalid category: ${update.category}` },
+          { status: 400 }
+        );
+      }
+      
+      if (typeof update.consented !== 'boolean') {
+        return NextResponse.json(
+          { error: 'Invalid update: consented must be a boolean' },
+          { status: 400 }
+        );
+      }
     }
 
     await ConsentServiceServer.updateConsents(session.user.id, updates);

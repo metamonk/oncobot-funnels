@@ -23,6 +23,7 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { ConsentDialog } from '@/components/consent/consent-dialog';
 import { ConsentService } from '@/lib/consent/consent-client';
+import { ConsentAnalyticsService } from '@/lib/consent/consent-analytics';
 import { useSession } from '@/lib/auth-client';
 import { useConsentGuard } from '@/hooks/use-consent-guard';
 
@@ -200,6 +201,8 @@ export function HealthProfileQuestionnaireModal({
         if (!hasRequiredConsent && !existingProfile) {
           // Need to show consent dialog for new profiles
           setShowConsentDialog(true);
+          // Start consent analytics session
+          ConsentAnalyticsService.startSession(session.user.id);
         }
       }
     };
@@ -527,25 +530,72 @@ export function HealthProfileQuestionnaireModal({
     onOpenChange(newOpen);
   };
   
-  // Handle consent acceptance
+  // Handle consent acceptance with edge cases
   const handleConsentAccept = async () => {
-    if (session?.user?.id) {
-      try {
-        // Grant core consents
-        await ConsentService.grantCoreConsents(session.user.id);
-        setHasConsent(true);
-        setShowConsentDialog(false);
-        toast.success('Thank you for your consent. Let\'s create your health profile!');
-        
-        // Track consent granted
-        track('Consent Granted', {
-          context: 'health_profile',
-          categories: ['eligibility_checks', 'trial_matching', 'contact_sharing', 'data_sharing']
-        });
-      } catch (error) {
-        console.error('Failed to save consent:', error);
-        toast.error('Failed to save your consent preferences');
+    // Edge case: Session expired during questionnaire
+    if (!session?.user?.id) {
+      toast.error('Your session has expired. Please sign in again.');
+      onOpenChange(false);
+      // Redirect to sign-in after a delay
+      setTimeout(() => {
+        window.location.href = '/sign-in';
+      }, 2000);
+      return;
+    }
+
+    try {
+      // Show loading state
+      toast.loading('Saving your consent preferences...');
+      
+      // Grant core consents with retry logic (built into the method now)
+      await ConsentService.grantCoreConsents(session.user.id);
+      
+      // Dismiss loading toast
+      toast.dismiss();
+      
+      setHasConsent(true);
+      setShowConsentDialog(false);
+      toast.success('Thank you for your consent. Let\'s create your health profile!');
+      
+      // Track consent granted
+      track('Consent Granted', {
+        context: 'health_profile',
+        categories: ['eligibility_checks', 'trial_matching', 'contact_sharing', 'data_sharing']
+      });
+      
+      // Track in consent analytics
+      ConsentAnalyticsService.trackGranted(
+        session.user.id,
+        ['eligibility_checks', 'trial_matching', 'contact_sharing', 'data_sharing'],
+        'health_profile'
+      );
+    } catch (error) {
+      toast.dismiss(); // Clear loading toast
+      
+      // Handle specific error cases
+      if (error instanceof Error) {
+        if (error.message.includes('network') || error.message.includes('fetch')) {
+          toast.error('Network error. Please check your connection and try again.');
+        } else if (error.message.includes('attempts')) {
+          // Multiple retries failed
+          toast.error('Unable to save consent. Please try again or contact support.');
+        } else {
+          toast.error('Failed to save your consent preferences. Please try again.');
+        }
+      } else {
+        toast.error('An unexpected error occurred. Please try again.');
       }
+      
+      console.error('Failed to save consent:', error);
+      
+      // Track failure in analytics
+      ConsentAnalyticsService.trackFailure(
+        session.user.id,
+        error instanceof Error ? error.message : 'Unknown error',
+        'health_profile'
+      );
+      
+      // Keep the dialog open so user can try again
     }
   };
   
