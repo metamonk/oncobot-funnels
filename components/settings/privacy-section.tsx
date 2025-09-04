@@ -277,52 +277,6 @@ export function PrivacySection() {
             </Button>
           </div>
         )}
-
-        {/* Development Testing Helpers - Only show in development */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="border-t pt-3 mt-3 space-y-2">
-            <p className="text-xs text-muted-foreground font-medium">Development Testing</p>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={async () => {
-                  try {
-                    await ConsentService.revokeAllConsents(session.user.id);
-                    const loadConsents = async () => {
-                      if (!session?.user?.id) return;
-                      const userConsents = await ConsentService.getUserConsents(session.user.id);
-                      setConsents(userConsents);
-                      const initial: Record<string, boolean> = {};
-                      userConsents.forEach(c => {
-                        initial[c.category] = c.consented;
-                      });
-                      setLocalChanges(initial as Record<ConsentCategory, boolean>);
-                    };
-                    await loadConsents();
-                    toast.success('All consents cleared for testing');
-                  } catch (error) {
-                    toast.error('Failed to clear consents');
-                  }
-                }}
-              >
-                Reset All Consents
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={() => {
-                  // Trigger consent dialog by simulating health profile creation
-                  toast.info('Open health profile creation to test consent dialog');
-                }}
-              >
-                Test Consent Flow
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </TooltipProvider>
   );
