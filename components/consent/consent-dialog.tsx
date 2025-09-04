@@ -107,7 +107,7 @@ export function ConsentDialog({
                         <Checkbox 
                           checked 
                           disabled 
-                          className="h-4 w-4 border-2 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500" 
+                          className="h-4 w-4" 
                         />
                       </div>
                       <div className="flex-1">
@@ -143,7 +143,7 @@ export function ConsentDialog({
                               [consent.category]: checked as boolean
                             }))
                           }
-                          className="h-4 w-4 border-2 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                          className="h-4 w-4"
                         />
                       </div>
                       <div className="flex-1">

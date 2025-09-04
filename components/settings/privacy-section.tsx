@@ -191,7 +191,7 @@ export function PrivacySection() {
                   id={consent.category}
                   checked={localChanges[consent.category] ?? consent.consented}
                   onCheckedChange={(checked) => handleToggle(consent.category, checked)}
-                  className="data-[state=checked]:bg-blue-500 scale-90"
+                  className="scale-90"
                 />
               </div>
             ))}
@@ -230,7 +230,7 @@ export function PrivacySection() {
                   id={consent.category}
                   checked={localChanges[consent.category] ?? consent.consented}
                   onCheckedChange={(checked) => handleToggle(consent.category, checked)}
-                  className="data-[state=checked]:bg-blue-500 scale-90"
+                  className="scale-90"
                 />
               </div>
             ))}
