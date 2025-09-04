@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Shield, AlertCircle, ExternalLink, ChevronRight } from 'lucide-react';
+import { Shield, AlertCircle, ExternalLink, ChevronRight, Lock, Info, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ConsentService, ConsentStatus, ConsentCategory } from '@/lib/consent/consent-client';
 import { useSession } from '@/lib/auth-client';
@@ -129,13 +129,13 @@ export function PrivacySection() {
         {/* Compact Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-blue-600" />
+            <Shield className="h-4 w-4 text-blue-500" />
             <h3 className="font-semibold text-sm">Privacy & Data Consent</h3>
           </div>
           <Link 
             href="/privacy-policy" 
             target="_blank"
-            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+            className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
           >
             Full Privacy Policy
             <ExternalLink className="h-3 w-3" />
@@ -144,14 +144,14 @@ export function PrivacySection() {
 
         {/* Core Warning - Compact */}
         {!allCoreEnabled && (
-          <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
             <div className="flex gap-2">
-              <AlertCircle className="h-4 w-4 text-orange-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <p className="text-xs font-medium text-orange-900 dark:text-orange-100">
+                <p className="text-xs font-medium">
                   Limited Functionality
                 </p>
-                <p className="text-xs text-orange-700 dark:text-orange-200">
+                <p className="text-xs text-muted-foreground">
                   Some core permissions are disabled. OncoBot needs these to provide personalized trial matches.
                 </p>
               </div>
@@ -161,10 +161,13 @@ export function PrivacySection() {
 
         {/* Core Consents - Compact Layout */}
         <div>
-          <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase tracking-wider">
-            Core Permissions (Required)
-          </h4>
-          <div className="bg-muted/30 rounded-lg border p-3 space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Lock className="h-3.5 w-3.5 text-amber-500" />
+            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Core Permissions (Required)
+            </h4>
+          </div>
+          <div className="bg-card rounded-lg border border-border p-3 space-y-2">
             {coreConsents.map((consent) => (
               <div key={consent.category} className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -188,7 +191,7 @@ export function PrivacySection() {
                   id={consent.category}
                   checked={localChanges[consent.category] ?? consent.consented}
                   onCheckedChange={(checked) => handleToggle(consent.category, checked)}
-                  className="data-[state=checked]:bg-green-600 scale-90"
+                  className="data-[state=checked]:bg-blue-500 scale-90"
                 />
               </div>
             ))}
@@ -197,10 +200,13 @@ export function PrivacySection() {
 
         {/* Optional Consents - Single Column */}
         <div>
-          <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase tracking-wider">
-            Optional Permissions
-          </h4>
-          <div className="bg-muted/30 rounded-lg border p-3 space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Info className="h-3.5 w-3.5 text-blue-500" />
+            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Optional Permissions
+            </h4>
+          </div>
+          <div className="bg-card rounded-lg border border-border p-3 space-y-2">
             {optionalConsents.map((consent) => (
               <div key={consent.category} className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -224,7 +230,7 @@ export function PrivacySection() {
                   id={consent.category}
                   checked={localChanges[consent.category] ?? consent.consented}
                   onCheckedChange={(checked) => handleToggle(consent.category, checked)}
-                  className="scale-90"
+                  className="data-[state=checked]:bg-blue-500 scale-90"
                 />
               </div>
             ))}
@@ -238,14 +244,14 @@ export function PrivacySection() {
         </div>
 
         {/* Compact Privacy Info with Link */}
-        <div className="bg-muted/20 rounded-lg p-3">
+        <div className="bg-muted/50 rounded-lg border border-border p-3">
           <Link 
             href="/privacy-policy#your-privacy-rights" 
             target="_blank"
-            className="group flex items-center justify-between hover:bg-muted/40 -m-1 p-1 rounded transition-colors"
+            className="group flex items-center justify-between hover:bg-muted/80 -m-1 p-1 rounded transition-colors"
           >
             <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-green-600" />
+              <Shield className="h-4 w-4 text-blue-500" />
               <div>
                 <p className="text-xs font-medium">Your Privacy is Protected</p>
                 <p className="text-xs text-muted-foreground">
@@ -264,6 +270,7 @@ export function PrivacySection() {
               onClick={handleSave}
               disabled={saving}
               size="sm"
+              variant="default"
               className="h-8 text-xs"
             >
               {saving ? 'Saving...' : 'Save Privacy Settings'}
@@ -278,12 +285,22 @@ export function PrivacySection() {
             <div className="flex gap-2">
               <Button
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 className="h-7 text-xs"
                 onClick={async () => {
                   try {
                     await ConsentService.revokeAllConsents(session.user.id);
-                    await fetchConsents();
+                    const loadConsents = async () => {
+                      if (!session?.user?.id) return;
+                      const userConsents = await ConsentService.getUserConsents(session.user.id);
+                      setConsents(userConsents);
+                      const initial: Record<string, boolean> = {};
+                      userConsents.forEach(c => {
+                        initial[c.category] = c.consented;
+                      });
+                      setLocalChanges(initial as Record<ConsentCategory, boolean>);
+                    };
+                    await loadConsents();
                     toast.success('All consents cleared for testing');
                   } catch (error) {
                     toast.error('Failed to clear consents');
@@ -294,7 +311,7 @@ export function PrivacySection() {
               </Button>
               <Button
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 className="h-7 text-xs"
                 onClick={() => {
                   // Trigger consent dialog by simulating health profile creation

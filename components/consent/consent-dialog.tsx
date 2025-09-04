@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Shield, Info, AlertCircle } from 'lucide-react';
+import { Shield, Info, AlertCircle, Lock, ExternalLink } from 'lucide-react';
 import { ConsentCategory, ConsentStatus } from '@/lib/consent/consent-client';
 
 interface ConsentDialogProps {
@@ -74,13 +75,15 @@ export function ConsentDialog({
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center gap-2 mb-2">
-            <Shield className="h-5 w-5 text-blue-600" />
-            <DialogTitle className="text-xl">{getTitle()}</DialogTitle>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-background border-border">
+        <DialogHeader className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
+              <Shield className="h-5 w-5 text-blue-500" />
+            </div>
+            <DialogTitle className="text-xl font-semibold">{getTitle()}</DialogTitle>
           </div>
-          <DialogDescription className="text-base">
+          <DialogDescription className="text-muted-foreground">
             {getDescription()}
           </DialogDescription>
         </DialogHeader>
@@ -90,21 +93,25 @@ export function ConsentDialog({
           {requiredConsents.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <Lock className="h-4 w-4 text-amber-500" />
                 <h3 className="font-semibold text-sm">Required for OncoBot Services</h3>
               </div>
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <p className="text-sm text-gray-700 mb-3">
+              <div className="rounded-lg border border-border bg-card p-4">
+                <p className="text-sm text-muted-foreground mb-3">
                   These permissions are essential for OncoBot to function and help you find clinical trials:
                 </p>
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {requiredConsents.map((consent) => (
-                    <li key={consent.category} className="flex items-start gap-2">
-                      <div className="mt-1">
-                        <Checkbox checked disabled className="h-4 w-4" />
+                    <li key={consent.category} className="flex items-start gap-3">
+                      <div className="mt-0.5">
+                        <Checkbox 
+                          checked 
+                          disabled 
+                          className="h-4 w-4 border-2 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500" 
+                        />
                       </div>
                       <div className="flex-1">
-                        <span className="text-sm font-medium">{consent.description}</span>
+                        <span className="text-sm">{consent.description}</span>
                       </div>
                     </li>
                   ))}
@@ -117,17 +124,17 @@ export function ConsentDialog({
           {optionalConsents.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Info className="h-4 w-4 text-blue-600" />
+                <Info className="h-4 w-4 text-blue-500" />
                 <h3 className="font-semibold text-sm">Optional Permissions</h3>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-gray-700 mb-3">
+              <div className="rounded-lg border border-border bg-card p-4">
+                <p className="text-sm text-muted-foreground mb-3">
                   These help us improve our services but are not required:
                 </p>
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {optionalConsents.map((consent) => (
-                    <li key={consent.category} className="flex items-start gap-2">
-                      <div className="mt-1">
+                    <li key={consent.category} className="flex items-start gap-3">
+                      <div className="mt-0.5">
                         <Checkbox
                           checked={optionalSelections[consent.category] ?? consent.consented}
                           onCheckedChange={(checked) =>
@@ -136,7 +143,7 @@ export function ConsentDialog({
                               [consent.category]: checked as boolean
                             }))
                           }
-                          className="h-4 w-4"
+                          className="h-4 w-4 border-2 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
                         />
                       </div>
                       <div className="flex-1">
@@ -150,24 +157,68 @@ export function ConsentDialog({
           )}
 
           {/* Privacy Notice */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h4 className="font-medium text-sm mb-2">Your Privacy Matters</h4>
-            <ul className="text-xs text-gray-600 space-y-1">
-              <li>• Your data is encrypted and stored securely</li>
-              <li>• We only share information with trial sites you're interested in</li>
-              <li>• You can update or revoke consent anytime in Settings</li>
-              <li>• We comply with HIPAA and all applicable privacy regulations</li>
+          <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <div className="flex items-start justify-between mb-2">
+              <h4 className="font-medium text-sm flex items-center gap-2">
+                <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+                Your Privacy Matters
+              </h4>
+              <Link 
+                href="/privacy-policy" 
+                target="_blank"
+                className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
+              >
+                Full Privacy Policy
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            </div>
+            <ul className="text-xs text-muted-foreground space-y-1.5">
+              <li className="flex items-start gap-1.5">
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>Your data is encrypted and stored securely</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>We only share information with trial sites you&apos;re interested in</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>You can update or revoke consent anytime in Settings</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>We comply with HIPAA and all applicable privacy regulations</span>
+              </li>
             </ul>
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <p className="text-xs text-muted-foreground">
+                By continuing, you agree to our{' '}
+                <Link href="/terms" target="_blank" className="text-blue-500 hover:text-blue-600 underline">
+                  Terms of Service
+                </Link>
+                {' '}and{' '}
+                <Link href="/privacy-policy" target="_blank" className="text-blue-500 hover:text-blue-600 underline">
+                  Privacy Policy
+                </Link>
+                .
+              </p>
+            </div>
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 sm:gap-2">
           {context !== 'settings' && (
-            <Button variant="outline" onClick={onDecline}>
+            <Button 
+              variant="outline" 
+              onClick={onDecline}
+            >
               Not Now
             </Button>
           )}
-          <Button onClick={handleAccept}>
+          <Button 
+            onClick={handleAccept}
+            className="bg-blue-500 hover:bg-blue-600 text-white border-0"
+          >
             {context === 'settings' ? 'Save Preferences' : 'I Agree & Continue'}
           </Button>
         </DialogFooter>
