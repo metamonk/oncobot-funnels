@@ -912,29 +912,87 @@ function ClinicalTrialsComponent({ result, action, isStreaming = false }: Clinic
                         </div>
 
                         {/* Locations */}
-                        {trial.contactsLocationsModule?.locations && trial.contactsLocationsModule.locations.length > 0 && (
+                        {/* Use full enhanced data stored in _fullEnhancedLocations if available, otherwise check trial object */}
+                        {((match as any)._fullEnhancedLocations || (match.trial as any).enhancedLocations || trial.contactsLocationsModule?.locations) && (
                           <div>
                             <h4 className="text-sm font-medium mb-2">
                               Locations
-                              {trial.contactsLocationsModule.locationMetadata?.subset && (
+                              {/* Show enhanced location count if available */}
+                              {((match as any)._fullEnhancedLocations || (match.trial as any).enhancedLocations) ? (
                                 <span className="ml-2 text-xs font-normal text-neutral-500">
-                                  (showing {trial.contactsLocationsModule.locations.length} of {trial.contactsLocationsModule.locationMetadata.total} locations)
+                                  ({((match as any)._fullEnhancedLocations || (match.trial as any).enhancedLocations).length} total sites)
                                 </span>
+                              ) : (
+                                trial.contactsLocationsModule.locationMetadata?.subset && (
+                                  <span className="ml-2 text-xs font-normal text-neutral-500">
+                                    (showing {trial.contactsLocationsModule.locations.length} of {trial.contactsLocationsModule.locationMetadata.total} locations)
+                                  </span>
+                                )
                               )}
                             </h4>
-                            <ScrollArea className="h-[120px]">
+                            <ScrollArea className="h-[180px]">
                               <div className="space-y-2 pr-4">
-                                {trial.contactsLocationsModule.locations.map((location: Location, i: number) => (
-                                  <div key={i} className="flex items-start gap-2 text-sm">
-                                    <MapPin className="h-3 w-3 text-neutral-500 mt-0.5" />
-                                    <div>
-                                      <p className="font-medium">{location.facility}</p>
-                                      <p className="text-neutral-600 dark:text-neutral-400">
-                                        {[location.city, location.state, location.country].filter(Boolean).join(', ')}
-                                      </p>
+                                {/* Use full enhanced locations (from _fullEnhancedLocations) or fallback to trial data */}
+                                {((match as any)._fullEnhancedLocations || (match.trial as any).enhancedLocations) ? (
+                                  ((match as any)._fullEnhancedLocations || (match.trial as any).enhancedLocations).map((location: any, i: number) => (
+                                    <div key={i} className="flex items-start gap-2 text-sm p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                                      <MapPin className={`h-3 w-3 mt-0.5 ${
+                                        location.status?.toUpperCase() === 'RECRUITING'
+                                          ? 'text-green-500' 
+                                          : 'text-neutral-500'
+                                      }`} />
+                                      <div className="flex-1">
+                                        <div className="flex items-start justify-between">
+                                          <div>
+                                            <p className="font-medium">{location.facility}</p>
+                                            <p className="text-neutral-600 dark:text-neutral-400">
+                                              {[location.city, location.state, location.country].filter(Boolean).join(', ')}
+                                              {location.zipCode && ` ${location.zipCode}`}
+                                            </p>
+                                          </div>
+                                          <div className="text-right ml-2">
+                                            {location.status && (
+                                              <Badge 
+                                                variant={location.status?.toUpperCase() === 'RECRUITING' ? 'default' : 'secondary'}
+                                                className="text-xs mb-1"
+                                              >
+                                                {location.status}
+                                              </Badge>
+                                            )}
+                                            {location.distance !== undefined && (
+                                              <p className="text-xs text-neutral-500">
+                                                {Math.round(location.distance)} miles
+                                              </p>
+                                            )}
+                                          </div>
+                                        </div>
+                                        {location.contact && (
+                                          <div className="mt-1 text-xs text-neutral-500">
+                                            {location.contact.name && <p>Contact: {location.contact.name}</p>}
+                                            {location.contact.phone && (
+                                              <a href={`tel:${location.contact.phone}`} className="hover:text-neutral-700 dark:hover:text-neutral-300">
+                                                {location.contact.phone}
+                                              </a>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  ))
+                                ) : (
+                                  /* Fallback to standard locations */
+                                  trial.contactsLocationsModule?.locations?.map((location: Location, i: number) => (
+                                    <div key={i} className="flex items-start gap-2 text-sm">
+                                      <MapPin className="h-3 w-3 text-neutral-500 mt-0.5" />
+                                      <div>
+                                        <p className="font-medium">{location.facility}</p>
+                                        <p className="text-neutral-600 dark:text-neutral-400">
+                                          {[location.city, location.state, location.country].filter(Boolean).join(', ')}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
                               </div>
                             </ScrollArea>
                           </div>

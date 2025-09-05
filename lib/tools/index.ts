@@ -20,6 +20,7 @@ export { memoryManagerTool } from './memory-manager';
 export { redditSearchTool } from './reddit-search';
 export { extremeSearchTool } from './extreme-search';
 export { greetingTool } from './greeting';
-export { clinicalTrialsTool } from './clinical-trials';
+// Clinical trials tools - using new orchestrated version
+export { clinicalTrialsOrchestratedTool as clinicalTrialsTool } from './clinical-trials-orchestrated';
 export { clinicalTrialsInfoTool } from './clinical-trials-info';
 export { healthProfileTool } from './health-profile';

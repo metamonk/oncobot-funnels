@@ -1,11 +1,10 @@
 /**
  * API endpoint for fetching full eligibility criteria for a specific trial
- * Supports Progressive Disclosure pattern for token efficiency
+ * Uses the new atomic NCT lookup tool
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { SearchExecutor } from '@/lib/tools/clinical-trials/search-executor';
-import { trialAssessmentBuilder } from '@/lib/tools/clinical-trials/trial-assessment-builder';
+import { nctLookup } from '@/lib/tools/clinical-trials/atomic/nct-lookup';
 import type { ClinicalTrial } from '@/lib/tools/clinical-trials/types';
 
 export async function GET(
@@ -23,26 +22,17 @@ export async function GET(
       );
     }
 
-    // Fetch the full trial data using SearchExecutor
-    const searchExecutor = new SearchExecutor();
+    // Fetch the trial using the atomic NCT lookup tool
+    const result = await nctLookup.lookup(nctId.toUpperCase());
     
-    // Use executeSearch to fetch by NCT ID
-    // For NCT IDs, just pass the ID directly - the API will understand it
-    const result = await searchExecutor.executeSearch(
-      nctId.toUpperCase(),
-      { pageSize: 1, countTotal: false }
-    );
-    
-    const trials = result?.studies || [];
-    
-    if (!trials || trials.length === 0) {
+    if (!result.success || !result.trial) {
       return NextResponse.json(
         { error: `Trial ${nctId} not found` },
         { status: 404 }
       );
     }
     
-    const trial = trials[0] as ClinicalTrial;
+    const trial = result.trial as ClinicalTrial;
     
     // Extract full eligibility criteria
     const eligibilityCriteria = trial.protocolSection?.eligibilityModule?.eligibilityCriteria;
@@ -58,44 +48,52 @@ export async function GET(
       );
     }
     
-    // Build structured assessment with full parsing
-    const assessment = await trialAssessmentBuilder.buildAssessment(trial, null);
+    // Parse basic inclusion/exclusion criteria
+    const lines = eligibilityCriteria.split('\n').filter(line => line.trim());
+    const inclusionStart = lines.findIndex(line => 
+      line.toLowerCase().includes('inclusion')
+    );
+    const exclusionStart = lines.findIndex(line => 
+      line.toLowerCase().includes('exclusion')
+    );
+    
+    const inclusionCriteria = inclusionStart >= 0 && exclusionStart > inclusionStart
+      ? lines.slice(inclusionStart + 1, exclusionStart)
+      : [];
+    
+    const exclusionCriteria = exclusionStart >= 0
+      ? lines.slice(exclusionStart + 1)
+      : [];
     
     // Return comprehensive criteria data
     return NextResponse.json({
       nctId,
       fullCriteria: {
         raw: eligibilityCriteria,
-        structured: assessment.trialCriteria,
+        structured: {
+          totalCriteria: inclusionCriteria.length + exclusionCriteria.length,
+          inclusionCriteria: inclusionCriteria.map(c => c.trim()).filter(Boolean),
+          exclusionCriteria: exclusionCriteria.map(c => c.trim()).filter(Boolean),
+          ageRange: {
+            min: trial.protocolSection?.eligibilityModule?.minimumAge,
+            max: trial.protocolSection?.eligibilityModule?.maximumAge
+          },
+          sex: trial.protocolSection?.eligibilityModule?.sex,
+          acceptsHealthyVolunteers: trial.protocolSection?.eligibilityModule?.healthyVolunteers
+        },
         metadata: {
-          totalLength: eligibilityCriteria.length,
-          lineCount: eligibilityCriteria.split('\n').length,
-          hasInclusionSection: eligibilityCriteria.toLowerCase().includes('inclusion'),
-          hasExclusionSection: eligibilityCriteria.toLowerCase().includes('exclusion')
+          title: trial.protocolSection?.identificationModule?.briefTitle,
+          overallStatus: trial.protocolSection?.statusModule?.overallStatus,
+          lastUpdatePosted: trial.protocolSection?.statusModule?.lastUpdatePostDateStruct?.date
         }
-      },
-      // Also include other useful trial info for context
-      trialInfo: {
-        title: trial.protocolSection?.identificationModule?.briefTitle,
-        status: trial.protocolSection?.statusModule?.overallStatus,
-        conditions: trial.protocolSection?.conditionsModule?.conditions,
-        phase: trial.protocolSection?.designModule?.phases,
-        lastUpdated: trial.protocolSection?.statusModule?.lastUpdatePostDateStruct?.date
       }
     });
     
   } catch (error) {
-    console.error('[API] Error fetching trial criteria:', error);
-    
+    console.error('Error fetching trial criteria:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch trial criteria',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to fetch trial criteria' },
       { status: 500 }
     );
   }
 }
-
-// Cache the response for 1 hour to reduce API calls
-export const revalidate = 3600;

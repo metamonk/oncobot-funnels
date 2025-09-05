@@ -1,69 +1,71 @@
 #!/usr/bin/env tsx
 
 /**
- * Debug script to test clinical trials search
+ * Debug the actual search behavior
  */
 
-import { clinicalTrialsRouter } from '../lib/tools/clinical-trials/router';
-import { SearchExecutor } from '../lib/tools/clinical-trials/search-executor';
+// Enable debug logging
+process.env.DEBUG = 'true';
 
-async function testDirectAPI() {
-  console.log('🔍 Testing Direct API Search\n');
+import { textSearch } from '../lib/tools/clinical-trials/atomic/text-search';
+
+async function debugSearch() {
+  console.log('🧪 Debug Search for TROPION-Lung 12\n');
   
-  const executor = new SearchExecutor();
+  console.log('Testing search for "TROPION-Lung 12" which should find NCT06564844...\n');
   
-  // Test 1: Simple search
-  console.log('Test 1: Direct API call for "lung cancer"');
-  try {
-    const result = await executor.executeSearch('lung cancer', {
-      pageSize: 5
-    });
+  const result = await textSearch.search({
+    query: 'TROPION-Lung 12',
+    field: 'term'
+  });
+  
+  console.log('\nSearch Results:');
+  console.log(`- Success: ${result.success}`);
+  console.log(`- Total trials found: ${result.trials.length}`);
+  console.log(`- Total count: ${result.totalCount}`);
+  
+  if (result.trials.length > 0) {
+    const hasTarget = result.trials.some(t => 
+      t.protocolSection?.identificationModule?.nctId === 'NCT06564844'
+    );
     
-    console.log(`✅ API Response: ${result.studies.length} studies found`);
-    console.log(`   Total available: ${result.totalCount}`);
-    
-    if (result.studies.length > 0) {
-      const first = result.studies[0];
-      const nctId = first.protocolSection?.identificationModule?.nctId;
-      const title = first.protocolSection?.identificationModule?.briefTitle;
-      console.log(`   First trial: ${nctId}`);
-      console.log(`   Title: ${title?.substring(0, 60)}...`);
+    if (hasTarget) {
+      console.log('✅ SUCCESS: Found NCT06564844!');
+      const trial = result.trials.find(t => 
+        t.protocolSection?.identificationModule?.nctId === 'NCT06564844'
+      );
+      console.log(`  Title: ${trial.protocolSection?.identificationModule?.briefTitle}`);
+      console.log(`  Acronym: ${trial.protocolSection?.identificationModule?.acronym}`);
+    } else {
+      console.log('❌ FAILED: Did not find NCT06564844');
+      console.log('NCT IDs found:', result.trials.map(t => ({
+        nctId: t.protocolSection?.identificationModule?.nctId,
+        title: t.protocolSection?.identificationModule?.briefTitle?.substring(0, 50) + '...'
+      })));
     }
-  } catch (error) {
-    console.error('❌ API call failed:', error);
+  } else {
+    console.log('❌ No trials found at all');
   }
   
-  console.log('\n---\n');
+  // Now test the variation directly
+  console.log('\n\nDirect test of "TROPION-Lung12" (no space):');
+  const directResult = await textSearch.search({
+    query: 'TROPION-Lung12',
+    field: 'term'
+  });
   
-  // Test 2: Router test
-  console.log('Test 2: Router test for "lung cancer"');
-  try {
-    const result = await clinicalTrialsRouter.routeWithContext({
-      query: 'lung cancer',
-      healthProfile: null,
-      userCoordinates: undefined,
-      chatId: 'test-chat',
-      dataStream: undefined,
-      pagination: { offset: 0, limit: 5 }
-    });
+  console.log(`- Found ${directResult.trials.length} trials`);
+  if (directResult.trials.length > 0) {
+    const hasTarget = directResult.trials.some(t => 
+      t.protocolSection?.identificationModule?.nctId === 'NCT06564844'
+    );
     
-    if (result.success) {
-      const trials = result.trials || result.matches?.map(m => m.trial) || [];
-      console.log(`✅ Router Response: ${trials.length} trials found`);
-      console.log(`   Total available: ${result.totalCount}`);
-      console.log(`   Message: ${result.message}`);
-      
-      if (trials.length > 0) {
-        const first = trials[0];
-        const nctId = first.protocolSection?.identificationModule?.nctId;
-        console.log(`   First trial: ${nctId}`);
-      }
+    if (hasTarget) {
+      console.log('✅ SUCCESS: Direct search for "TROPION-Lung12" found NCT06564844!');
     } else {
-      console.error('❌ Router failed:', result.error);
+      console.log('❌ Direct search did not find NCT06564844');
     }
-  } catch (error) {
-    console.error('❌ Router call failed:', error);
   }
 }
 
-testDirectAPI().catch(console.error);
+debugSearch().catch(console.error);
