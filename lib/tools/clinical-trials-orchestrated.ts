@@ -18,9 +18,9 @@ import {
   nctLookup,
   locationSearch,
   enhancedLocationSearch,
-  mutationSearch
+  mutationSearch,
+  continuationHandler
 } from './clinical-trials/atomic';
-import { continuationHandler } from './clinical-trials/atomic/continuation-handler';
 import { conversationTrialStore } from './clinical-trials/services/conversation-trial-store';
 import { debug, DebugCategory } from './clinical-trials/debug';
 import type { HealthProfile } from './clinical-trials/types';
