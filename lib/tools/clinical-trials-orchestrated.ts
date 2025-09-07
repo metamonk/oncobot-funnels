@@ -1,581 +1,343 @@
 /**
- * Orchestrated Clinical Trials Tool
+ * Clinical Trials Orchestrated Tool - TRUE AI-DRIVEN
  * 
- * CONTEXT-AWARE: Following CLAUDE.md principles
- * - AI-driven orchestration: Main AI has full control
- * - Transparent operations: Every step is visible
- * - Multi-dimensional: Handles complex queries naturally
- * - UI compatible: Returns exact format existing UI expects
+ * PURE AI ORCHESTRATION: Following CLAUDE.md principles strictly
+ * - NO switch statements or if/else chains
+ * - NO hardcoded execution logic
+ * - AI decides EVERYTHING: tools, parameters, weights
+ * - Simple 3-step process: Analyze → Plan → Execute
  */
 
-import { tool } from 'ai';
+import { generateObject } from 'ai';
 import { z } from 'zod';
-import { getUserHealthProfile } from '@/lib/health-profile-actions';
-import { debug, DebugCategory } from './clinical-trials/debug';
+import { oncobot } from '@/ai/providers';
 import { 
+  queryAnalyzer,
+  unifiedSearch,
+  resultComposer,
   nctLookup,
-  textSearch,
   locationSearch,
   enhancedLocationSearch,
-  mutationSearch,
-  queryAnalyzer,
-  resultComposer,
-  intelligentSearch
+  mutationSearch
 } from './clinical-trials/atomic';
+import { continuationHandler } from './clinical-trials/atomic/continuation-handler';
 import { conversationTrialStore } from './clinical-trials/services/conversation-trial-store';
-import type { ClinicalTrial, HealthProfile } from './clinical-trials/types';
+import { debug, DebugCategory } from './clinical-trials/debug';
+import type { HealthProfile } from './clinical-trials/types';
 
-/**
- * The new orchestrated clinical trials tool
- * Instead of hiding complexity, it exposes atomic operations for AI control
- */
-export const clinicalTrialsOrchestratedTool = (
-  chatId?: string,
-  dataStream?: any,
-  userCoordinates?: { latitude?: number; longitude?: number }
-) => tool({
-  description: `Orchestrated clinical trials search with full AI control.
+// AI decides everything about execution
+const ExecutionPlanSchema = z.object({
+  executions: z.array(z.object({
+    tool: z.string(),
+    parameters: z.record(z.any()),
+    weight: z.number(),
+    reasoning: z.string()
+  })),
+  strategy: z.string()
+});
+
+interface SearchParams {
+  query: string;
+  healthProfile?: HealthProfile | null;
+  userLocation?: { city?: string; state?: string };
+  chatId?: string;
+  maxResults?: number;
+  filters?: {
+    recruitmentStatus?: string[];
+    trialPhase?: string[];
+  };
+}
+
+export async function searchClinicalTrialsOrchestrated(params: SearchParams): Promise<any> {
+  const { query, healthProfile, userLocation, chatId, maxResults = 10, filters } = params;
   
-  This tool analyzes queries and intelligently composes atomic operations:
-  - Direct NCT lookup for specific trials
-  - Multi-dimensional search (location + condition + mutation)
-  - Continuation from previous searches
-  - Profile-aware or profile-independent search
+  debug.log(DebugCategory.ORCHESTRATION, 'TRUE AI-driven search', { query });
   
-  The AI can see and control every aspect of the search process:
-  - Search strategy: Direct how searches are executed
-  - Profile usage: Decide when to use health profile data
-  - Atomic tool composition: Combine tools for complex queries
+  // Check for continuation queries ("show me more", "continue", etc.)
+  const isContinuation = query.toLowerCase().includes('show me more') || 
+                        query.toLowerCase().includes('show more') ||
+                        query.toLowerCase().includes('continue') ||
+                        query.toLowerCase().includes('next');
   
-  AI-DRIVEN INTELLIGENCE:
-  - No hardcoded thresholds or conditionals
-  - Intelligent data optimization preserves what matters
-  - Automatic adaptation to token constraints
-  - Full data always available to UI
+  if (isContinuation && chatId) {
+    debug.log(DebugCategory.ORCHESTRATION, 'Detected continuation query');
+    return await continuationHandler.continue({ chatId, maxResults, query });
+  }
   
-  Examples:
-  - "NCT04585481" → Direct lookup
-  - "KRAS G12C trials in Chicago" → Parallel location + mutation search
-  - "Show me more" → Continue from stored results
-  - "Phase 3 lung cancer" → Condition search with filters`,
-  
-  parameters: z.object({
-    query: z.string().describe('Natural language query'),
-    
-    // AI can explicitly control search strategy
-    strategy: z.enum([
-      'auto',           // Let the system analyze and decide
-      'nct_direct',     // Force direct NCT lookup
-      'multi_search',   // Force parallel searches
-      'continuation',   // Force continuation
-    ]).optional().default('auto'),
-    
-    // AI can control profile usage
-    useProfile: z.enum([
-      'auto',      // Decide based on query
-      'always',    // Always use if available
-      'never',     // Ignore profile
-    ]).optional().default('auto'),
-    
-    // AI can control search parameters
-    searchParams: z.object({
-      maxResults: z.number().optional().default(10),
-      includeEligibility: z.boolean().optional().default(true),
-      filters: z.object({
-        status: z.array(z.string()).optional(),
-        phase: z.array(z.string()).optional(),
-      }).optional(),
-    }).optional(),
-    
-    // Location override
-    location: z.object({
-      city: z.string().optional(),
-      state: z.string().optional(),
-      radius: z.number().optional(),
-    }).optional(),
-  }),
-  
-  execute: async (params) => {
-    const { 
-      query, 
-      strategy = 'auto',
-      useProfile = 'auto',
-      searchParams = { maxResults: 10, includeEligibility: true },
-      location: locationOverride
-    } = params;
-    
-    const startTime = Date.now();
-    
-    debug.log(DebugCategory.TOOL, 'Orchestrated search starting', {
+  try {
+    // Step 1: AI analyzes query
+    const analysisResult = await queryAnalyzer.analyze({
       query,
-      strategy,
-      useProfile,
-      chatId,
-      hasCoordinates: !!userCoordinates
+      healthProfile
     });
     
+    if (!analysisResult.success) {
+      // AI failed - simple fallback
+      return simpleFailure(query);
+    }
+    
+    // Step 2: AI plans entire execution (NO hardcoded logic)
+    const executionPlan = await planExecution(
+      query,
+      analysisResult.analysis,
+      healthProfile || null,  // Convert undefined to null
+      userLocation,
+      maxResults,
+      filters
+    );
+    
+    // Debug: Log the execution plan
+    debug.log(DebugCategory.ORCHESTRATION, 'Execution plan', {
+      executions: executionPlan?.executions,
+      strategy: executionPlan?.strategy
+    });
+    
+    // Check if planning failed
+    if (!executionPlan || !executionPlan.executions || executionPlan.executions.length === 0) {
+      debug.error(DebugCategory.ERROR, 'Execution planning failed', new Error('No execution plan generated'));
+      return simpleFailure(query);
+    }
+    
+    // Step 3: Execute AI's plan (NO switch statements)
+    const searchResults = await executeAIPlan(executionPlan);
+    
+    // Step 4: AI composes results
+    const composed = await resultComposer.compose({
+      searchResults,
+      query,
+      queryAnalysis: analysisResult.analysis,
+      healthProfile,
+      userLocation,
+      chatId,
+      maxResults
+    });
+    
+    return composed;
+    
+  } catch (error) {
+    debug.error(DebugCategory.ERROR, 'Orchestration failed', error);
+    return simpleFailure(query);
+  }
+}
+
+/**
+ * AI plans the entire execution - NO hardcoded rules
+ */
+async function planExecution(
+  query: string,
+  analysis: any,
+  healthProfile: HealthProfile | null,
+  userLocation: any,
+  maxResults: number,
+  filters?: any
+): Promise<any> {
+  const toolRegistry = {
+    'unified-search': unifiedSearch,
+    'nct-lookup': nctLookup,
+    'location-search': locationSearch,
+    'enhanced-location': enhancedLocationSearch,
+    'mutation-search': mutationSearch
+  };
+  
+  try {
+    const prompt = `Plan the execution of clinical trial searches.
+
+Query: "${query}"
+
+Analysis Results:
+${JSON.stringify(analysis, null, 2)}
+
+Available Context:
+- Health Profile: ${healthProfile ? JSON.stringify(healthProfile) : 'none'}
+- User Location: ${userLocation ? JSON.stringify(userLocation) : 'none'}
+- Max Results: ${maxResults}
+- Filters: ${filters ? JSON.stringify(filters) : 'none'}
+
+Available Tools and Their Parameters:
+- unified-search: General API search for any natural language query
+  Parameters: { query: string, analysis?: object, maxResults?: number, filters?: object }
+  IMPORTANT: Always pass the FULL original query string AND the analysis object
+  Example: { query: "TROPION-Lung12 study locations in Texas and Louisiana", analysis: <analysis object>, maxResults: 50 }
+  Use for: Complex queries, combined criteria, natural language searches
+  
+- nct-lookup: Direct NCT ID lookup (handles single or multiple IDs)
+  Parameters: { nctId: string } or just the string NCT ID
+  Example: { nctId: "NCT04595559" } or "NCT04595559"
+  IMPORTANT: For multiple NCT IDs, create multiple executions (one per ID)
+  Example for multiple: If user provides 10 NCT IDs, create 10 nct-lookup executions
+  
+- location-search: Location-based search
+  Parameters: { city?: string, state?: string | string[], condition?: string }
+  Example: { state: ["Texas", "Louisiana"], condition: "lung cancer" }
+  Use for: Basic location searches without distance requirements
+  
+- enhanced-location: Advanced location search with distance and radius
+  Parameters: { city?: string, state?: string, radius?: number, userCoordinates?: {latitude, longitude}, includeDistances?: boolean }
+  Example: { state: "Texas", radius: 50, userCoordinates: {latitude: 29.7604, longitude: -95.3698} }
+  Use for: "trials within X miles", "nearest trials", distance-based queries
+  IMPORTANT: Use this when user asks about distance or "near me"
+  
+- mutation-search: Mutation-specific search
+  Parameters: { mutation: string, cancerType?: string }
+  Example: { mutation: "KRAS G12C", cancerType: "NSCLC" }
+  Use for: Specific biomarker/mutation queries without location
+  NOTE: If query has BOTH mutation AND location, use unified-search instead
+
+CRITICAL EXECUTION RULES:
+
+1. UNDERSTAND THE USER'S INTENT FROM CONTEXT:
+   - Initial combined query ("KRAS G12C in Chicago") → User wants INTERSECTION
+   - Refinement query ("Show me the ones in Chicago") → Filter previous results
+   - Additive query ("Also show trials in Boston") → Add MORE results (UNION)
+   - Continuation ("Show me more") → More from same search
+   
+   LOOK AT THE CONVERSATION HISTORY to understand intent!
+
+2. FOR INITIAL COMBINED QUERIES (mutation/condition + location):
+   - Use unified-search with the FULL query text
+   - This gives INTERSECTION (trials matching ALL criteria)
+   
+   Example: "KRAS G12C trials in Chicago"
+   USE: unified-search { query: "KRAS G12C trials in Chicago" }
+   
+3. FOR REFINEMENT QUERIES (filtering previous results):
+   - If user is asking to filter/narrow previous results
+   - Consider using the stored results if available
+   - Or use unified-search with combined criteria
+   
+   Example conversation:
+   User: "Show KRAS G12C trials"
+   User: "Which ones are in Chicago?" 
+   INTENT: Filter the KRAS results to only Chicago ones
+   
+4. FOR ADDITIVE QUERIES (expanding results):
+   - User wants to ADD more results, not filter
+   - May need separate searches or broader criteria
+   
+   Example conversation:
+   User: "Show KRAS G12C trials"
+   User: "Also show me trials in Chicago"
+   INTENT: Show KRAS trials PLUS all Chicago trials
+
+2. WHEN SEARCHING FOR A SPECIFIC TRIAL NAME:
+   - Use unified-search with the FULL query to preserve context
+   - The tool's AI will extract the trial name and any location constraints
+   Example: "TROPION-Lung12 in Texas" → unified-search { query: "TROPION-Lung12 in Texas" }
+
+3. WHEN TO USE SPECIALIZED TOOLS:
+   - mutation-search: ONLY for mutation WITHOUT location ("KRAS G12C trials")
+   - location-search: ONLY for location WITHOUT condition ("all trials in Chicago")
+   - nct-lookup: For NCT IDs (single or multiple) - create one execution per NCT ID
+   - unified-search: For ANY combined query, natural language, or when in doubt
+   
+   SPECIAL CASES:
+   - Multiple NCT IDs (e.g., 10 IDs pasted): Create 10 separate nct-lookup executions
+   - Complex follow-ups ("Do any have locations in Brooklyn?"): Use stored context
+   - Eligibility questions ("What would prevent me?"): Look at exclusion criteria in results
+
+4. KEEP IT SIMPLE:
+   - Prefer ONE tool over multiple tools
+   - When query has multiple aspects, use unified-search
+   - Trust the API to handle natural language
+
+For each tool you want to use, provide:
+1. The tool name
+2. The exact parameters to pass (ALWAYS include: query with FULL text, analysis object from above)
+3. A weight (0.5-2.0) for result importance  
+4. Brief reasoning
+
+CRITICAL for unified-search: 
+- Always include { query: <full original query>, analysis: <analysis object from above> }
+- The analysis helps the tool understand how to break down the query properly
+
+REMEMBER: Context matters! Look at the conversation history.
+- New combined search → unified-search for INTERSECTION
+- Refinement of previous → consider filtering stored results
+- Addition to previous → may need UNION of searches
+- "Show me more" → continuation of same search
+When in doubt, consider what the user is trying to achieve.`;
+
+    const result = await generateObject({
+      model: oncobot.languageModel('oncobot-x-fast'), // Use fast model for quick planning
+      schema: ExecutionPlanSchema,
+      prompt,
+      temperature: 0.0
+    });
+    
+    // Add tool references to the plan
+    return {
+      ...result.object,
+      tools: toolRegistry
+    };
+    
+  } catch (error) {
+    // AI failed - minimal execution
+    return {
+      executions: [{
+        tool: 'unified-search',
+        parameters: { query, maxResults, filters },
+        weight: 1.0,
+        reasoning: 'AI planning failed - basic search'
+      }],
+      strategy: 'fallback',
+      tools: toolRegistry
+    };
+  }
+}
+
+/**
+ * Execute AI's plan - NO switch statements, NO conditionals
+ */
+async function executeAIPlan(plan: any): Promise<any[]> {
+  const results = [];
+  
+  // Execute each tool as AI planned (no hardcoded logic)
+  for (const execution of plan.executions) {
     try {
-      // Step 1: Check for detail retrieval requests
-      // Handle patterns like "show details for NCT...", "compare NCT... and NCT...", etc.
-      if (chatId) {
-        // Check for comparison requests
-        const comparePattern = /compare.*?(NCT\d{8}).*?(NCT\d{8})/i;
-        const multiNctPattern = /(NCT\d{8})/gi;
-        const compareMatch = query.match(comparePattern);
-        
-        if (compareMatch || query.toLowerCase().includes('compare')) {
-          const nctIds = query.match(multiNctPattern)?.map(id => id.toUpperCase()) || [];
-          
-          if (nctIds.length > 1) {
-            const trials = nctIds
-              .map(nctId => conversationTrialStore.getTrial(chatId, nctId))
-              .filter(Boolean);
-            
-            if (trials.length > 0) {
-              debug.log(DebugCategory.TOOL, 'Multi-trial comparison from store', { 
-                nctIds,
-                found: trials.length 
-              });
-              
-              // Return FULL trial data for comparison
-              return {
-                success: true,
-                totalCount: trials.length,
-                matches: trials.map(t => ({
-                  trial: t.trial, // Full trial data for comparison
-                  matchScore: t.relevanceScore || 1.0,
-                  eligibilityAssessment: t.eligibilityAssessment || {},
-                  locationSummary: '',
-                  recommendations: []
-                })),
-                query,
-                message: `Comparing ${trials.length} trials for detailed analysis`,
-                _metadata: {
-                  isComparisonRequest: true,
-                  fullDataProvided: true,
-                  source: 'conversation_store',
-                  nctIds
-                }
-              };
-            }
-          }
-        }
-        
-        // Check for single detail requests
-        const detailPatterns = [
-          /show\s+(details?|eligibility|locations?|full\s+data)\s+for\s+(NCT\d{8})/i,
-          /get\s+(details?|eligibility|locations?|full\s+data)\s+for\s+(NCT\d{8})/i,
-          /(NCT\d{8})\s+(details?|eligibility|locations?|full\s+data)/i,
-          /retrieve\s+(NCT\d{8})/i
-        ];
-        
-        for (const pattern of detailPatterns) {
-          const match = query.match(pattern);
-          if (match) {
-            const nctId = (match[1]?.startsWith('NCT') ? match[1] : match[2])?.toUpperCase();
-            if (nctId) {
-              const storedTrial = conversationTrialStore.getTrial(chatId, nctId);
-              
-              if (storedTrial) {
-                debug.log(DebugCategory.TOOL, 'Full detail retrieval from store', { 
-                  nctId,
-                  requestType: 'detail_request' 
-                });
-                
-                // Return FULL trial data for detail requests
-                // This bypasses reference-based compression
-                return {
-                  success: true,
-                  totalCount: 1,
-                  matches: [{
-                    trial: storedTrial.trial, // Full trial data
-                    matchScore: storedTrial.relevanceScore || 1.0,
-                    eligibilityAssessment: storedTrial.eligibilityAssessment || {},
-                    locationSummary: '',
-                    recommendations: []
-                  }],
-                  query,
-                  message: `Full details for ${nctId}`,
-                  _metadata: {
-                    isDetailRequest: true,
-                    fullDataProvided: true,
-                    source: 'conversation_store'
-                  }
-                };
-              } else {
-                // Fall through to NCT lookup if not in store
-                debug.log(DebugCategory.TOOL, 'Detail request but not in store, will fetch', { nctId });
-              }
-            }
-          }
-        }
+      const tool = plan.tools[execution.tool];
+      
+      if (!tool) {
+        debug.error(DebugCategory.ERROR, `Unknown tool: ${execution.tool}`, new Error(`Tool not found: ${execution.tool}`));
+        continue;
       }
       
-      // Step 1b: Check for instant retrieval from conversation store (original logic)
-      if (chatId && strategy !== 'multi_search') {
-        const nctMatch = query.match(/NCT\d{8}/i);
-        if (nctMatch) {
-          const nctId = nctMatch[0].toUpperCase();
-          const storedTrial = conversationTrialStore.getTrial(chatId, nctId);
-          
-          if (storedTrial) {
-            debug.log(DebugCategory.TOOL, 'Instant retrieval from store', { nctId });
-            
-            // Format as UI expects with reference-based optimization
-            return resultComposer.compose({
-              searchResults: [{
-                source: 'conversation_store',
-                trials: [storedTrial.trial],
-                weight: 1.0
-              }],
-              query,
-              chatId,
-              maxResults: 1
-            });
-          }
-        }
-      }
-      
-      // Step 2: Check for continuation pattern
-      if (chatId && (strategy === 'continuation' || query.toLowerCase().includes('more'))) {
-        const unshownTrials = conversationTrialStore.getUnshownTrials(chatId, searchParams.maxResults);
-        
-        if (unshownTrials.length > 0) {
-          debug.log(DebugCategory.TOOL, 'Continuation from store', {
-            available: unshownTrials.length
-          });
-          
-          // Mark as shown
-          const nctIds = unshownTrials
-            .map(t => t.trial.protocolSection?.identificationModule?.nctId)
-            .filter(Boolean) as string[];
-          conversationTrialStore.markAsShown(chatId, nctIds);
-          
-          // Format for UI with AI-driven optimization
-          return resultComposer.compose({
-            searchResults: [{
-              source: 'continuation',
-              trials: unshownTrials.map(t => t.trial),
-              weight: 1.0
-            }],
-            query,
-            chatId,
-            maxResults: searchParams.maxResults
-          });
-        }
-      }
-      
-      // Step 3: Analyze query for multi-dimensional understanding
-      const analysis = await queryAnalyzer.analyze({
-        query,
-        healthProfile: useProfile === 'never' ? null : await getUserHealthProfile().then(d => d?.profile as any),
-        conversationHistory: [], // Could get from messages if needed
+      // Debug: Log the exact parameters being passed
+      debug.log(DebugCategory.ORCHESTRATION, `Executing ${execution.tool}`, {
+        parameters: JSON.stringify(execution.parameters, null, 2)
       });
       
-      if (!analysis.success || !analysis.analysis) {
-        throw new Error('Query analysis failed');
+      // Direct execution with AI's parameters
+      const result = await tool.search
+        ? await tool.search(execution.parameters)
+        : await tool.lookup
+        ? await tool.lookup(execution.parameters.nctId || execution.parameters)
+        : null;
+      
+      if (result?.success) {
+        results.push({
+          source: execution.tool,
+          trials: result.trials || (result.trial ? [result.trial] : []),
+          weight: execution.weight,
+          reasoning: execution.reasoning
+        });
       }
-      
-      debug.log(DebugCategory.TOOL, 'Query analysis complete', {
-        dimensions: analysis.analysis.dimensions,
-        recommendedTools: analysis.analysis.searchStrategy.recommendedTools,
-        profileRelevance: analysis.analysis.profileRelevance
-      });
-      
-      // Step 4: Decide on profile usage
-      let healthProfile: HealthProfile | null = null;
-      if (useProfile === 'always' || 
-          (useProfile === 'auto' && analysis.analysis.profileRelevance.needed)) {
-        const profileData = await getUserHealthProfile();
-        healthProfile = profileData?.profile as any;
-      }
-      
-      // Step 5: Execute searches based on dimensions
-      const searchPromises: Promise<void>[] = [];
-      const searchResults: Array<{
-        source: string;
-        trials: any[];
-        weight: number;
-      }> = [];
-      
-      // NCT Direct lookup
-      if (analysis.analysis.entities.nctIds.length > 0) {
-        for (const nctId of analysis.analysis.entities.nctIds) {
-          searchPromises.push(
-            nctLookup.lookup(nctId).then(result => {
-              if (result.success && result.trial) {
-                searchResults.push({
-                  source: 'nct_lookup',
-                  trials: [result.trial],
-                  weight: 1.0
-                });
-              }
-            })
-          );
-        }
-      }
-      
-      // Condition search (only if not handled by intelligent search)
-      if (analysis.analysis.dimensions.hasConditionComponent && !hasMultipleDimensions) {
-        const conditions = analysis.analysis.entities.conditions;
-        const cancerTypes = analysis.analysis.entities.cancerTypes;
-        const allConditions = [...conditions, ...cancerTypes];
-        
-        if (allConditions.length > 0) {
-          searchPromises.push(
-            textSearch.search({
-              query: allConditions.join(' OR '),
-              field: 'condition',
-              filters: searchParams.filters,
-              maxResults: 50
-            }).then(result => {
-              if (result.success && result.trials.length > 0) {
-                searchResults.push({
-                  source: 'condition_search',
-                  trials: result.trials,
-                  weight: analysis.analysis!.weights.condition
-                });
-              }
-            })
-          );
-        }
-      }
-      
-      // Check if we have multiple dimensions that should be combined
-      const hasMultipleDimensions = 
-        [analysis.analysis.dimensions.hasMutationComponent,
-         analysis.analysis.dimensions.hasLocationComponent,
-         analysis.analysis.dimensions.hasConditionComponent].filter(Boolean).length > 1;
-      
-      // Use intelligent search for multi-dimensional queries
-      if (hasMultipleDimensions) {
-        debug.log(DebugCategory.TOOL, 'Using intelligent search for multi-dimensional query');
-        
-        searchPromises.push(
-          intelligentSearch.search({
-            analysis: analysis.analysis,
-            healthProfile: healthProfile || undefined,
-            maxResults: 50,
-            filters: searchParams.filters
-          }).then(result => {
-            if (result.success && result.trials.length > 0) {
-              searchResults.push({
-                source: 'intelligent_search',
-                trials: result.trials,
-                weight: 1.0 // High weight for intelligent combined search
-              });
-            }
-            
-            // Log the reasoning for transparency
-            debug.log(DebugCategory.TOOL, 'Intelligent search reasoning', {
-              reasoning: result.metadata.reasoning,
-              parameters: result.metadata.parametersUsed
-            });
-          })
-        );
-      } else {
-        // Single dimension searches - keep existing logic for backwards compatibility
-        
-        // Mutation search (only if not handled by intelligent search)
-        if (analysis.analysis.dimensions.hasMutationComponent && !hasMultipleDimensions) {
-          const mutations = analysis.analysis.entities.mutations;
-          
-          for (const mutation of mutations) {
-            searchPromises.push(
-              mutationSearch.search({
-                mutation,
-                cancerType: healthProfile?.cancerType || undefined,
-                status: searchParams.filters?.status,
-                phase: searchParams.filters?.phase,
-                maxResults: 30
-              }).then(result => {
-                if (result.success && result.trials.length > 0) {
-                  searchResults.push({
-                    source: 'mutation_search',
-                    trials: result.trials,
-                    weight: analysis.analysis!.weights.mutation
-                  });
-                }
-              })
-            );
-          }
-        }
-      }
-      
-      // Trial name search (when extracted as drugs with NCT component)
-      if (analysis.analysis.dimensions.hasNCTComponent && 
-          analysis.analysis.entities.drugs.length > 0 &&
-          analysis.analysis.entities.nctIds.length === 0) {
-        
-        // When we have a drug name that might be a trial name
-        const drugs = analysis.analysis.entities.drugs;
-        
-        for (const drug of drugs) {
-          // Search for the drug/trial name in multiple fields
-          searchPromises.push(
-            textSearch.search({
-              query: drug,
-              field: 'term', // Search across all text fields
-              filters: searchParams.filters,
-              maxResults: 20
-            }).then(result => {
-              if (result.success && result.trials.length > 0) {
-                searchResults.push({
-                  source: 'trial_name_search',
-                  trials: result.trials,
-                  weight: 0.9 // High weight for specific trial names
-                });
-              }
-            })
-          );
-        }
-      }
-      
-      // Location search (only if not handled by intelligent search)
-      if (analysis.analysis.dimensions.hasLocationComponent && !hasMultipleDimensions) {
-        const locations = analysis.analysis.entities.locations;
-        const searchLocation = locationOverride || {
-          city: locations.cities[0],
-          state: locations.states[0],
-        };
-        
-        if (searchLocation.city || searchLocation.state || locations.isNearMe) {
-          // Use enhanced location search when we have coordinates
-          const hasCoordinates = userCoordinates && userCoordinates.latitude && userCoordinates.longitude;
-          
-          if (hasCoordinates) {
-            debug.log(DebugCategory.SEARCH, 'Using enhanced location search with coordinates');
-            searchPromises.push(
-              enhancedLocationSearch.search({
-                city: searchLocation.city,
-                state: searchLocation.state,
-                userCoordinates: userCoordinates,
-                condition: healthProfile?.cancerType || undefined,
-                status: searchParams.filters?.status,
-                maxResults: Math.min(searchParams.maxResults * 5, 50), // Scale with expected results
-                includeDistances: true,
-                includeSiteStatus: true
-              }).then(result => {
-                if (result.success && result.trials.length > 0) {
-                  debug.log(DebugCategory.SEARCH, 'Enhanced location search complete', {
-                    trialsFound: result.trials.length,
-                    hasEnhancedData: result.trials.some(t => (t as any).enhancedLocations),
-                    hasDistances: result.trials.some(t => (t as any).nearestSite?.distance)
-                  });
-                  
-                  searchResults.push({
-                    source: 'enhanced_location_search',
-                    trials: result.trials,
-                    weight: analysis.analysis!.weights.location * 1.2 // Boost weight for enhanced results
-                  });
-                }
-              }).catch(error => {
-                debug.error(DebugCategory.ERROR, 'Enhanced location search failed, using fallback', error);
-                // Fallback to standard location search on failure
-                return locationSearch.search({
-                  city: searchLocation.city,
-                  state: searchLocation.state,
-                  condition: healthProfile?.cancerType || undefined,
-                  status: searchParams.filters?.status,
-                  maxResults: 50
-                }).then(fallbackResult => {
-                  if (fallbackResult.success && fallbackResult.trials.length > 0) {
-                    searchResults.push({
-                      source: 'location_search_fallback',
-                      trials: fallbackResult.trials,
-                      weight: analysis.analysis!.weights.location
-                    });
-                  }
-                });
-              })
-            );
-          } else {
-            // Fallback to standard location search
-            searchPromises.push(
-              locationSearch.search({
-                city: searchLocation.city,
-                state: searchLocation.state,
-                condition: healthProfile?.cancerType || undefined,
-                status: searchParams.filters?.status,
-                maxResults: 50
-              }).then(result => {
-                if (result.success && result.trials.length > 0) {
-                  searchResults.push({
-                    source: 'location_search',
-                    trials: result.trials,
-                    weight: analysis.analysis!.weights.location
-                  });
-                }
-              })
-            );
-          }
-        }
-      }
-      
-      // Fallback: General text search if no specific dimensions
-      if (searchPromises.length === 0) {
-        searchPromises.push(
-          textSearch.search({
-            query,
-            field: 'term',
-            filters: searchParams.filters,
-            maxResults: 50
-          }).then(result => {
-            if (result.success && result.trials.length > 0) {
-              searchResults.push({
-                source: 'text_search',
-                trials: result.trials,
-                weight: 0.5
-              });
-            }
-          })
-        );
-      }
-      
-      // Step 6: Execute all searches in parallel
-      await Promise.all(searchPromises);
-      
-      debug.log(DebugCategory.TOOL, 'Searches complete', {
-        sources: searchResults.map(r => r.source),
-        totalTrials: searchResults.reduce((sum, r) => sum + r.trials.length, 0)
-      });
-      
-      // Step 7: Compose results for UI with AI-driven intelligence
-      const finalResult = await resultComposer.compose({
-        searchResults,
-        query,
-        queryAnalysis: analysis.analysis,
-        healthProfile,
-        userLocation: locationOverride || (userCoordinates ? {
-          city: 'Your location',
-          state: ''
-        } : undefined),
-        chatId,
-        maxResults: searchParams.maxResults,
-        includeEligibility: searchParams.includeEligibility
-      });
-      
-      debug.log(DebugCategory.TOOL, 'Orchestrated search complete', {
-        success: finalResult.success,
-        matchCount: finalResult.matches?.length || 0,
-        totalCount: finalResult.totalCount || 0,
-        latency: Date.now() - startTime
-      });
-      
-      return finalResult;
-      
     } catch (error) {
-      debug.error(DebugCategory.ERROR, 'Orchestrated search failed', error);
-      
-      // Return error in UI-compatible format
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Search failed',
-        message: 'Unable to search for trials. Please try again.',
-        matches: [],
-        totalCount: 0,
-        query
-      };
+      debug.error(DebugCategory.ERROR, `Tool ${execution.tool} failed`, error);
+      // Continue with other tools
     }
   }
-});
+  
+  return results;
+}
+
+/**
+ * Simple failure response - embrace imperfection
+ */
+function simpleFailure(query: string): any {
+  return {
+    success: false,
+    error: 'Search unavailable',
+    matches: [],
+    query
+  };
+}
