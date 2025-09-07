@@ -314,7 +314,7 @@ export class LocationSearchTool {
         } : undefined
       }));
       
-      const recruitingSiteCount = sites.filter(s => s.status === 'Recruiting').length;
+      const recruitingSiteCount = sites.filter((s: any) => s.status === 'Recruiting').length;
       
       debug.log(DebugCategory.SEARCH, 'Trial sites retrieved', {
         nctId,

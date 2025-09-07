@@ -20,7 +20,8 @@ export { memoryManagerTool } from './memory-manager';
 export { redditSearchTool } from './reddit-search';
 export { extremeSearchTool } from './extreme-search';
 export { greetingTool } from './greeting';
-// Clinical trials tools - using new orchestrated version
-export { clinicalTrialsOrchestratedTool as clinicalTrialsTool } from './clinical-trials-orchestrated';
+// Clinical trials tools - TRUE AI-DRIVEN version
+export { clinicalTrialsOrchestratedTool as clinicalTrialsTool } from './clinical-trials-tool';
 export { clinicalTrialsInfoTool } from './clinical-trials-info';
 export { healthProfileTool } from './health-profile';
+export { clinicalTrialsDetailsTool, searchTrialsByLocationTool } from './clinical-trials-details';

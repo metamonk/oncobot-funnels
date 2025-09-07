@@ -61,7 +61,7 @@ export const clinicalTrialsInfoTool = (dataStream?: DataStreamWriter) =>
         return {
           success: true,
           response, // Return the InfoResponse object directly for compatibility
-          detectedCategory: response.sourceModules?.join('/') || null, // Provide detected category for logging
+          detectedCategory: response.sourceModules ? response.sourceModules.join('/') : null, // Provide detected category for logging
           requiresProfilePrompt: response.requiresProfile
         };
 

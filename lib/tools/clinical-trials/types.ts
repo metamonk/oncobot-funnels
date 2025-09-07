@@ -344,7 +344,6 @@ export interface TrialMatch {
     uncertainFactors?: string[];
     missingInformation?: string[];
     
-    // Original structure (kept for compatibility)
     trialCriteria?: {
       parsed: boolean;
       inclusion: Array<{

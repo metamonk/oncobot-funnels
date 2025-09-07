@@ -1943,7 +1943,21 @@ const ToolInvocationListView = memo(
         }
         
         if (toolInvocation.toolName === 'clinical_trials') {
-          if (!result) {
+          // Check for full data in annotations first (for token optimization)
+          let fullResult = result;
+          if (result?._fullDataInAnnotations && annotations) {
+            // Find the clinical trials search results in annotations
+            const clinicalTrialsAnnotation = annotations.find(
+              (a: any) => a.type === 'clinicalTrialsSearchResults'
+            );
+            if (clinicalTrialsAnnotation?.data) {
+              // Use the full data from annotations for UI rendering
+              fullResult = clinicalTrialsAnnotation.data;
+              console.log('🎯 Using full data from annotations for UI rendering');
+            }
+          }
+          
+          if (!fullResult) {
             const ClinicalTrialsLoading = dynamic(() => import('@/components/clinical-trials-loading').then(mod => ({ default: mod.ClinicalTrialsLoadingState })), {
               ssr: false,
               loading: () => <ComponentLoader />,
@@ -1956,7 +1970,7 @@ const ToolInvocationListView = memo(
 
           return (
             <Suspense fallback={<ComponentLoader />}>
-              <ClinicalTrials result={result} action={action} isStreaming={isStreaming} />
+              <ClinicalTrials result={fullResult} action={action} isStreaming={isStreaming} />
             </Suspense>
           );
         }

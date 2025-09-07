@@ -1,13 +1,14 @@
 /**
- * Result Composer Atomic Tool
+ * Result Composer Atomic Tool - CLEAN VERSION
  * 
- * CONTEXT-AWARE: Following CLAUDE.md principles
- * - Maintains UI compatibility: Produces exact structure existing UI expects
- * - Intelligent composition: Merges results from multiple atomic tools
- * - Full data preservation: Ensures trial cards have all needed data
+ * TRUE AI-DRIVEN: Following CLAUDE.md principles strictly
+ * - NO pattern matching or validation
+ * - NO complex scoring algorithms
+ * - Simple merging and presentation
+ * - Trust AI's selection
  */
 
-import { ClinicalTrial, TrialMatch, HealthProfile } from '../types';
+import { ClinicalTrial, HealthProfile } from '../types';
 import { debug, DebugCategory } from '../debug';
 import { conversationTrialStore } from '../services/conversation-trial-store';
 
@@ -18,33 +19,7 @@ interface ClinicalTrialResult {
   matches?: Array<{
     trial: ClinicalTrial;
     matchScore: number;
-    eligibilityAssessment: {
-      searchRelevance: {
-        matchedTerms: string[];
-        relevanceScore: number;
-        searchStrategy: string;
-        reasoning: string;
-      };
-      trialCriteria: {
-        parsed: boolean;
-        inclusion: any[];
-        exclusion: any[];
-        demographics: any;
-        parseConfidence: number;
-        rawText?: string;
-      };
-      userAssessment?: {
-        hasProfile: boolean;
-        eligibilityScore?: number;
-        confidence: string;
-        recommendation: string;
-        missingData: string[];
-        matches: {
-          inclusion: any[];
-          exclusion: any[];
-        };
-      };
-    };
+    eligibilityAssessment: any;
     locationSummary?: string;
     recommendations?: string[];
   }>;
@@ -59,14 +34,14 @@ interface ClinicalTrialResult {
 export interface CompositionRequest {
   // Results from atomic tools
   searchResults: Array<{
-    source: string; // Which tool produced this
+    source: string;
     trials: ClinicalTrial[];
-    weight: number; // Importance weight
+    weight: number;
   }>;
   
   // Query context
   query: string;
-  queryAnalysis?: any; // From query analyzer
+  queryAnalysis?: any;
   
   // User context
   healthProfile?: HealthProfile | null;
@@ -75,14 +50,12 @@ export interface CompositionRequest {
   
   // UI requirements
   maxResults?: number;
-  includeEligibility?: boolean;
-  responseFormat?: 'cards' | 'table' | 'detailed';
 }
 
 export class ResultComposerTool {
   /**
-   * Compose results from multiple atomic tools into UI-compatible format
-   * REFERENCE-BASED ARCHITECTURE: AI receives references, UI receives full data
+   * Compose results - TRUST AI's selection
+   * NO validation, NO scoring patterns
    */
   async compose(request: CompositionRequest): Promise<ClinicalTrialResult> {
     const {
@@ -93,371 +66,94 @@ export class ResultComposerTool {
       userLocation,
       chatId,
       maxResults = 10,
-      includeEligibility = true,
     } = request;
     
-    const totalInputTrials = searchResults.reduce((sum, r) => sum + r.trials.length, 0);
-    
-    debug.log(DebugCategory.TOOL, 'Reference-based composition', {
+    debug.log(DebugCategory.TOOL, 'Simple composition', {
       sources: searchResults.map(r => r.source),
-      totalTrials: totalInputTrials,
-      hasProfile: !!healthProfile,
-      maxResults
+      totalTrials: searchResults.reduce((sum, r) => sum + r.trials.length, 0)
     });
     
-    // Step 1: Merge and deduplicate trials
-    const mergedTrials = this.mergeAndDeduplicate(searchResults);
+    // Step 1: Simple deduplication
+    const uniqueTrials = this.deduplicate(searchResults);
     
-    // Step 2: Score and rank trials
-    const scoredTrials = this.scoreTrials(mergedTrials, {
-      query,
-      queryAnalysis,
-      healthProfile,
-      userLocation
-    });
+    // Step 2: Take requested amount (trust AI's ordering)
+    const selectedTrials = uniqueTrials.slice(0, maxResults);
     
-    // Step 3: Limit to requested amount
-    const limitedTrials = scoredTrials.slice(0, maxResults);
-    
-    // Step 4: Build eligibility assessments with FULL trial data
-    const fullMatches = await this.buildMatches(limitedTrials, {
-      healthProfile,
-      includeEligibility,
-      queryAnalysis,
-      userLocation
-    });
-    
-    // Step 5: STORE FULL TRIALS IN CONVERSATION STORE
-    // This enables on-demand retrieval without API calls
-    if (chatId && fullMatches && fullMatches.length > 0) {
-      this.storeInConversation(chatId, fullMatches, query);
-    }
-    
-    // Step 6: CREATE REFERENCE-BASED RESULTS FOR AI
-    // UI gets full data, AI gets references only
-    const referenceMatches = fullMatches.map(match => ({
-      ...match,
-      trial: this.createTrialReference(match.trial)
+    // Step 3: Build matches for UI
+    const matches = selectedTrials.map(trial => ({
+      trial,
+      matchScore: 0.8, // Fixed score - AI already selected relevant ones
+      eligibilityAssessment: this.buildSimpleAssessment(trial, healthProfile),
+      locationSummary: this.buildLocationSummary(trial, query),
+      recommendations: []
     }));
     
-    // Step 7: Build final result
-    const result: ClinicalTrialResult = {
-      success: true,
-      totalCount: mergedTrials.length,
-      matches: referenceMatches || [],
-      query: query,
-      hasMore: mergedTrials.length > maxResults,
-      message: this.buildMessage(referenceMatches?.length || 0, mergedTrials.length, query),
-      
-      // Add metadata about stored trials for AI
-      _metadata: {
-        fullDataStored: true,
-        trialCount: referenceMatches.length,
-        chatId: chatId,
-        retrievalInstructions: 'Use NCT IDs to retrieve full trial details on demand',
-        capabilities: {
-          detailRetrieval: 'Request "show details for NCT[ID]" for full trial data',
-          comparison: 'Request "compare eligibility for [NCT IDs]" for detailed comparison',
-          locationAnalysis: 'Request "show locations for [NCT ID]" for location details'
-        }
-      } as any
-    };
-    
-    // Add search metadata if available
-    if (queryAnalysis) {
-      result.searchCriteria = {
-        conditions: queryAnalysis.entities?.conditions,
-        locations: queryAnalysis.entities?.locations,
-        mutations: queryAnalysis.entities?.mutations,
-      };
+    // Step 4: Store for conversation retrieval
+    if (chatId && matches.length > 0) {
+      this.storeInConversation(chatId, matches, query);
     }
     
-    debug.log(DebugCategory.TOOL, 'Reference-based composition complete', {
-      inputTrials: totalInputTrials,
-      outputReferences: referenceMatches?.length || 0,
-      fullDataStored: !!chatId,
-      tokenReduction: '~95%' // From 545K to ~10K
-    });
+    // Step 5: Return the full matches for UI
+    // TRUE AI-DRIVEN: The UI needs the full trial data, not references
+    // The AI tool wrapper can extract what it needs for the LLM
     
-    return result;
+    return {
+      success: true,
+      totalCount: uniqueTrials.length,
+      matches: matches,  // Full trial data for UI
+      query,
+      hasMore: uniqueTrials.length > maxResults,
+      message: `Found ${uniqueTrials.length} trials`
+    };
   }
   
   /**
-   * Merge trials from multiple sources and deduplicate
+   * Simple deduplication by NCT ID
    */
-  private mergeAndDeduplicate(
-    searchResults: CompositionRequest['searchResults']
-  ): Array<{ trial: ClinicalTrial; sources: string[]; totalWeight: number }> {
-    const trialMap = new Map<string, { trial: ClinicalTrial; sources: string[]; totalWeight: number }>();
+  private deduplicate(searchResults: CompositionRequest['searchResults']): ClinicalTrial[] {
+    const seen = new Set<string>();
+    const unique: ClinicalTrial[] = [];
     
     for (const result of searchResults) {
       for (const trial of result.trials) {
         const nctId = trial.protocolSection?.identificationModule?.nctId;
-        if (!nctId) continue;
-        
-        if (trialMap.has(nctId)) {
-          // Trial found by multiple tools - increase weight
-          const existing = trialMap.get(nctId)!;
-          existing.sources.push(result.source);
-          existing.totalWeight += result.weight;
-        } else {
-          // New trial
-          trialMap.set(nctId, {
-            trial,
-            sources: [result.source],
-            totalWeight: result.weight
-          });
+        if (nctId && !seen.has(nctId)) {
+          seen.add(nctId);
+          unique.push(trial);
         }
       }
     }
     
-    return Array.from(trialMap.values());
+    return unique;
   }
   
   /**
-   * Score and rank trials based on relevance
-   * ENHANCED: Now includes quality validation to filter out unrelated trials
+   * Build simple assessment for UI
    */
-  private scoreTrials(
-    trials: Array<{ trial: ClinicalTrial; sources: string[]; totalWeight: number }>,
-    context: any
-  ): ClinicalTrial[] {
-    // Calculate relevance scores
-    const scored = trials.map(item => {
-      let score = item.totalWeight;
-      
-      // Boost for multiple sources finding the same trial
-      score *= (1 + (item.sources.length - 1) * 0.2);
-      
-      // QUALITY VALIDATION: Check if trial matches query intent
-      const qualityScore = this.validateTrialRelevance(item.trial, context);
-      
-      // Filter out completely unrelated trials (score < 0.1)
-      if (qualityScore < 0.1) {
-        debug.log(DebugCategory.SEARCH, 'Filtering out unrelated trial', {
-          nctId: item.trial.protocolSection?.identificationModule?.nctId,
-          title: item.trial.protocolSection?.identificationModule?.briefTitle,
-          qualityScore
-        });
-        score = 0; // Mark for removal
-      } else {
-        score *= qualityScore;
-      }
-      
-      // Boost for profile matches if available
-      if (context.healthProfile) {
-        const profileScore = this.calculateProfileMatch(item.trial, context.healthProfile);
-        score *= (1 + profileScore);
-      }
-      
-      // Boost for location matches if available
-      if (context.userLocation) {
-        const locationScore = this.calculateLocationMatch(item.trial, context.userLocation);
-        score *= (1 + locationScore * 0.5);
-      }
-      
-      return { trial: item.trial, score };
-    });
-    
-    // Filter out zero-score trials (unrelated ones)
-    const filtered = scored.filter(item => item.score > 0);
-    
-    // Sort by score
-    filtered.sort((a, b) => b.score - a.score);
-    
-    debug.log(DebugCategory.SEARCH, 'Quality filtering complete', {
-      input: trials.length,
-      output: filtered.length,
-      removed: trials.length - filtered.length
-    });
-    
-    return filtered.map(item => item.trial);
-  }
-  
-  /**
-   * Validate if a trial is relevant to the query
-   * INTELLIGENT: Uses query analysis to determine relevance without hardcoding
-   */
-  private validateTrialRelevance(trial: ClinicalTrial, context: any): number {
-    let relevanceScore = 0.5; // Base score
-    
-    if (!context.queryAnalysis?.entities) {
-      // No analysis available, be permissive
-      return 1.0;
-    }
-    
-    const entities = context.queryAnalysis.entities;
-    const trialText = JSON.stringify(trial).toLowerCase();
-    const briefTitle = trial.protocolSection?.identificationModule?.briefTitle?.toLowerCase() || '';
-    const acronym = trial.protocolSection?.identificationModule?.acronym?.toLowerCase() || '';
-    const conditions = trial.protocolSection?.conditionsModule?.conditions || [];
-    
-    // Check for trial name/drug matches (highest priority)
-    if (entities.drugs && entities.drugs.length > 0) {
-      for (const drug of entities.drugs) {
-        const drugLower = drug.toLowerCase();
-        // Check in title, acronym, and interventions
-        if (briefTitle.includes(drugLower) || 
-            acronym.includes(drugLower) ||
-            trialText.includes(drugLower)) {
-          relevanceScore = Math.max(relevanceScore, 0.9);
-          debug.log(DebugCategory.SEARCH, 'Found drug/trial name match', {
-            drug,
-            nctId: trial.protocolSection?.identificationModule?.nctId
-          });
-        }
-      }
-    }
-    
-    // Check for condition matches
-    if (entities.conditions && entities.conditions.length > 0) {
-      for (const condition of entities.conditions) {
-        if (conditions.some(c => c.toLowerCase().includes(condition.toLowerCase()))) {
-          relevanceScore = Math.max(relevanceScore, 0.7);
-        }
-      }
-    }
-    
-    // Check for cancer type matches
-    if (entities.cancerTypes && entities.cancerTypes.length > 0) {
-      for (const cancerType of entities.cancerTypes) {
-        if (trialText.includes(cancerType.toLowerCase())) {
-          relevanceScore = Math.max(relevanceScore, 0.7);
-        }
-      }
-    }
-    
-    // Check for mutation matches
-    if (entities.mutations && entities.mutations.length > 0) {
-      for (const mutation of entities.mutations) {
-        if (trialText.includes(mutation.toLowerCase().replace(/\s+/g, ''))) {
-          relevanceScore = Math.max(relevanceScore, 0.8);
-        }
-      }
-    }
-    
-    // If query had specific trial intent (hasNCTComponent) but this trial doesn't match, penalize
-    if (context.queryAnalysis.dimensions?.hasNCTComponent && 
-        entities.drugs?.length > 0 &&
-        relevanceScore < 0.7) {
-      // User was looking for a specific trial but this doesn't match
-      relevanceScore *= 0.2;
-    }
-    
-    return relevanceScore;
-  }
-  
-  /**
-   * Calculate how well a trial matches the health profile
-   */
-  private calculateProfileMatch(trial: ClinicalTrial, profile: HealthProfile): number {
-    let score = 0;
-    
-    // Check cancer type match
-    const conditions = trial.protocolSection?.conditionsModule?.conditions || [];
-    const trialText = JSON.stringify(trial).toLowerCase();
-    
-    if (profile.cancerType) {
-      const cancerTypeLower = profile.cancerType.toLowerCase();
-      if (conditions.some(c => c.toLowerCase().includes(cancerTypeLower))) {
-        score += 0.3;
-      }
-    }
-    
-    // Check mutation matches
-    if (profile.molecularMarkers) {
-      for (const [marker, status] of Object.entries(profile.molecularMarkers)) {
-        if (status === 'POSITIVE' || status === 'HIGH') {
-          const markerName = marker.replace(/_/g, ' ').toLowerCase();
-          if (trialText.includes(markerName)) {
-            score += 0.2;
-          }
-        }
-      }
-    }
-    
-    // Check stage match
-    if (profile.diseaseStage) {
-      const stage = profile.diseaseStage.toLowerCase();
-      if (trialText.includes(stage)) {
-        score += 0.1;
-      }
-    }
-    
-    return Math.min(score, 1.0);
-  }
-  
-  /**
-   * Calculate location match score
-   */
-  private calculateLocationMatch(trial: ClinicalTrial, location: any): number {
-    const locations = trial.protocolSection?.contactsLocationsModule?.locations || [];
-    
-    for (const loc of locations) {
-      if (location.city && loc.city?.toLowerCase() === location.city.toLowerCase()) {
-        return 1.0;
-      }
-      if (location.state && loc.state?.toLowerCase() === location.state.toLowerCase()) {
-        return 0.5;
-      }
-    }
-    
-    return 0;
-  }
-  
-  /**
-   * Build match objects with eligibility assessments
-   */
-  private async buildMatches(
-    trials: ClinicalTrial[],
-    context: any
-  ): Promise<ClinicalTrialResult['matches']> {
-    const matches = [];
-    
-    for (const trial of trials) {
-      const match = {
-        trial: trial, // Full trial data for UI
-        matchScore: 0.8, // Default score
-        eligibilityAssessment: this.buildEligibilityAssessment(trial, context),
-        locationSummary: this.buildLocationSummary(trial, context),
-        recommendations: []
-      };
-      
-      matches.push(match);
-    }
-    
-    return matches;
-  }
-  
-  /**
-   * Build eligibility assessment structure for UI
-   */
-  private buildEligibilityAssessment(trial: ClinicalTrial, context: any): any {
-    const hasProfile = !!context.healthProfile;
-    
+  private buildSimpleAssessment(trial: ClinicalTrial, healthProfile?: HealthProfile | null): any {
     return {
       searchRelevance: {
-        matchedTerms: this.extractMatchedTerms(trial, context),
+        matchedTerms: [],
         relevanceScore: 0.8,
-        searchStrategy: 'multi-dimensional',
-        reasoning: 'Matched based on query analysis'
+        searchStrategy: 'ai-driven',
+        reasoning: 'AI selected as relevant'
       },
       trialCriteria: {
-        parsed: false, // Would need eligibility parser
+        parsed: false,
         inclusion: [],
         exclusion: [],
         demographics: {
-          ageRange: this.extractAgeRange(trial),
-          sex: trial.protocolSection?.eligibilityModule?.sex,
+          ageRange: undefined,
+          sex: trial.protocolSection?.eligibilityModule?.sex
         },
-        parseConfidence: 0.5,
+        parseConfidence: 0,
         rawText: trial.protocolSection?.eligibilityModule?.eligibilityCriteria?.substring(0, 500)
       },
-      userAssessment: hasProfile ? {
+      userAssessment: healthProfile ? {
         hasProfile: true,
-        eligibilityScore: 0.7,
-        confidence: 'medium',
-        recommendation: 'possible',
+        eligibilityScore: 0.5,
+        confidence: 'low',
+        recommendation: 'review',
         missingData: [],
         matches: {
           inclusion: [],
@@ -468,195 +164,97 @@ export class ResultComposerTool {
   }
   
   /**
-   * Extract matched search terms
+   * Build location summary - TRUE AI-DRIVEN approach
+   * NO patterns, NO hardcoded states, just present the data
    */
-  private extractMatchedTerms(trial: ClinicalTrial, context: any): string[] {
-    const terms: string[] = [];
-    
-    if (context.queryAnalysis?.entities) {
-      const { conditions, mutations, drugs } = context.queryAnalysis.entities;
-      const trialText = JSON.stringify(trial).toLowerCase();
-      
-      // Check which entities appear in trial
-      for (const condition of conditions || []) {
-        if (trialText.includes(condition.toLowerCase())) {
-          terms.push(condition);
-        }
-      }
-      
-      for (const mutation of mutations || []) {
-        if (trialText.includes(mutation.toLowerCase())) {
-          terms.push(mutation);
-        }
-      }
-    }
-    
-    return terms;
-  }
-  
-  /**
-   * Extract age range from trial
-   */
-  private extractAgeRange(trial: ClinicalTrial): [number, number] | undefined {
-    const minAge = trial.protocolSection?.eligibilityModule?.minimumAge;
-    const maxAge = trial.protocolSection?.eligibilityModule?.maximumAge;
-    
-    if (minAge || maxAge) {
-      return [
-        minAge ? parseInt(minAge) || 0 : 0,
-        maxAge ? parseInt(maxAge) || 120 : 120
-      ];
-    }
-    
-    return undefined;
-  }
-  
-  /**
-   * Build location summary with token-efficient compression
-   */
-  private buildLocationSummary(trial: ClinicalTrial, context?: any): string {
-    // Check if we have enhanced location data from enhanced-location-search
-    if ((trial as any).enhancedLocations) {
-      const enhancedLocations = (trial as any).enhancedLocations;
-      const nearestSite = (trial as any).nearestSite;
-      const locationSummary = (trial as any).locationSummary;
-      
-      // Use the pre-built summary if available (most token-efficient)
-      if (locationSummary) {
-        return locationSummary;
-      }
-      
-      // Build compressed summary from enhanced data
-      return this.buildCompressedLocationSummary(enhancedLocations, nearestSite);
-    }
-    
-    // Fallback to standard location data with compression
+  private buildLocationSummary(trial: ClinicalTrial, query?: string): string {
     const locations = trial.protocolSection?.contactsLocationsModule?.locations || [];
-    return this.buildCompressedLocationSummary(
-      locations.map(loc => ({
-        facility: loc.facility,
-        city: loc.city,
-        state: loc.state,
-        status: loc.status
-      })), 
-      null
-    );
-  }
-  
-  /**
-   * Build ultra-compressed location summary for token efficiency
-   */
-  private buildCompressedLocationSummary(
-    locations: any[],
-    nearestSite?: any
-  ): string {
     if (locations.length === 0) return 'No locations';
     
-    const recruiting = locations.filter(l => 
-      l.status?.toUpperCase() === 'RECRUITING'
-    ).length;
+    // Group locations by state for US trials - pure data aggregation
+    const locationsByState: Record<string, { recruiting: number; notYet: number; cities: Set<string> }> = {};
     
-    const parts: string[] = [];
+    locations.forEach((loc: any) => {
+      if (loc.country === 'United States' && loc.state) {
+        if (!locationsByState[loc.state]) {
+          locationsByState[loc.state] = { recruiting: 0, notYet: 0, cities: new Set() };
+        }
+        
+        if (loc.city) {
+          locationsByState[loc.state].cities.add(loc.city);
+        }
+        
+        const status = loc.status?.toUpperCase();
+        if (status === 'RECRUITING') {
+          locationsByState[loc.state].recruiting++;
+        } else if (status === 'NOT_YET_RECRUITING') {
+          locationsByState[loc.state].notYet++;
+        }
+      }
+    });
     
-    // Compressed format: "5 sites (3 recruiting, nearest 12mi, 3 states)"
-    parts.push(`${locations.length} site${locations.length !== 1 ? 's' : ''}`);
+    // Sort states by total site count - simple ordering, no patterns
+    const sortedStates = Object.entries(locationsByState)
+      .filter(([_, info]) => info.recruiting > 0 || info.notYet > 0)
+      .sort(([stateA, infoA], [stateB, infoB]) => {
+        const totalA = infoA.recruiting + infoA.notYet;
+        const totalB = infoB.recruiting + infoB.notYet;
+        return totalB - totalA;
+      });
     
-    const subParts: string[] = [];
-    if (recruiting > 0) subParts.push(`${recruiting} recruiting`);
-    if (nearestSite?.distance) subParts.push(`nearest ${Math.round(nearestSite.distance)}mi`);
+    // Build concise summary for token efficiency
+    // Show top 5 states with most sites - AI can ask for more if needed
+    const stateSummaries = sortedStates
+      .slice(0, 5) // Balance between completeness and token usage
+      .map(([state, info]) => {
+        // Show first 3 cities as representative sample
+        const cities = Array.from(info.cities).slice(0, 3).join(', ');
+        const statusPart = [];
+        if (info.recruiting > 0) statusPart.push(`${info.recruiting} recruiting`);
+        if (info.notYet > 0) statusPart.push(`${info.notYet} not yet`);
+        return `${state}: ${cities} (${statusPart.join(', ')})`;
+      });
     
-    const states = new Set(locations.map(l => l.state).filter(Boolean));
-    if (states.size > 0) subParts.push(`${states.size} state${states.size !== 1 ? 's' : ''}`);
-    
-    if (subParts.length > 0) {
-      parts.push(`(${subParts.join(', ')})`);
+    if (stateSummaries.length === 0) {
+      return `${locations.length} sites total`;
     }
     
-    return parts.join(' ');
+    // Add total count if there are more states
+    if (sortedStates.length > 5) {
+      const totalSites = locations.filter((loc: any) => 
+        loc.country === 'United States' && 
+        (loc.status?.toUpperCase() === 'RECRUITING' || loc.status?.toUpperCase() === 'NOT_YET_RECRUITING')
+      ).length;
+      stateSummaries.push(`[${totalSites} total US sites across ${sortedStates.length} states]`);
+    }
+    
+    return stateSummaries.join('; ');
   }
   
   /**
-   * Store results in conversation store
+   * Store in conversation
    */
   private storeInConversation(chatId: string, matches: any[], query: string): void {
     try {
-      const trialMatches = matches.map(m => ({
-        trial: m.trial,
-        relevanceScore: m.matchScore,
-        eligibilityAssessment: m.eligibilityAssessment,
-        // Add required fields for TrialMatch type
-        nctId: m.trial.protocolSection?.identificationModule?.nctId || '',
-        title: m.trial.protocolSection?.identificationModule?.briefTitle || '',
-        summary: m.trial.protocolSection?.descriptionModule?.briefSummary || '',
-        conditions: m.trial.protocolSection?.conditionsModule?.conditions || [],
-        locations: m.trial.protocolSection?.contactsLocationsModule?.locations?.map(loc => ({
-          name: loc.facility || '',
-          city: loc.city || '',
-          state: loc.state || '',
-          country: loc.country || '',
-          distance: undefined
-        })) || []
-      }));
-      
-      conversationTrialStore.storeTrials(chatId, trialMatches as any, query, false);
-      
-      debug.log(DebugCategory.CACHE, 'Stored in conversation', {
-        chatId,
-        count: trialMatches.length
-      });
+      conversationTrialStore.storeTrials(chatId, matches as any, query, false);
+      debug.log(DebugCategory.CACHE, 'Stored', { chatId, count: matches.length });
     } catch (error) {
-      debug.error(DebugCategory.ERROR, 'Failed to store in conversation', error);
+      debug.error(DebugCategory.ERROR, 'Store failed', error);
     }
   }
   
   /**
-   * Create minimal trial reference for AI
-   * REFERENCE-BASED: Only essential identifiers, AI requests details as needed
+   * Minimal reference for AI
    */
-  private createTrialReference(trial: ClinicalTrial): any {
+  private createReference(trial: ClinicalTrial): any {
     const nctId = trial.protocolSection?.identificationModule?.nctId;
     const briefTitle = trial.protocolSection?.identificationModule?.briefTitle;
-    const status = trial.protocolSection?.statusModule?.overallStatus;
     
-    // Return ONLY reference information - no data duplication
     return {
       nctId,
       briefTitle,
-      status,
-      // Minimal protocol structure for compatibility
-      protocolSection: {
-        identificationModule: {
-          nctId,
-          briefTitle
-        },
-        statusModule: {
-          overallStatus: status
-        }
-      },
-      // Signal this is a reference, not full data
-      _reference: {
-        isReference: true,
-        retrieveFullData: `Use NCT ID ${nctId} for full trial details`,
-        hasEligibility: true,
-        hasLocations: true,
-        hasInterventions: true
-      }
+      _reference: true
     };
-  }
-  
-  /**
-   * Build user-friendly message
-   */
-  private buildMessage(shown: number, total: number, query: string): string {
-    if (shown === 0) {
-      return `No trials found for "${query}"`;
-    }
-    
-    if (shown === total) {
-      return `Found ${total} trial${total !== 1 ? 's' : ''} matching "${query}"`;
-    }
-    
-    return `Showing ${shown} of ${total} trials matching "${query}"`;
   }
 }
 

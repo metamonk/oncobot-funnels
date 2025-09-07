@@ -68,6 +68,8 @@ import {
   extremeSearchTool,
   clinicalTrialsTool,
   clinicalTrialsInfoTool,
+  clinicalTrialsDetailsTool,
+  searchTrialsByLocationTool,
   healthProfileTool,
 } from '@/lib/tools';
 import { contextManager, type MessageWithMetadata } from '@/lib/ai-context-manager';
@@ -111,7 +113,23 @@ export async function POST(req: Request) {
   console.log('🔍 Search API endpoint hit');
 
   const requestStartTime = Date.now();
-  const { messages, model, group, timezone, id, selectedVisibilityType } = await req.json();
+  
+  try {
+    const { messages: rawMessages, model, group, timezone, id, selectedVisibilityType } = await req.json();
+  
+  // Deduplicate consecutive identical messages (defensive fix for client-side duplicates)
+  const messages = rawMessages.reduce((acc: any[], msg: any, index: number) => {
+    // Skip if this message is identical to the previous one
+    if (index > 0 && 
+        acc[acc.length - 1].role === msg.role && 
+        acc[acc.length - 1].content === msg.content) {
+      console.log('⚠️ Duplicate message detected and removed:', msg.content?.substring(0, 50));
+      return acc;
+    }
+    acc.push(msg);
+    return acc;
+  }, []);
+  
   let { latitude, longitude } = geolocation(req);
   
   // Development fallback for geolocation (Chicago coordinates)
@@ -382,7 +400,7 @@ export async function POST(req: Request) {
                 temperature: 0,
               }),
         maxSteps: 5,
-        maxRetries: 10,
+        maxRetries: 1,  // Reduced from 10 to prevent duplicate responses on token overflow
         experimental_activeTools: [...activeTools],
         system:
           instructions +
@@ -431,10 +449,12 @@ export async function POST(req: Request) {
           reddit_search: redditSearchTool,
           retrieve: retrieveTool,
           clinical_trials: clinicalTrialsTool(id, dataStream, { 
-            latitude: latitude ? parseFloat(latitude) : undefined, 
-            longitude: longitude ? parseFloat(longitude) : undefined 
+            latitude: latitude || undefined, 
+            longitude: longitude || undefined 
           }),
           clinical_trials_info: clinicalTrialsInfoTool(dataStream),
+          clinical_trials_details: clinicalTrialsDetailsTool(id),
+          search_trials_by_location: searchTrialsByLocationTool(id),
           health_profile: healthProfileTool(dataStream),
 
           // Media & Entertainment
@@ -647,6 +667,54 @@ export async function POST(req: Request) {
     return new Response(stream);
   } else {
     return new Response(stream);
+  }
+  } catch (error: any) {
+    console.error('🚨 Search API error:', error);
+    
+    // Check for token overflow specifically
+    if (error.message?.includes('token') || error.message?.includes('context length') || error.message?.includes('maximum')) {
+      console.error('Token overflow detected - returning error response instead of retrying');
+      
+      // Return a proper error response to prevent duplicate attempts
+      const errorStream = createDataStream({
+        execute: (writer) => {
+          writer.writeData({
+            type: 'error',
+            error: {
+              message: 'The search returned too many results. Please try a more specific query or reduce the number of results requested.',
+              code: 'TOKEN_OVERFLOW'
+            }
+          });
+        }
+      });
+      
+      return new Response(errorStream, { 
+        status: 200,  // Use 200 to prevent client-side retries
+        headers: {
+          'Content-Type': 'text/event-stream',
+        }
+      });
+    }
+    
+    // For other errors, return a generic error response
+    const errorStream = createDataStream({
+      execute: (writer) => {
+        writer.writeData({
+          type: 'error',
+          error: {
+            message: error.message || 'An unexpected error occurred',
+            code: 'INTERNAL_ERROR'
+          }
+        });
+      }
+    });
+    
+    return new Response(errorStream, { 
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+      }
+    });
   }
 }
 

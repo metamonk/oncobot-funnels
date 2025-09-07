@@ -59,5 +59,6 @@ export const DebugCategory = {
   PROFILE: 'HealthProfile',
   ERROR: 'Error',
   ROUTER: 'Router',
-  ASSESSMENT: 'Assessment'
+  ASSESSMENT: 'Assessment',
+  ORCHESTRATION: 'Orchestration'
 } as const;

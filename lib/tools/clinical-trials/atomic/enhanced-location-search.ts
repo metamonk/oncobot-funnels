@@ -10,6 +10,7 @@
 
 import { ClinicalTrial } from '../types';
 import { debug, DebugCategory } from '../debug';
+import { geoIntelligence } from './geo-intelligence';
 
 interface EnhancedLocationSearchParams {
   city?: string;
@@ -84,21 +85,19 @@ export class EnhancedLocationSearchTool {
    * Calculate distance between two coordinates using Haversine formula
    * This is a pure mathematical calculation, not a hardcoded pattern
    */
+  // Use geo-intelligence for distance calculations - TRUE AI-DRIVEN principle
+  // No duplication, single source of truth
   private calculateDistance(
     lat1: number, 
     lon1: number, 
     lat2: number, 
     lon2: number
   ): number {
-    const R = 3959; // Earth's radius in miles
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
+    const result = geoIntelligence.calculateDistance(
+      { latitude: lat1, longitude: lon1 },
+      { latitude: lat2, longitude: lon2 }
+    );
+    return result.miles;
   }
   
   /**
@@ -109,54 +108,6 @@ export class EnhancedLocationSearchTool {
     location: any, 
     userCoordinates?: { latitude: number; longitude: number }
   ): SiteInformation {
-    const enhanced: SiteInformation = {
-      facility: location.facility || 'Facility name not provided',
-      city: location.city || 'City not specified',
-      state: location.state || '',
-      country: location.country || 'United States',
-      zipCode: location.zip
-    };
-    
-    // Add contact info if available
-    if (location.contacts && location.contacts.length > 0) {
-      const contact = location.contacts[0];
-      enhanced.contact = {
-        name: contact.name,
-        phone: contact.phone,
-        email: contact.email
-      };
-    }
-    
-    // Add site-specific status if available
-    if (location.status) {
-      enhanced.status = location.status;
-    }
-    
-    // Calculate distance if we have coordinates
-    if (userCoordinates && location.geoPoint) {
-      enhanced.coordinates = {
-        latitude: location.geoPoint.lat,
-        longitude: location.geoPoint.lon
-      };
-      enhanced.distance = this.calculateDistance(
-        userCoordinates.latitude,
-        userCoordinates.longitude,
-        location.geoPoint.lat,
-        location.geoPoint.lon
-      );
-    }
-    
-    return enhanced;
-  }
-  
-  /**
-   * Enhance location data with complete information (DEPRECATED - kept for compatibility)
-   * No assumptions - we fetch what's available and handle missing data gracefully
-   */
-  private async enhanceLocationData(
-    location: any, 
-    userCoordinates?: { latitude: number; longitude: number }
-  ): Promise<SiteInformation> {
     const enhanced: SiteInformation = {
       facility: location.facility || 'Facility name not provided',
       city: location.city || 'City not specified',
@@ -371,7 +322,7 @@ export class EnhancedLocationSearchTool {
       if (includeSiteStatus && enhancedTrials.length > 0) {
         // Sort by distance first to prioritize nearest trials
         if (userCoordinates) {
-          enhancedTrials.sort((a, b) => {
+          enhancedTrials.sort((a: any, b: any) => {
             const distA = a.nearestSite?.distance || 999999;
             const distB = b.nearestSite?.distance || 999999;
             return distA - distB;
@@ -390,7 +341,7 @@ export class EnhancedLocationSearchTool {
         
         // Fetch detailed info with timeout protection
         const detailedTrials = await Promise.allSettled(
-          topTrialsForDetails.map(async (trial) => {
+          topTrialsForDetails.map(async (trial: any) => {
             const nctId = trial.trial?.protocolSection?.identificationModule?.nctId || 
                          trial.protocolSection?.identificationModule?.nctId;
             
@@ -413,10 +364,10 @@ export class EnhancedLocationSearchTool {
                 );
                 
                 if (userCoordinates && includeDistances) {
-                  enhancedLocations.sort((a, b) => (a.distance || 999999) - (b.distance || 999999));
+                  enhancedLocations.sort((a: any, b: any) => (a.distance || 999999) - (b.distance || 999999));
                 }
                 
-                const nearestSite = enhancedLocations.find(loc => loc.distance !== undefined);
+                const nearestSite = enhancedLocations.find((loc: any) => loc.distance !== undefined);
                 const locationSummary = this.buildLocationSummary(enhancedLocations, nearestSite);
                 
                 return {
@@ -444,7 +395,7 @@ export class EnhancedLocationSearchTool {
       
       // Final sort by distance (already done in Phase 2, but ensure consistency)
       if (userCoordinates) {
-        enhancedTrials.sort((a, b) => {
+        enhancedTrials.sort((a: any, b: any) => {
           const distA = a.nearestSite?.distance || 999999;
           const distB = b.nearestSite?.distance || 999999;
           return distA - distB;
@@ -455,8 +406,8 @@ export class EnhancedLocationSearchTool {
         location: locationQuery,
         count: enhancedTrials.length,
         total: totalCount,
-        hasDistances: enhancedTrials.some(t => t.nearestSite?.distance !== undefined),
-        detailedEnhanced: enhancedTrials.filter(t => t.enhancedLocations && t.enhancedLocations.length > 0).length,
+        hasDistances: enhancedTrials.some((t: any) => t.nearestSite?.distance !== undefined),
+        detailedEnhanced: enhancedTrials.filter((t: any) => t.enhancedLocations && t.enhancedLocations.length > 0).length,
         smartBatchingUsed: includeSiteStatus && enhancedTrials.length > detailBatchSize
       });
       

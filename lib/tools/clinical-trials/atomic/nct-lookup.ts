@@ -30,31 +30,10 @@ export class NCTLookupTool {
   private static readonly API_BASE = 'https://clinicaltrials.gov/api/v2';
   
   /**
-   * Direct NCT ID lookup - no routing, no strategies, just fetch
+   * Direct NCT ID lookup - TRUE AI-DRIVEN: no validation, just fetch
    */
   async lookup(nctId: string): Promise<NCTLookupResult> {
     const startTime = Date.now();
-    
-    // Validate NCT ID format
-    if (!this.isValidNCTId(nctId)) {
-      return {
-        success: false,
-        error: {
-          type: 'invalid_nct',
-          message: `Invalid NCT ID format: ${nctId}`,
-          suggestions: [
-            'NCT IDs must follow format: NCT followed by 8 digits',
-            'Example: NCT04585481',
-            'Try searching by trial name instead'
-          ]
-        },
-        metadata: {
-          nctId,
-          source: 'api',
-          latency: Date.now() - startTime
-        }
-      };
-    }
     
     debug.log(DebugCategory.SEARCH, 'NCT lookup', { nctId });
     
@@ -136,13 +115,6 @@ export class NCTLookupTool {
     }
   }
   
-  /**
-   * Validate NCT ID format
-   */
-  private isValidNCTId(nctId: string): boolean {
-    // NCT followed by 8 digits
-    return /^NCT\d{8}$/i.test(nctId);
-  }
 }
 
 // Export singleton instance
