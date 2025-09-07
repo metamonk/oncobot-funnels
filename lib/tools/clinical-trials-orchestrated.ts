@@ -76,6 +76,15 @@ export async function searchClinicalTrialsOrchestrated(params: SearchParams): Pr
       return simpleFailure(query);
     }
     
+    // Get stored trials from conversation if available
+    let storedTrials = null;
+    if (chatId) {
+      storedTrials = conversationTrialStore.getAllTrials(chatId);
+      debug.log(DebugCategory.ORCHESTRATION, 'Retrieved stored trials', { 
+        count: storedTrials?.length || 0 
+      });
+    }
+    
     // Step 2: AI plans entire execution (NO hardcoded logic)
     const executionPlan = await planExecution(
       query,
@@ -83,7 +92,9 @@ export async function searchClinicalTrialsOrchestrated(params: SearchParams): Pr
       healthProfile || null,  // Convert undefined to null
       userLocation,
       maxResults,
-      filters
+      filters,
+      storedTrials,  // Pass conversation context
+      chatId
     );
     
     // Debug: Log the execution plan
@@ -129,7 +140,9 @@ async function planExecution(
   healthProfile: HealthProfile | null,
   userLocation: any,
   maxResults: number,
-  filters?: any
+  filters?: any,
+  storedTrials?: any,
+  chatId?: string
 ): Promise<any> {
   const toolRegistry = {
     'unified-search': unifiedSearch,
@@ -152,6 +165,18 @@ Available Context:
 - User Location: ${userLocation ? JSON.stringify(userLocation) : 'none'}
 - Max Results: ${maxResults}
 - Filters: ${filters ? JSON.stringify(filters) : 'none'}
+${storedTrials && storedTrials.length > 0 ? `
+- Previously Found Trials in Conversation: ${storedTrials.length} trials
+  Recent trials include:
+${storedTrials.slice(0, 5).map((st: any) => {
+    const nctId = st.trial.protocolSection?.identificationModule?.nctId || st.trial.nctId;
+    const briefTitle = st.trial.protocolSection?.identificationModule?.briefTitle || st.trial.briefTitle;
+    const officialTitle = st.trial.protocolSection?.identificationModule?.officialTitle || st.trial.officialTitle;
+    return `  - ${nctId}: ${briefTitle || officialTitle}`;
+  }).join('\n')}
+  
+  IMPORTANT: If the user is asking about locations, details, or follow-ups about these trials,
+  you should search for the specific NCT ID(s) rather than the trial name.` : ''}
 
 Available Tools and Their Parameters:
 - unified-search: General API search for any natural language query
@@ -190,8 +215,10 @@ CRITICAL EXECUTION RULES:
    - Refinement query ("Show me the ones in Chicago") → Filter previous results
    - Additive query ("Also show trials in Boston") → Add MORE results (UNION)
    - Continuation ("Show me more") → More from same search
+   - Follow-up about specific trial ("Which are the closest locations to Louisiana?") → Search for THAT specific NCT ID
    
-   LOOK AT THE CONVERSATION HISTORY to understand intent!
+   LOOK AT THE CONVERSATION HISTORY above! If trials were previously found, 
+   follow-up questions are likely about THOSE specific trials, not new searches.
 
 2. FOR INITIAL COMBINED QUERIES (mutation/condition + location):
    - Use unified-search with the FULL query text
@@ -235,7 +262,13 @@ CRITICAL EXECUTION RULES:
    - Complex follow-ups ("Do any have locations in Brooklyn?"): Use stored context
    - Eligibility questions ("What would prevent me?"): Look at exclusion criteria in results
 
-4. KEEP IT SIMPLE:
+4. FOR FOLLOW-UP QUERIES ABOUT PREVIOUSLY FOUND TRIALS:
+   - If user asks about "the trial" or "that trial" or locations/details about it
+   - AND you have previously found trials in the conversation
+   - Use nct-lookup with the specific NCT ID (e.g., NCT06564844)
+   - Don't search for the trial name again (like "TROPION-Lung12") as it may not match
+
+5. KEEP IT SIMPLE:
    - Prefer ONE tool over multiple tools
    - When query has multiple aspects, use unified-search
    - Trust the API to handle natural language
