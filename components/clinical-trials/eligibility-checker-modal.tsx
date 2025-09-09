@@ -139,11 +139,16 @@ export function EligibilityCheckerModal({
         eligibilityCheckerService.clearCache(nctId);
         
         // IMPORTANT: Fetch FULL trial data from API
-        // Either because we only have NCT ID, or because the trial prop may be compressed
+        // Either because we only have NCT ID, or because the trial prop may be compressed/incomplete
         let fullTrial = trial;
         
-        // Always fetch if we don't have a trial object, or if we need full criteria
-        if (!trial || propNctId) {
+        // Check if we need to fetch full trial data
+        // Fetch if: no trial, only NCT ID provided, or trial is missing eligibility criteria
+        const needsFullData = !trial || 
+                             propNctId || 
+                             !trial?.protocolSection?.eligibilityModule?.eligibilityCriteria;
+        
+        if (needsFullData) {
           try {
             console.log(`[Eligibility Checker] Fetching full trial data for ${nctId}`);
             const response = await fetch(`https://clinicaltrials.gov/api/v2/studies/${nctId}`);
@@ -167,6 +172,10 @@ export function EligibilityCheckerModal({
               return;
             }
           }
+        } else {
+          // Log that we're using existing trial data
+          const existingCriteriaLength = trial?.protocolSection?.eligibilityModule?.eligibilityCriteria?.length || 0;
+          console.log(`[Eligibility Checker] Using existing trial data for ${nctId}: ${existingCriteriaLength} chars of criteria`);
         }
         
         // Parse eligibility criteria using AI or fallback
