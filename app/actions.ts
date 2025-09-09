@@ -298,7 +298,9 @@ const groupInstructions = {
   #### Find Place on Map:
   - Use the 'find_place_on_map' tool to search for places by name or description
   - Do not use the 'find_place_on_map' tool for general web searches
-  - invoke the tool when the user mentions the word 'map' or 'maps' in the query or any location related query
+  - ONLY invoke the tool when the user explicitly mentions the word 'map' or 'maps' in the query
+  - **NEVER use for distance/proximity questions like "which is closest to" or "how far is"**
+  - **NEVER use when comparing distances between locations you already have data for**
   - do not mistake this tool as tts or the word 'tts' in the query and run tts query on the web search tool
 
   #### translate tool:
@@ -979,6 +981,13 @@ const groupInstructions = {
 
   ### 🚨 CRITICAL TOOL ROUTING - READ THIS FIRST:
   
+  **⚠️ DISTANCE/PROXIMITY QUESTIONS ABOUT TRIAL LOCATIONS:**
+  - Questions like "which location is closest to [city]?" or "how far is [location]?"
+  - These ALWAYS refer to trial locations from PREVIOUS search results
+  - NEVER use find_place_on_map tool for these
+  - NEVER conduct a new search
+  - Use the trial location data you already have from the conversation
+  
   **USE clinical_trials_info tool for INFORMATIONAL questions:**
   - "How do I know if I qualify for a trial?"
   - "What are clinical trials?"
@@ -1049,6 +1058,14 @@ const groupInstructions = {
     • Eligibility questions: "What would prevent me from joining?", "Am I eligible?"
     • Trial details: Contact info, phases, interventions, exclusion criteria
     • Comparative questions: "Which is closest?", "Which is best for KRAS G12C?"
+  - **🚨 CRITICAL - DISTANCE/PROXIMITY QUESTIONS - READ THIS FIRST**: 
+    • When users ask "which location is closest to [city]?" or "how far is [location]?" or similar
+    • This ALWAYS refers to trial locations from the PREVIOUS search results - NOT a map request
+    • The clinical_trials tool NOW HAS ACCESS to all stored trial data from the conversation
+    • Simply use clinical_trials tool with the query - it will automatically retrieve stored locations
+    • **ABSOLUTELY DO NOT use find_place_on_map tool for these questions**
+    • The tool will automatically use stored trial data when answering follow-up questions
+    • Example: User asks "which is closest to Baton Rouge?" → clinical_trials tool retrieves stored locations and analyzes distances
   - The system handles complex queries naturally:
     • Multiple NCT IDs in one query (e.g., user pastes 10 trial IDs)
     • Combined criteria (mutation + location + phase)
@@ -1073,13 +1090,16 @@ const groupInstructions = {
   
   **clinical_trials tool (for searching AND looking up specific trials):**
   - Use for ANY query about specific trials, NCT IDs, or trial searches
+  - **NEW**: The tool NOW has access to all stored trials from the conversation
   - The tool intelligently handles:
     • Single or multiple NCT IDs (e.g., 10 IDs pasted at once)
     • Natural language queries of any complexity
     • Location-based searches (cities, states, regions)
     • Condition/mutation/drug searches
     • Combined criteria (mutation + location + phase + status)
-    • Follow-up questions about previous results
+    • Follow-up questions about previous results (automatically uses stored data)
+    • Distance/proximity questions about trial locations (uses stored locations)
+    • "Show me more" requests (retrieves unshown trials from conversation)
     • Eligibility and exclusion criteria queries
   - The tool automatically:
     • Detects and processes NCT IDs (even multiple at once)
@@ -1093,6 +1113,9 @@ const groupInstructions = {
   - Use this ONLY when users specifically ask "where is it?" or "show me on a map"
   - Can help locate specific trial sites or cancer centers when requested
   - Do NOT use proactively - wait for explicit location requests
+  - **NEVER use for distance/proximity questions about trial locations**
+  - **NEVER use when users ask "which trial location is closest to [city]?"**
+  - Those questions should be answered using the trial data you already have
 
   **web_search**: For general health information or recent medical news
   **retrieve**: When users share specific URLs to analyze

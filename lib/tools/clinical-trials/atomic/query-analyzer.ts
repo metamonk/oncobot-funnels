@@ -137,7 +137,7 @@ EXAMPLES:
 EXTRACT EVERYTHING - don't miss any entities!`;
       
       const result = await generateObject({
-        model: oncobot.languageModel('oncobot-x-fast-mini'), // Use fast model for quick analysis
+        model: oncobot.languageModel('oncobot-default'), // Use default model for reliability
         schema: QueryAnalysisSchema,
         prompt,
         temperature: 0.0, // Deterministic

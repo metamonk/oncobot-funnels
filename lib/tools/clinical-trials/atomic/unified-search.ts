@@ -161,55 +161,31 @@ export class UnifiedSearchTool {
     analysis: QueryAnalysis
   ): Promise<{ apiParameters: Record<string, string>; reasoning: string }> {
     try {
-      const prompt = `Compose ClinicalTrials.gov API parameters for this search.
+      const prompt = `Compose ClinicalTrials.gov API parameters.
 
 Query: "${query}"
 
-Extracted entities from analysis:
-- Conditions: ${analysis.entities.conditions.join(', ') || 'none'}
-- Cities: ${analysis.entities.locations.cities.join(', ') || 'none'}
-- States: ${analysis.entities.locations.states.join(', ') || 'none'}
-- Mutations: ${analysis.entities.mutations.join(', ') || 'none'}
-- Trial Names/Drugs: ${analysis.entities.drugs.join(', ') || 'none'}
-- NCT IDs: ${analysis.entities.nctIds.join(', ') || 'none'}
+Entities from analysis:
+${JSON.stringify(analysis.entities, null, 2)}
 
-Available API parameters:
-- query.term: General text search
-- query.cond: Condition/disease filter
-- query.locn: Location filter (FORMAT: "City, State" or "State" for US locations)
-- query.intr: Intervention/drug filter
-- query.id: NCT ID search (ONLY if NCT ID is provided)
+API parameters:
+- query.term: General text search (DO NOT put recruitment status here)
+- query.cond: Condition/disease  
+- query.locn: Location ("City, State" or "State")
+- query.intr: Intervention/drug name
+- query.id: NCT ID
 - query.titles: Title search
-- query.spons: Sponsor filter
+- query.spons: Sponsor
 
-IMPORTANT: Each parameter value must be a simple STRING, not an object.
+IMPORTANT:
+- For drug/trial names like "TROPION-Lung12", use query.intr NOT query.term
+- NEVER put recruitment status words in any parameter (recruiting, open, closed are handled separately)
+- If multiple locations, use format: "Texas, Louisiana"
 
-COMPOSITION RULES:
-1. If trial names/drugs exist (like "TROPION-Lung12"):
-   - Use query.term OR query.intr with just the trial name as a STRING
-   - CORRECT: "query.term": "TROPION-Lung12"
-   - WRONG: "query.term": { "term": "TROPION-Lung12" }
-   
-2. If multiple states exist (like ["Texas", "Louisiana"]):
-   - Combine them: query.locn = "Texas OR Louisiana"
-   - Or search each separately if the API doesn't support OR
-   
-3. NEVER send the entire user query as a single parameter
-   - Break it down into specific API parameters
-   - Example: "TROPION-Lung12 in Texas" becomes:
-     - "query.term": "TROPION-Lung12"  (STRING value)
-     - "query.locn": "Texas"  (STRING value)
+Return a flat object with parameter names as keys and STRING values.
+Example: { "query.intr": "TROPION-Lung12", "query.locn": "Texas, Louisiana" }
 
-4. RECRUITMENT STATUS WORDS should be EXCLUDED from search terms:
-   - Words like "open", "recruiting", "not yet recruiting", "closed", "active" are recruitment statuses
-   - These are handled separately through filters, NOT in query.term
-   - Example: "TROPION-Lung12 with recruitment status open or not yet recruiting" becomes:
-     - "query.term": "TROPION-Lung12"  (just the trial name, NO status words)
-   - WRONG: "query.term": "TROPION-Lung12 open not yet recruiting"
-
-5. Return a flat object where keys are parameter names and values are STRINGS
-   - CORRECT: { "query.term": "TROPION-Lung12", "query.locn": "Texas" }
-   - WRONG: { "query.term": { "term": "TROPION-Lung12" } }`;
+The API is literal - it may not match variations. That's OK.`;
 
       const result = await generateObject({
         model: oncobot.languageModel('oncobot-default'), // Use same model as main conversation

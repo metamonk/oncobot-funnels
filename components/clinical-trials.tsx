@@ -383,17 +383,17 @@ function ClinicalTrialsComponent({ result, action, isStreaming = false }: Clinic
   }, [action, result, trackConversion]);
   if (!result.success) {
     return (
-      <Card className="w-full my-4 border-red-200 dark:border-red-800">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2 text-red-600 dark:text-red-400">
-            <XCircle className="h-4 w-4" />
-            Clinical Trials Search Error
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-red-600 dark:text-red-400">{result.error}</p>
-        </CardContent>
-      </Card>
+      <div className="w-full my-4 rounded-lg border border-red-500/50 dark:border-red-500/50 bg-red-950/10 dark:bg-red-950/20 overflow-hidden">
+        <div className="px-4 py-3 flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-full bg-red-500/10 dark:bg-red-500/10 flex items-center justify-center">
+            <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-medium text-red-600 dark:text-red-400">Clinical Trials Search Error</div>
+            <div className="text-xs text-red-500/80 dark:text-red-400/70 mt-0.5">{result.error || 'Search failed'}</div>
+          </div>
+        </div>
+      </div>
     );
   }
 

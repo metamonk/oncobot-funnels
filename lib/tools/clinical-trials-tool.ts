@@ -11,13 +11,10 @@ import { DataStreamWriter } from 'ai';
 import { searchClinicalTrialsOrchestrated } from './clinical-trials-orchestrated';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
 
+// TRUE AI-DRIVEN: Simple schema that works with ALL models
+// The AI decides everything - we just need the query
 const clinicalTrialsSchema = z.object({
-  query: z.string().describe('The search query for clinical trials'),
-  maxResults: z.number().default(10).describe('Maximum number of results to return'),
-  filters: z.object({
-    recruitmentStatus: z.array(z.string()).optional(),
-    trialPhase: z.array(z.string()).optional()
-  }).optional()
+  query: z.string().describe('The search query for clinical trials')
 });
 
 export const clinicalTrialsOrchestratedTool = (
@@ -57,8 +54,10 @@ Search capabilities:
 - NCT IDs: Direct lookup like "NCT12345678"
 - Complex queries: Combine multiple criteria naturally`,
   parameters: clinicalTrialsSchema,
-  execute: async ({ query, maxResults = 10, filters }) => {
-    console.log('🔬 Clinical Trials Tool - AI orchestrated search:', { query, maxResults });
+  execute: async ({ query }) => {
+    // TRUE AI-DRIVEN: Let the orchestrator decide everything
+    // Default to 10 results, but AI can request more through the query
+    console.log('🔬 Clinical Trials Tool - AI orchestrated search:', { query });
     
     try {
       // Get user's health profile if available
@@ -87,14 +86,15 @@ Search capabilities:
       // The orchestrator can work without location data
       const userLocation = undefined;
       
-      // Execute orchestrated search
+      // TRUE AI-DRIVEN: Let the orchestrator decide everything
+      // No default filters - the AI understands the query intent
       const result = await searchClinicalTrialsOrchestrated({
         query,
         healthProfile,
         userLocation,
         chatId,
-        maxResults,
-        filters
+        maxResults: 10,  // Default to 10 results
+        filters: undefined  // Let AI decide based on query
       });
       
       // SMART TOKEN MANAGEMENT: Separate UI and AI data
@@ -116,17 +116,37 @@ Search capabilities:
           searchSummary: result.searchSummary,
           message: result.message,
           // Include only essential fields for AI to compose responses
-          matches: result.matches.map((match: any) => ({
-            nctId: match.trial?.protocolSection?.identificationModule?.nctId,
-            briefTitle: match.trial?.protocolSection?.identificationModule?.briefTitle,
-            locationSummary: match.locationSummary || 'Location information not available',
-            overallStatus: match.trial?.protocolSection?.statusModule?.overallStatus,
-            matchScore: match.matchScore,
-            eligibilityAssessment: match.eligibilityAssessment,
-            // Include phase and intervention for context
-            phase: match.trial?.protocolSection?.designModule?.phases?.[0],
-            interventionType: match.trial?.protocolSection?.armsInterventionsModule?.interventions?.[0]?.type
-          })),
+          matches: result.matches.map((match: any) => {
+            const baseInfo: any = {
+              nctId: match.trial?.protocolSection?.identificationModule?.nctId,
+              briefTitle: match.trial?.protocolSection?.identificationModule?.briefTitle,
+              locationSummary: match.locationSummary || 'Location information not available',
+              overallStatus: match.trial?.protocolSection?.statusModule?.overallStatus,
+              matchScore: match.matchScore,
+              eligibilityAssessment: match.eligibilityAssessment,
+              // Include phase and intervention for context
+              phase: match.trial?.protocolSection?.designModule?.phases?.[0],
+              interventionType: match.trial?.protocolSection?.armsInterventionsModule?.interventions?.[0]?.type
+            };
+            
+            // TRUE AI-DRIVEN: Give AI raw location data without filtering
+            // The conversation store has full data if needed for follow-ups
+            const locations = match.trial?.protocolSection?.contactsLocationsModule?.locations || [];
+            
+            // Pass through location data - AI decides what's relevant
+            if (locations.length > 0) {
+              // Token-optimized: Only essential location info
+              baseInfo.locationDetails = locations.map((l: any) => ({
+                city: l.city,
+                state: l.state,
+                country: l.country,
+                status: l.status
+              }));
+              baseInfo.totalLocations = locations.length;
+            }
+            
+            return baseInfo;
+          }),
           // Add a flag so UI knows full data is in annotations
           _fullDataInAnnotations: true
         };

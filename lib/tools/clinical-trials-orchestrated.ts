@@ -20,7 +20,6 @@ import {
   enhancedLocationSearch,
   mutationSearch
 } from './clinical-trials/atomic';
-import { trialLocations } from './clinical-trials/atomic/trial-locations';
 import {
   getStoredTrials,
   getStoredTrial,
@@ -174,10 +173,9 @@ Available tools:
 - "nct-lookup" - Direct NCT ID lookup
 - "location-search" - Location-based search
 - "mutation-search" - Mutation/biomarker search
-- "trial-locations" - Get detailed locations for a specific trial (use when asked about locations for a known trial)
 - "get-stored-trials" - Get all trials from current conversation
 - "get-stored-trial" - Get specific trial by NCT ID from conversation
-- "get-stored-locations" - Get all locations from stored trials
+- "get-stored-locations" - Get all locations from stored trials (with full trial data)
 - "search-stored-trials" - Search within stored trials
 - "get-unshown-trials" - Get trials not yet shown to user
 
@@ -234,7 +232,6 @@ async function executeInstruction(
     'location-search': locationSearch,
     'enhanced-location': enhancedLocationSearch,
     'mutation-search': mutationSearch,
-    'trial-locations': trialLocations,
     'get-stored-trials': getStoredTrials,
     'get-stored-trial': getStoredTrial,
     'get-stored-locations': getStoredLocations,
@@ -269,9 +266,7 @@ async function executeInstruction(
         
         // Each tool handles its own execution
         let result;
-        if (toolName === 'trial-locations') {
-          result = await tool.getLocations(params);
-        } else if (toolName.startsWith('get-') || toolName === 'search-stored-trials') {
+        if (toolName.startsWith('get-') || toolName === 'search-stored-trials') {
           // Store retrieval tools use 'retrieve' or 'search' method
           const useChatId = chatId || 'default';
           if (toolName === 'search-stored-trials') {
@@ -289,15 +284,7 @@ async function executeInstruction(
         
         if (result?.success) {
           // Handle different tool response formats
-          if (toolName === 'trial-locations') {
-            return [{
-              source: toolName,
-              locations: result.locations,
-              nctId: result.nctId,
-              weight: 1.0,
-              reasoning: instruction.reasoning
-            }];
-          } else if (toolName === 'get-stored-locations') {
+          if (toolName === 'get-stored-locations') {
             // Now returns full trial data with all location details
             return [{
               source: toolName,
