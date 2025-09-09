@@ -106,20 +106,39 @@ Search capabilities:
         });
       }
       
-      // SMART SOLUTION: Return full data but structure it for token optimization
-      // The AI SDK will truncate very long content automatically
-      // The full data gets persisted for UI rendering on page reload
+      // SMART TOKEN MANAGEMENT: Return minimal data to AI
+      // The AI has access to the store and can query specific trials
+      // The writeMessageAnnotation above handles UI rendering
       if (result.success && result.matches && result.matches.length > 0) {
-        // Return the full result - it will be persisted and available for UI
-        // The writeMessageAnnotation above handles immediate UI rendering
-        // This ensures persistence across page reloads
+        // Create minimal result for AI context
+        const minimalResult = {
+          success: true,
+          totalCount: result.totalCount,
+          returnedCount: result.matches.length,
+          searchSummary: result.searchSummary,
+          message: result.message,
+          // Just NCT IDs and brief summaries for the AI
+          matches: result.matches.map((match: any) => ({
+            nctId: match.trial?.protocolSection?.identificationModule?.nctId,
+            briefTitle: match.trial?.protocolSection?.identificationModule?.briefTitle,
+            locationSummary: match.locationSummary || 'Location information not available',
+            overallStatus: match.trial?.protocolSection?.statusModule?.overallStatus,
+            matchScore: match.matchScore,
+            // Include key eligibility points if available
+            eligibilityHighlights: match.eligibilityAssessment?.keyPoints || undefined
+          })),
+          // Store reference that trials are in the conversation store
+          _storedInConversation: true,
+          _conversationId: chatId
+        };
         
-        console.log('🔬 Returning full data (will be truncated by AI if too large):', {
-          dataSize: JSON.stringify(result).length,
-          trialCount: result.matches.length
+        console.log('🔬 Token-optimized response:', {
+          originalSize: JSON.stringify(result).length,
+          minimalSize: JSON.stringify(minimalResult).length,
+          reduction: `${((1 - JSON.stringify(minimalResult).length / JSON.stringify(result).length) * 100).toFixed(1)}%`
         });
         
-        return result;
+        return minimalResult;
       }
       
       // Return minimal structure even on failure

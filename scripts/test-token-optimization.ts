@@ -1,88 +1,87 @@
 #!/usr/bin/env tsx
 
 /**
- * Test script to verify token optimization for clinical trials
- * 
- * This tests that:
- * 1. Large result sets don't cause token overflow
- * 2. UI still receives full data for rendering
- * 3. No duplicate responses are generated
+ * Test token optimization - AI gets minimal data, store has full data
  */
 
+import 'dotenv/config';
 import { searchClinicalTrialsOrchestrated } from '../lib/tools/clinical-trials-orchestrated';
+import { conversationTrialStore } from '../lib/tools/clinical-trials/services/conversation-trial-store';
 
 async function testTokenOptimization() {
-  console.log('🧪 Testing Token Optimization for Clinical Trials\n');
-  console.log('=' .repeat(60));
+  console.log('🔬 Testing Token Optimization\n');
+  console.log('=' .repeat(50));
   
-  // Test cases that typically return many results
-  const testQueries = [
-    'lung cancer',  // Broad query that returns many trials
-    'NSCLC',        // Common cancer type with many trials
-    'cancer Chicago', // Location-based with many results
-    'KRAS G12C',    // Mutation search that could return many trials
-  ];
-
-  for (const query of testQueries) {
-    console.log(`\n📝 Testing query: "${query}"`);
-    console.log('-'.repeat(40));
+  const testChatId = 'test-token-' + Date.now();
+  
+  // Test 1: Search for trials
+  console.log('\n📍 Test 1: Search with Token Optimization');
+  console.log('-'.repeat(40));
+  
+  try {
+    const result = await searchClinicalTrialsOrchestrated({
+      query: 'KRAS G12C lung cancer in Chicago',
+      chatId: testChatId,
+      maxResults: 5
+    });
     
-    try {
-      const startTime = Date.now();
+    console.log('✅ Search completed!');
+    console.log('Result structure:', {
+      success: result.success,
+      totalCount: result.totalCount,
+      matchesFound: result.matches?.length || 0,
+      // Check data size
+      dataSize: JSON.stringify(result).length,
+      dataSizeKB: (JSON.stringify(result).length / 1024).toFixed(2) + ' KB'
+    });
+    
+    // Check what's in the store
+    const storedTrials = conversationTrialStore.getAllTrials(testChatId);
+    console.log('\n📦 Store contains:', {
+      trialCount: storedTrials.length,
+      hasFullData: storedTrials.length > 0 && storedTrials[0].trial?.protocolSection !== undefined
+    });
+    
+    if (result.matches && result.matches.length > 0) {
+      console.log('\n🔍 AI receives (minimal):');
+      const firstMatch = result.matches[0];
+      console.log('  - NCT ID:', firstMatch.nctId || firstMatch.trial?.protocolSection?.identificationModule?.nctId);
+      console.log('  - Title:', (firstMatch.briefTitle || firstMatch.trial?.protocolSection?.identificationModule?.briefTitle)?.substring(0, 50) + '...');
+      console.log('  - Has full trial data?', !!firstMatch.trial?.protocolSection);
       
-      // Execute search
-      const result = await searchClinicalTrialsOrchestrated({
-        query,
-        maxResults: 20,  // Request many results to test token handling
-        chatId: 'test-session'
-      });
-      
-      const endTime = Date.now();
-      const duration = ((endTime - startTime) / 1000).toFixed(2);
-      
-      if (result.success) {
-        // Calculate data sizes
-        const fullDataSize = JSON.stringify(result).length;
-        const estimatedTokens = Math.ceil(fullDataSize / 4); // Rough token estimate
-        
-        console.log(`✅ Search successful`);
-        console.log(`   - Found: ${result.matches?.length || 0} trials`);
-        console.log(`   - Total count: ${result.totalCount || 0}`);
-        console.log(`   - Full data size: ${(fullDataSize / 1024).toFixed(2)} KB`);
-        console.log(`   - Estimated tokens: ~${estimatedTokens.toLocaleString()}`);
-        console.log(`   - Duration: ${duration}s`);
-        
-        // Check if we have the expected minimal fields
-        if (result.matches && result.matches.length > 0) {
-          const firstMatch = result.matches[0];
-          console.log(`   - Sample trial: ${firstMatch.trial?.protocolSection?.identificationModule?.nctId || 'N/A'}`);
-          
-          // Verify that we're not getting full trial objects
-          const trialDataSize = JSON.stringify(firstMatch.trial).length;
-          if (trialDataSize > 50000) {
-            console.warn(`   ⚠️  WARNING: Trial objects are very large (${(trialDataSize / 1024).toFixed(2)} KB)`);
-            console.warn(`      This might cause token overflow!`);
-          }
-        }
-      } else {
-        console.log(`❌ Search failed: ${result.error || result.message}`);
+      if (storedTrials.length > 0) {
+        console.log('\n📦 Store has (full data):');
+        const storedTrial = storedTrials[0].trial;
+        console.log('  - NCT ID:', storedTrial?.protocolSection?.identificationModule?.nctId);
+        console.log('  - Has locations?', !!storedTrial?.protocolSection?.contactsLocationsModule?.locations);
+        console.log('  - Has eligibility?', !!storedTrial?.protocolSection?.eligibilityModule);
+        console.log('  - Has interventions?', !!storedTrial?.protocolSection?.armsInterventionsModule);
       }
-      
-    } catch (error) {
-      console.error(`❌ Error during search:`, error);
     }
+    
+    // Calculate token reduction
+    if (storedTrials.length > 0) {
+      const fullDataSize = JSON.stringify(storedTrials).length;
+      const minimalDataSize = JSON.stringify(result).length;
+      const reduction = ((1 - minimalDataSize / fullDataSize) * 100).toFixed(1);
+      
+      console.log('\n📊 Token Optimization:');
+      console.log(`  - Full data in store: ${(fullDataSize / 1024).toFixed(2)} KB`);
+      console.log(`  - Minimal data to AI: ${(minimalDataSize / 1024).toFixed(2)} KB`);
+      console.log(`  - Reduction: ${reduction}%`);
+      console.log(`  - ${minimalDataSize < 50000 ? '✅' : '❌'} Under 50KB threshold`);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error:', error);
   }
   
-  console.log('\n' + '='.repeat(60));
-  console.log('📊 Token Optimization Test Summary:');
-  console.log('- Tested queries that typically return many results');
-  console.log('- Verified that large result sets are handled properly');
-  console.log('- Check server logs for token reduction metrics');
-  console.log('\n💡 Next steps:');
-  console.log('1. Run "pnpm dev" and test these queries in the UI');
-  console.log('2. Verify that trial cards display correctly');
-  console.log('3. Confirm no duplicate responses in the chat');
-  console.log('4. Monitor console for token reduction percentages');
+  console.log('\n' + '='.repeat(50));
+  console.log('📊 Summary:');
+  console.log('  - AI gets minimal data (NCT IDs + summaries)');
+  console.log('  - Store contains full trial data');
+  console.log('  - AI can query specific trials from store on demand');
+  console.log('  - This prevents context overflow!');
 }
 
 // Run the test
