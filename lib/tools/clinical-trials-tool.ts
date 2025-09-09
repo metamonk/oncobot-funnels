@@ -106,58 +106,20 @@ Search capabilities:
         });
       }
       
-      // Return MINIMAL data to AI to prevent token overflow
-      // This is what gets added to the AI's context
+      // SMART SOLUTION: Return full data but structure it for token optimization
+      // The AI SDK will truncate very long content automatically
+      // The full data gets persisted for UI rendering on page reload
       if (result.success && result.matches && result.matches.length > 0) {
-        const minimalResult = {
-          success: true,
-          totalCount: result.totalCount,
-          returnedCount: result.matches.length,
-          searchSummary: result.searchSummary,
-          message: result.message,
-          // Include only essential fields for AI to compose responses
-          matches: result.matches.map((match: any) => {
-            const baseInfo: any = {
-              nctId: match.trial?.protocolSection?.identificationModule?.nctId,
-              briefTitle: match.trial?.protocolSection?.identificationModule?.briefTitle,
-              locationSummary: match.locationSummary || 'Location information not available',
-              overallStatus: match.trial?.protocolSection?.statusModule?.overallStatus,
-              matchScore: match.matchScore,
-              eligibilityAssessment: match.eligibilityAssessment,
-              // Include phase and intervention for context
-              phase: match.trial?.protocolSection?.designModule?.phases?.[0],
-              interventionType: match.trial?.protocolSection?.armsInterventionsModule?.interventions?.[0]?.type
-            };
-            
-            // TRUE AI-DRIVEN: Give AI raw location data without filtering
-            // The conversation store has full data if needed for follow-ups
-            const locations = match.trial?.protocolSection?.contactsLocationsModule?.locations || [];
-            
-            // Pass through location data - AI decides what's relevant
-            if (locations.length > 0) {
-              // Token-optimized: Only essential location info
-              baseInfo.locationDetails = locations.map((l: any) => ({
-                city: l.city,
-                state: l.state,
-                country: l.country,
-                status: l.status
-              }));
-              baseInfo.totalLocations = locations.length;
-            }
-            
-            return baseInfo;
-          }),
-          // Add a flag so UI knows full data is in annotations
-          _fullDataInAnnotations: true
-        };
+        // Return the full result - it will be persisted and available for UI
+        // The writeMessageAnnotation above handles immediate UI rendering
+        // This ensures persistence across page reloads
         
-        console.log('🔬 Returning minimal data to AI:', {
-          originalSize: JSON.stringify(result).length,
-          minimalSize: JSON.stringify(minimalResult).length,
-          reduction: `${((1 - JSON.stringify(minimalResult).length / JSON.stringify(result).length) * 100).toFixed(1)}%`
+        console.log('🔬 Returning full data (will be truncated by AI if too large):', {
+          dataSize: JSON.stringify(result).length,
+          trialCount: result.matches.length
         });
         
-        return minimalResult;
+        return result;
       }
       
       // Return minimal structure even on failure

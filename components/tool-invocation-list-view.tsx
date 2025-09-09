@@ -1943,17 +1943,19 @@ const ToolInvocationListView = memo(
         }
         
         if (toolInvocation.toolName === 'clinical_trials') {
-          // Check for full data in annotations first (for token optimization)
+          // The result now contains full data (persisted across reloads)
+          // Annotations are used for immediate rendering during streaming
+          // But the full result in tool-result ensures persistence
           let fullResult = result;
-          if (result?._fullDataInAnnotations && annotations) {
-            // Find the clinical trials search results in annotations
+          
+          // During streaming, prefer annotations if available (fresher data)
+          if (annotations) {
             const clinicalTrialsAnnotation = annotations.find(
               (a: any) => a.type === 'clinicalTrialsSearchResults'
             );
             if (clinicalTrialsAnnotation?.data) {
-              // Use the full data from annotations for UI rendering
               fullResult = clinicalTrialsAnnotation.data;
-              console.log('🎯 Using full data from annotations for UI rendering');
+              console.log('🎯 Using annotations for immediate UI rendering');
             }
           }
           
