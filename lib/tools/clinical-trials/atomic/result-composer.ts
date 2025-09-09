@@ -68,13 +68,16 @@ export class ResultComposerTool {
       maxResults = 10,
     } = request;
     
+    // Ensure searchResults is always an array
+    const results = Array.isArray(searchResults) ? searchResults : [];
+    
     debug.log(DebugCategory.TOOL, 'Simple composition', {
-      sources: searchResults.map(r => r.source),
-      totalTrials: searchResults.reduce((sum, r) => sum + r.trials.length, 0)
+      sources: results.map(r => r.source),
+      totalTrials: results.reduce((sum, r) => sum + (r.trials?.length || 0), 0)
     });
     
     // Step 1: Simple deduplication
-    const uniqueTrials = this.deduplicate(searchResults);
+    const uniqueTrials = this.deduplicate(results);
     
     // Step 2: Take requested amount (trust AI's ordering)
     const selectedTrials = uniqueTrials.slice(0, maxResults);
@@ -115,6 +118,9 @@ export class ResultComposerTool {
     const unique: ClinicalTrial[] = [];
     
     for (const result of searchResults) {
+      // Handle undefined or missing trials gracefully
+      if (!result.trials || !Array.isArray(result.trials)) continue;
+      
       for (const trial of result.trials) {
         const nctId = trial.protocolSection?.identificationModule?.nctId;
         if (nctId && !seen.has(nctId)) {
@@ -164,71 +170,44 @@ export class ResultComposerTool {
   }
   
   /**
-   * Build location summary - TRUE AI-DRIVEN approach
-   * NO patterns, NO hardcoded states, just present the data
+   * Build location summary - EXTREMELY CONCISE
+   * Show just 2-3 cities and total count
    */
   private buildLocationSummary(trial: ClinicalTrial, query?: string): string {
     const locations = trial.protocolSection?.contactsLocationsModule?.locations || [];
     if (locations.length === 0) return 'No locations';
     
-    // Group locations by state for US trials - pure data aggregation
-    const locationsByState: Record<string, { recruiting: number; notYet: number; cities: Set<string> }> = {};
+    // Collect all unique cities from recruiting/not yet recruiting sites
+    const cities: string[] = [];
+    let totalCount = 0;
     
     locations.forEach((loc: any) => {
-      if (loc.country === 'United States' && loc.state) {
-        if (!locationsByState[loc.state]) {
-          locationsByState[loc.state] = { recruiting: 0, notYet: 0, cities: new Set() };
-        }
-        
-        if (loc.city) {
-          locationsByState[loc.state].cities.add(loc.city);
-        }
-        
-        const status = loc.status?.toUpperCase();
-        if (status === 'RECRUITING') {
-          locationsByState[loc.state].recruiting++;
-        } else if (status === 'NOT_YET_RECRUITING') {
-          locationsByState[loc.state].notYet++;
+      const status = loc.status?.toUpperCase();
+      if (status === 'RECRUITING' || status === 'NOT_YET_RECRUITING') {
+        totalCount++;
+        if (loc.city && !cities.includes(loc.city)) {
+          cities.push(loc.city);
         }
       }
     });
     
-    // Sort states by total site count - simple ordering, no patterns
-    const sortedStates = Object.entries(locationsByState)
-      .filter(([_, info]) => info.recruiting > 0 || info.notYet > 0)
-      .sort(([stateA, infoA], [stateB, infoB]) => {
-        const totalA = infoA.recruiting + infoA.notYet;
-        const totalB = infoB.recruiting + infoB.notYet;
-        return totalB - totalA;
-      });
-    
-    // Build concise summary for token efficiency
-    // Show top 5 states with most sites - AI can ask for more if needed
-    const stateSummaries = sortedStates
-      .slice(0, 5) // Balance between completeness and token usage
-      .map(([state, info]) => {
-        // Show first 3 cities as representative sample
-        const cities = Array.from(info.cities).slice(0, 3).join(', ');
-        const statusPart = [];
-        if (info.recruiting > 0) statusPart.push(`${info.recruiting} recruiting`);
-        if (info.notYet > 0) statusPart.push(`${info.notYet} not yet`);
-        return `${state}: ${cities} (${statusPart.join(', ')})`;
-      });
-    
-    if (stateSummaries.length === 0) {
-      return `${locations.length} sites total`;
+    // If no recruiting sites, just return total count
+    if (totalCount === 0) {
+      return `${locations.length} locations`;
     }
     
-    // Add total count if there are more states
-    if (sortedStates.length > 5) {
-      const totalSites = locations.filter((loc: any) => 
-        loc.country === 'United States' && 
-        (loc.status?.toUpperCase() === 'RECRUITING' || loc.status?.toUpperCase() === 'NOT_YET_RECRUITING')
-      ).length;
-      stateSummaries.push(`[${totalSites} total US sites across ${sortedStates.length} states]`);
+    // Show first 2 cities and total count
+    if (cities.length === 0) {
+      return `${totalCount} locations`;
+    } else if (cities.length === 1) {
+      return cities[0];
+    } else if (cities.length === 2) {
+      return `${cities[0]} and ${cities[1]}`;
+    } else {
+      // Show first 2 cities and "X other locations"
+      const remaining = totalCount - 2;
+      return `${cities[0]}, ${cities[1]} and ${remaining} other locations`;
     }
-    
-    return stateSummaries.join('; ');
   }
   
   /**
@@ -236,8 +215,16 @@ export class ResultComposerTool {
    */
   private storeInConversation(chatId: string, matches: any[], query: string): void {
     try {
-      conversationTrialStore.storeTrials(chatId, matches as any, query, false);
-      debug.log(DebugCategory.CACHE, 'Stored', { chatId, count: matches.length });
+      debug.log(DebugCategory.CACHE, 'Storing trials in conversation', { 
+        chatId, 
+        count: matches.length,
+        firstTrial: matches[0] ? {
+          nctId: matches[0].trial?.protocolSection?.identificationModule?.nctId,
+          briefTitle: matches[0].trial?.protocolSection?.identificationModule?.briefTitle
+        } : null
+      });
+      conversationTrialStore.storeTrials(chatId, matches as any, query, true); // Mark as shown
+      debug.log(DebugCategory.CACHE, 'Successfully stored trials', { chatId, count: matches.length });
     } catch (error) {
       debug.error(DebugCategory.ERROR, 'Store failed', error);
     }

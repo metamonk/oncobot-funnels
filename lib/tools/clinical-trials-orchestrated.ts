@@ -4,8 +4,8 @@
  * PURE AI ORCHESTRATION: Following CLAUDE.md principles strictly
  * - NO switch statements or if/else chains
  * - NO hardcoded execution logic
- * - AI decides EVERYTHING: tools, parameters, weights
- * - Simple 3-step process: Analyze → Plan → Execute
+ * - AI decides EVERYTHING through a simple instruction
+ * - Embrace imperfection over fragility
  */
 
 import { generateObject } from 'ai';
@@ -18,22 +18,26 @@ import {
   nctLookup,
   locationSearch,
   enhancedLocationSearch,
-  mutationSearch,
-  continuationHandler
+  mutationSearch
 } from './clinical-trials/atomic';
+import { trialLocations } from './clinical-trials/atomic/trial-locations';
+import {
+  getStoredTrials,
+  getStoredTrial,
+  getStoredLocations,
+  searchStoredTrials,
+  getUnshownTrials
+} from './clinical-trials/atomic/store-retrieval';
 import { conversationTrialStore } from './clinical-trials/services/conversation-trial-store';
 import { debug, DebugCategory } from './clinical-trials/debug';
 import type { HealthProfile } from './clinical-trials/types';
 
-// AI decides everything about execution
-const ExecutionPlanSchema = z.object({
-  executions: z.array(z.object({
-    tool: z.string(),
-    parameters: z.record(z.any()),
-    weight: z.number(),
-    reasoning: z.string()
-  })),
-  strategy: z.string()
+// Simple schema - AI provides a single instruction
+const AIInstructionSchema = z.object({
+  action: z.enum(['search_new', 'use_stored', 'return_empty']),
+  tool: z.string().optional(),
+  parameters: z.record(z.any()).optional(),
+  reasoning: z.string()
 });
 
 interface SearchParams {
@@ -53,17 +57,6 @@ export async function searchClinicalTrialsOrchestrated(params: SearchParams): Pr
   
   debug.log(DebugCategory.ORCHESTRATION, 'TRUE AI-driven search', { query });
   
-  // Check for continuation queries ("show me more", "continue", etc.)
-  const isContinuation = query.toLowerCase().includes('show me more') || 
-                        query.toLowerCase().includes('show more') ||
-                        query.toLowerCase().includes('continue') ||
-                        query.toLowerCase().includes('next');
-  
-  if (isContinuation && chatId) {
-    debug.log(DebugCategory.ORCHESTRATION, 'Detected continuation query');
-    return await continuationHandler.continue({ chatId, maxResults, query });
-  }
-  
   try {
     // Step 1: AI analyzes query
     const analysisResult = await queryAnalyzer.analyze({
@@ -72,47 +65,36 @@ export async function searchClinicalTrialsOrchestrated(params: SearchParams): Pr
     });
     
     if (!analysisResult.success) {
-      // AI failed - simple fallback
       return simpleFailure(query);
     }
     
-    // Get stored trials from conversation if available
-    let storedTrials = null;
-    if (chatId) {
-      storedTrials = conversationTrialStore.getAllTrials(chatId);
-      debug.log(DebugCategory.ORCHESTRATION, 'Retrieved stored trials', { 
-        count: storedTrials?.length || 0 
-      });
-    }
+    // Get stored trials from conversation (just data for AI)
+    const storedTrials = chatId ? conversationTrialStore.getAllTrials(chatId) : null;
     
-    // Step 2: AI plans entire execution (NO hardcoded logic)
-    const executionPlan = await planExecution(
+    // Step 2: AI provides simple instruction
+    const instruction = await getAIInstruction(
       query,
       analysisResult.analysis,
-      healthProfile || null,  // Convert undefined to null
-      userLocation,
-      maxResults,
-      filters,
-      storedTrials,  // Pass conversation context
+      storedTrials,
       chatId
     );
     
-    // Debug: Log the execution plan
-    debug.log(DebugCategory.ORCHESTRATION, 'Execution plan', {
-      executions: executionPlan?.executions,
-      strategy: executionPlan?.strategy
-    });
-    
-    // Check if planning failed
-    if (!executionPlan || !executionPlan.executions || executionPlan.executions.length === 0) {
-      debug.error(DebugCategory.ERROR, 'Execution planning failed', new Error('No execution plan generated'));
+    if (!instruction) {
       return simpleFailure(query);
     }
     
-    // Step 3: Execute AI's plan (NO switch statements)
-    const searchResults = await executeAIPlan(executionPlan);
+    // Step 3: Execute the single instruction
+    const searchResults = await executeInstruction(
+      instruction,
+      query,
+      analysisResult.analysis,
+      storedTrials,
+      maxResults,
+      filters,
+      chatId
+    );
     
-    // Step 4: AI composes results
+    // Step 4: Compose results for UI
     const composed = await resultComposer.compose({
       searchResults,
       query,
@@ -132,235 +114,244 @@ export async function searchClinicalTrialsOrchestrated(params: SearchParams): Pr
 }
 
 /**
- * AI plans the entire execution - NO hardcoded rules
+ * Get simple instruction from AI - TRUE AI-DRIVEN
  */
-async function planExecution(
+async function getAIInstruction(
   query: string,
   analysis: any,
-  healthProfile: HealthProfile | null,
-  userLocation: any,
-  maxResults: number,
-  filters?: any,
-  storedTrials?: any,
+  storedTrials: any,
   chatId?: string
 ): Promise<any> {
-  const toolRegistry = {
-    'unified-search': unifiedSearch,
-    'nct-lookup': nctLookup,
-    'location-search': locationSearch,
-    'enhanced-location': enhancedLocationSearch,
-    'mutation-search': mutationSearch
-  };
+  // Build metadata about stored trials for AI visibility
+  let storedTrialsInfo = 'No';
+  if (storedTrials && storedTrials.length > 0) {
+    const trialSummaries = storedTrials.slice(0, 5).map((st: any) => {
+      const trial = st.trial;
+      const nctId = trial?.protocolSection?.identificationModule?.nctId || 'Unknown';
+      const title = trial?.protocolSection?.identificationModule?.briefTitle || 'Unknown';
+      const locations = trial?.protocolSection?.contactsLocationsModule?.locations || [];
+      const recruitingCount = locations.filter((l: any) => 
+        l.status === 'RECRUITING' || l.status === 'NOT_YET_RECRUITING'
+      ).length;
+      
+      // Get a few city names for context
+      const cities = locations
+        .filter((l: any) => l.city)
+        .slice(0, 3)
+        .map((l: any) => l.city)
+        .join(', ');
+      
+      // Extract drug/intervention names for better matching
+      const interventions = trial?.protocolSection?.armsInterventionsModule?.interventions || [];
+      const drugNames = interventions
+        .map((i: any) => i.name)
+        .filter(Boolean)
+        .slice(0, 2)
+        .join(', ');
+      
+      // Include what was searched for (stored in query_context)
+      const searchContext = st.query_context ? ` [searched for: "${st.query_context}"]` : '';
+      
+      return `  - ${nctId}: "${title.substring(0, 60)}..."${drugNames ? ` (drugs: ${drugNames})` : ''}${searchContext} (${locations.length} total locations, ${recruitingCount} recruiting${cities ? `, including ${cities}` : ''})`;
+    }).join('\n');
+    
+    storedTrialsInfo = `Yes (${storedTrials.length} trials stored from this conversation):\n${trialSummaries}`;
+  }
   
-  try {
-    const prompt = `Plan the execution of clinical trial searches.
+  const prompt = `Decide what to do with this clinical trial search query.
 
 Query: "${query}"
+Analysis: ${JSON.stringify(analysis, null, 2)}
+Stored Trials: ${storedTrialsInfo}
 
-Analysis Results:
-${JSON.stringify(analysis, null, 2)}
+You must return ONE of these actions:
+1. "search_new" - Search for new trials (specify tool and parameters)
+2. "use_stored" - Use previously shown trials from conversation
+3. "return_empty" - No results expected
 
-Available Context:
-- Health Profile: ${healthProfile ? JSON.stringify(healthProfile) : 'none'}
-- User Location: ${userLocation ? JSON.stringify(userLocation) : 'none'}
-- Max Results: ${maxResults}
-- Filters: ${filters ? JSON.stringify(filters) : 'none'}
-${storedTrials && storedTrials.length > 0 ? `
-- Previously Found Trials in Conversation: ${storedTrials.length} trials
-  Recent trials include:
-${storedTrials.slice(0, 5).map((st: any) => {
-    const nctId = st.trial.protocolSection?.identificationModule?.nctId || st.trial.nctId;
-    const briefTitle = st.trial.protocolSection?.identificationModule?.briefTitle || st.trial.briefTitle;
-    const officialTitle = st.trial.protocolSection?.identificationModule?.officialTitle || st.trial.officialTitle;
-    return `  - ${nctId}: ${briefTitle || officialTitle}`;
-  }).join('\n')}
-  
-  IMPORTANT: If the user is asking about locations, details, or follow-ups about these trials,
-  you should search for the specific NCT ID(s) rather than the trial name.` : ''}
+Available tools:
+- "unified-search" - General clinical trial search
+- "nct-lookup" - Direct NCT ID lookup
+- "location-search" - Location-based search
+- "mutation-search" - Mutation/biomarker search
+- "trial-locations" - Get detailed locations for a specific trial (use when asked about locations for a known trial)
+- "get-stored-trials" - Get all trials from current conversation
+- "get-stored-trial" - Get specific trial by NCT ID from conversation
+- "get-stored-locations" - Get all locations from stored trials
+- "search-stored-trials" - Search within stored trials
+- "get-unshown-trials" - Get trials not yet shown to user
 
-Available Tools and Their Parameters:
-- unified-search: General API search for any natural language query
-  Parameters: { query: string, analysis?: object, maxResults?: number, filters?: object }
-  IMPORTANT: Always pass the FULL original query string AND the analysis object
-  Example: { query: "TROPION-Lung12 study locations in Texas and Louisiana", analysis: <analysis object>, maxResults: 50 }
-  Use for: Complex queries, combined criteria, natural language searches
-  
-- nct-lookup: Direct NCT ID lookup (handles single or multiple IDs)
-  Parameters: { nctId: string } or just the string NCT ID
-  Example: { nctId: "NCT04595559" } or "NCT04595559"
-  IMPORTANT: For multiple NCT IDs, create multiple executions (one per ID)
-  Example for multiple: If user provides 10 NCT IDs, create 10 nct-lookup executions
-  
-- location-search: Location-based search
-  Parameters: { city?: string, state?: string | string[], condition?: string }
-  Example: { state: ["Texas", "Louisiana"], condition: "lung cancer" }
-  Use for: Basic location searches without distance requirements
-  
-- enhanced-location: Advanced location search with distance and radius
-  Parameters: { city?: string, state?: string, radius?: number, userCoordinates?: {latitude, longitude}, includeDistances?: boolean }
-  Example: { state: "Texas", radius: 50, userCoordinates: {latitude: 29.7604, longitude: -95.3698} }
-  Use for: "trials within X miles", "nearest trials", distance-based queries
-  IMPORTANT: Use this when user asks about distance or "near me"
-  
-- mutation-search: Mutation-specific search
-  Parameters: { mutation: string, cancerType?: string }
-  Example: { mutation: "KRAS G12C", cancerType: "NSCLC" }
-  Use for: Specific biomarker/mutation queries without location
-  NOTE: If query has BOTH mutation AND location, use unified-search instead
+CRITICAL RULES:
+1. If the query asks about LOCATIONS, DISTANCE, or PROXIMITY of trials already discussed → USE "get-stored-locations"
+2. If the query mentions a drug/trial name that matches stored trials → USE store retrieval tools
+3. If the query is clearly a follow-up about previous results → USE store retrieval tools
+4. Only search for NEW trials if the query is clearly asking for something different
 
-CRITICAL EXECUTION RULES:
+Examples:
+- "TROPION-Lung12" (no stored trials) → action: "search_new", tool: "unified-search", parameters: { query: "TROPION-Lung12" }
+- "which location is closest to Baton Rouge?" (with stored trials) → action: "search_new", tool: "get-stored-locations", parameters: {}
+- "tell me more about locations" (with stored trials) → action: "search_new", tool: "get-stored-locations", parameters: {}
+- "show me more trials" (with stored trials) → action: "search_new", tool: "get-unshown-trials", parameters: { limit: 5 }
+- "what about the TROPION trial?" (with stored TROPION trial) → action: "search_new", tool: "get-stored-trials", parameters: {}
+- "NCT05568550" (not in stored trials) → action: "search_new", tool: "nct-lookup", parameters: { nctId: "NCT05568550" }
+- "trials in Chicago" (new search) → action: "search_new", tool: "location-search", parameters: { city: "Chicago" }
 
-1. UNDERSTAND THE USER'S INTENT FROM CONTEXT:
-   - Initial combined query ("KRAS G12C in Chicago") → User wants INTERSECTION
-   - Refinement query ("Show me the ones in Chicago") → Filter previous results
-   - Additive query ("Also show trials in Boston") → Add MORE results (UNION)
-   - Continuation ("Show me more") → More from same search
-   - Follow-up about specific trial ("Which are the closest locations to Louisiana?") → Search for THAT specific NCT ID
-   
-   LOOK AT THE CONVERSATION HISTORY above! If trials were previously found, 
-   follow-up questions are likely about THOSE specific trials, not new searches.
+Note: For store retrieval tools, chatId is "${chatId || 'will be provided automatically'}"
 
-2. FOR INITIAL COMBINED QUERIES (mutation/condition + location):
-   - Use unified-search with the FULL query text
-   - This gives INTERSECTION (trials matching ALL criteria)
-   
-   Example: "KRAS G12C trials in Chicago"
-   USE: unified-search { query: "KRAS G12C trials in Chicago" }
-   
-3. FOR REFINEMENT QUERIES (filtering previous results):
-   - If user is asking to filter/narrow previous results
-   - Consider using the stored results if available
-   - Or use unified-search with combined criteria
-   
-   Example conversation:
-   User: "Show KRAS G12C trials"
-   User: "Which ones are in Chicago?" 
-   INTENT: Filter the KRAS results to only Chicago ones
-   
-4. FOR ADDITIVE QUERIES (expanding results):
-   - User wants to ADD more results, not filter
-   - May need separate searches or broader criteria
-   
-   Example conversation:
-   User: "Show KRAS G12C trials"
-   User: "Also show me trials in Chicago"
-   INTENT: Show KRAS trials PLUS all Chicago trials
+Choose the action that best matches the user's intent. If unsure about tool, use "unified-search".`;
 
-2. WHEN SEARCHING FOR A SPECIFIC TRIAL NAME:
-   - Use unified-search with the FULL query to preserve context
-   - The tool's AI will extract the trial name and any location constraints
-   Example: "TROPION-Lung12 in Texas" → unified-search { query: "TROPION-Lung12 in Texas" }
-
-3. WHEN TO USE SPECIALIZED TOOLS:
-   - mutation-search: ONLY for mutation WITHOUT location ("KRAS G12C trials")
-   - location-search: ONLY for location WITHOUT condition ("all trials in Chicago")
-   - nct-lookup: For NCT IDs (single or multiple) - create one execution per NCT ID
-   - unified-search: For ANY combined query, natural language, or when in doubt
-   
-   SPECIAL CASES:
-   - Multiple NCT IDs (e.g., 10 IDs pasted): Create 10 separate nct-lookup executions
-   - Complex follow-ups ("Do any have locations in Brooklyn?"): Use stored context
-   - Eligibility questions ("What would prevent me?"): Look at exclusion criteria in results
-
-4. FOR FOLLOW-UP QUERIES ABOUT PREVIOUSLY FOUND TRIALS:
-   - If user asks about "the trial" or "that trial" or locations/details about it
-   - AND you have previously found trials in the conversation
-   - Use nct-lookup with the specific NCT ID (e.g., NCT06564844)
-   - Don't search for the trial name again (like "TROPION-Lung12") as it may not match
-
-5. KEEP IT SIMPLE:
-   - Prefer ONE tool over multiple tools
-   - When query has multiple aspects, use unified-search
-   - Trust the API to handle natural language
-
-For each tool you want to use, provide:
-1. The tool name
-2. The exact parameters to pass (ALWAYS include: query with FULL text, analysis object from above)
-3. A weight (0.5-2.0) for result importance  
-4. Brief reasoning
-
-CRITICAL for unified-search: 
-- Always include { query: <full original query>, analysis: <analysis object from above> }
-- The analysis helps the tool understand how to break down the query properly
-
-REMEMBER: Context matters! Look at the conversation history.
-- New combined search → unified-search for INTERSECTION
-- Refinement of previous → consider filtering stored results
-- Addition to previous → may need UNION of searches
-- "Show me more" → continuation of same search
-When in doubt, consider what the user is trying to achieve.`;
-
+  try {
     const result = await generateObject({
-      model: oncobot.languageModel('oncobot-x-fast'), // Use fast model for quick planning
-      schema: ExecutionPlanSchema,
+      model: oncobot.languageModel('oncobot-default'),
+      schema: AIInstructionSchema,
       prompt,
       temperature: 0.0
     });
     
-    // Add tool references to the plan
-    return {
-      ...result.object,
-      tools: toolRegistry
-    };
-    
+    debug.log(DebugCategory.ORCHESTRATION, 'AI instruction', result.object);
+    return result.object;
   } catch (error) {
-    // AI failed - minimal execution
-    return {
-      executions: [{
-        tool: 'unified-search',
-        parameters: { query, maxResults, filters },
-        weight: 1.0,
-        reasoning: 'AI planning failed - basic search'
-      }],
-      strategy: 'fallback',
-      tools: toolRegistry
-    };
+    debug.error(DebugCategory.ERROR, 'AI instruction failed', error);
+    return null;
   }
 }
 
 /**
- * Execute AI's plan - NO switch statements, NO conditionals
+ * Execute single instruction - no conditionals, just execute what AI said
  */
-async function executeAIPlan(plan: any): Promise<any[]> {
-  const results = [];
+async function executeInstruction(
+  instruction: any,
+  query: string,
+  analysis: any,
+  storedTrials: any,
+  maxResults: number,
+  filters: any,
+  chatId?: string
+): Promise<any[]> {
+  const tools: Record<string, any> = {
+    'unified-search': unifiedSearch,
+    'nct-lookup': nctLookup,
+    'location-search': locationSearch,
+    'enhanced-location': enhancedLocationSearch,
+    'mutation-search': mutationSearch,
+    'trial-locations': trialLocations,
+    'get-stored-trials': getStoredTrials,
+    'get-stored-trial': getStoredTrial,
+    'get-stored-locations': getStoredLocations,
+    'search-stored-trials': searchStoredTrials,
+    'get-unshown-trials': getUnshownTrials
+  };
   
-  // Execute each tool as AI planned (no hardcoded logic)
-  for (const execution of plan.executions) {
-    try {
-      const tool = plan.tools[execution.tool];
+  // Map instruction to result - this is just data transformation, not logic
+  const actionHandlers: Record<string, () => Promise<any[]>> = {
+    'search_new': async () => {
+      // Default to unified-search if tool name is unrecognized (embrace imperfection)
+      let tool = tools[instruction.tool];
+      let toolName = instruction.tool;
       
       if (!tool) {
-        debug.error(DebugCategory.ERROR, `Unknown tool: ${execution.tool}`, new Error(`Tool not found: ${execution.tool}`));
-        continue;
-      }
-      
-      // Debug: Log the exact parameters being passed
-      debug.log(DebugCategory.ORCHESTRATION, `Executing ${execution.tool}`, {
-        parameters: JSON.stringify(execution.parameters, null, 2)
-      });
-      
-      // Direct execution with AI's parameters
-      const result = await tool.search
-        ? await tool.search(execution.parameters)
-        : await tool.lookup
-        ? await tool.lookup(execution.parameters.nctId || execution.parameters)
-        : null;
-      
-      if (result?.success) {
-        results.push({
-          source: execution.tool,
-          trials: result.trials || (result.trial ? [result.trial] : []),
-          weight: execution.weight,
-          reasoning: execution.reasoning
+        debug.log(DebugCategory.ORCHESTRATION, 'Unknown tool, defaulting to unified-search', { 
+          requestedTool: instruction.tool 
         });
+        tool = unifiedSearch;
+        toolName = 'unified-search';
       }
-    } catch (error) {
-      debug.error(DebugCategory.ERROR, `Tool ${execution.tool} failed`, error);
-      // Continue with other tools
-    }
-  }
+      
+      try {
+        // TRUE AI-DRIVEN: Pass everything to the tool, let it decide
+        const params = {
+          ...instruction.parameters,
+          analysis,
+          maxResults,
+          filters,
+          chatId: storedTrials?.[0]?.chat_id // Pass chatId if available
+        };
+        
+        // Each tool handles its own execution
+        let result;
+        if (toolName === 'trial-locations') {
+          result = await tool.getLocations(params);
+        } else if (toolName.startsWith('get-') || toolName === 'search-stored-trials') {
+          // Store retrieval tools use 'retrieve' or 'search' method
+          const useChatId = chatId || 'default';
+          if (toolName === 'search-stored-trials') {
+            result = await tool.search(useChatId, params);
+          } else if (toolName === 'get-stored-trial') {
+            result = await tool.retrieve(useChatId, params.nctId);
+          } else {
+            result = await tool.retrieve(useChatId, params.limit);
+          }
+        } else if (tool.search) {
+          result = await tool.search(params);
+        } else if (tool.lookup) {
+          result = await tool.lookup(params.nctId || params);
+        }
+        
+        if (result?.success) {
+          // Handle different tool response formats
+          if (toolName === 'trial-locations') {
+            return [{
+              source: toolName,
+              locations: result.locations,
+              nctId: result.nctId,
+              weight: 1.0,
+              reasoning: instruction.reasoning
+            }];
+          } else if (toolName === 'get-stored-locations') {
+            // Now returns full trial data with all location details
+            return [{
+              source: toolName,
+              trials: result.trials,  // Full trial data with complete location information
+              summary: result.summary,
+              weight: 1.0,
+              reasoning: instruction.reasoning
+            }];
+          } else if (toolName === 'get-stored-trials' || toolName === 'get-unshown-trials' || toolName === 'search-stored-trials') {
+            return [{
+              source: toolName,
+              trials: result.trials,
+              metadata: result.metadata,
+              weight: 1.0,
+              reasoning: instruction.reasoning
+            }];
+          } else if (toolName === 'get-stored-trial') {
+            return [{
+              source: toolName,
+              trials: result.found ? [result.trial] : [],
+              metadata: result.metadata,
+              weight: 1.0,
+              reasoning: instruction.reasoning
+            }];
+          }
+          
+          return [{
+            source: toolName,
+            trials: result.trials || (result.trial ? [result.trial] : []),
+            weight: 1.0,
+            reasoning: instruction.reasoning
+          }];
+        }
+      } catch (error) {
+        debug.error(DebugCategory.ERROR, 'Tool execution failed', error);
+      }
+      return [];
+    },
+    
+    'use_stored': async () => {
+      if (!storedTrials || storedTrials.length === 0) return [];
+      return [{
+        source: 'conversation_context',
+        trials: storedTrials.map((st: any) => st.trial),
+        weight: 1.0,
+        reasoning: instruction.reasoning
+      }];
+    },
+    
+    'return_empty': async () => []
+  };
   
-  return results;
+  const handler = actionHandlers[instruction.action];
+  return handler ? await handler() : [];
 }
 
 /**
