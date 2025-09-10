@@ -65,26 +65,58 @@ export async function GET(
       ? lines.slice(exclusionStart + 1)
       : [];
     
-    // Return comprehensive criteria data
+    // Helper function to categorize criteria based on keywords
+    const categorizeCriterion = (text: string): string => {
+      const textLower = text.toLowerCase();
+      if (textLower.includes('age') || textLower.includes('year') || textLower.includes('sex') || textLower.includes('gender')) {
+        return 'demographics';
+      }
+      if (textLower.includes('cancer') || textLower.includes('tumor') || textLower.includes('stage') || textLower.includes('diagnosis')) {
+        return 'disease';
+      }
+      if (textLower.includes('mutation') || textLower.includes('biomarker') || textLower.includes('gene') || textLower.includes('kras') || textLower.includes('egfr')) {
+        return 'biomarker';
+      }
+      if (textLower.includes('treatment') || textLower.includes('therapy') || textLower.includes('drug') || textLower.includes('prior')) {
+        return 'treatment';
+      }
+      if (textLower.includes('ecog') || textLower.includes('performance') || textLower.includes('karnofsky')) {
+        return 'performance';
+      }
+      if (textLower.includes('consent') || textLower.includes('able to') || textLower.includes('willing')) {
+        return 'administrative';
+      }
+      return 'general';
+    };
+    
+    // Format criteria as expected by the component
+    const formatCriteria = (criteriaList: string[], type: 'inclusion' | 'exclusion') => {
+      return criteriaList
+        .map(c => c.trim())
+        .filter(Boolean)
+        .map((text, index) => ({
+          id: `${type}-${index}`,
+          text: text,
+          category: categorizeCriterion(text),
+          required: true
+        }));
+    };
+    
+    // Return comprehensive criteria data with the correct structure
     return NextResponse.json({
       nctId,
       fullCriteria: {
         raw: eligibilityCriteria,
         structured: {
-          totalCriteria: inclusionCriteria.length + exclusionCriteria.length,
-          inclusionCriteria: inclusionCriteria.map(c => c.trim()).filter(Boolean),
-          exclusionCriteria: exclusionCriteria.map(c => c.trim()).filter(Boolean),
-          ageRange: {
-            min: trial.protocolSection?.eligibilityModule?.minimumAge,
-            max: trial.protocolSection?.eligibilityModule?.maximumAge
-          },
-          sex: trial.protocolSection?.eligibilityModule?.sex,
-          acceptsHealthyVolunteers: trial.protocolSection?.eligibilityModule?.healthyVolunteers
+          parsed: true,
+          inclusion: formatCriteria(inclusionCriteria, 'inclusion'),
+          exclusion: formatCriteria(exclusionCriteria, 'exclusion')
         },
         metadata: {
-          title: trial.protocolSection?.identificationModule?.briefTitle,
-          overallStatus: trial.protocolSection?.statusModule?.overallStatus,
-          lastUpdatePosted: trial.protocolSection?.statusModule?.lastUpdatePostDateStruct?.date
+          totalLength: eligibilityCriteria.length,
+          lineCount: lines.length,
+          hasInclusionSection: inclusionStart >= 0,
+          hasExclusionSection: exclusionStart >= 0
         }
       }
     });
