@@ -259,7 +259,7 @@ function SaveButton({ trial }: { trial: ClinicalTrial }) {
 }
 
 // Component for eligibility checker button
-function EligibilityCheckerButton({ trial }: { trial: ClinicalTrial }) {
+function EligibilityCheckerButton({ trial }: { trial: ClinicalTrialWithProtocol }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [healthProfile, setHealthProfile] = useState<HealthProfile | null>(null);
   const { track } = useUnifiedAnalytics();
@@ -285,14 +285,14 @@ function EligibilityCheckerButton({ trial }: { trial: ClinicalTrial }) {
   
   const handleClick = () => {
     track('eligibility_check_started', {
-      nctId: trial.identificationModule?.nctId
+      nctId: trial.protocolSection?.identificationModule?.nctId
     });
     setModalOpen(true);
   };
   
   const handleComplete = (assessment: any) => {
     track('eligibility_check_completed', {
-      nctId: trial.identificationModule?.nctId,
+      nctId: trial.protocolSection?.identificationModule?.nctId,
       eligibility: assessment.overallEligibility,
       confidence: assessment.confidence
     });
@@ -300,30 +300,10 @@ function EligibilityCheckerButton({ trial }: { trial: ClinicalTrial }) {
     // User can close it manually when ready
   };
   
-  // Transform the saved-trials ClinicalTrial to the format expected by EligibilityCheckerModal
-  // The modal expects a trial with protocolSection wrapper
-  // The saved-trials type has a simpler structure, so we map only the available fields
-  const modalTrial: ClinicalTrialWithProtocol = {
-    protocolSection: {
-      identificationModule: trial.identificationModule ? {
-        nctId: trial.identificationModule.nctId,
-        briefTitle: trial.identificationModule.briefTitle || '',
-        officialTitle: trial.identificationModule.officialTitle
-      } : { nctId: '', briefTitle: '' },
-      descriptionModule: trial.descriptionModule,
-      statusModule: trial.statusModule,
-      sponsorCollaboratorsModule: trial.sponsorCollaboratorsModule,
-      contactsLocationsModule: trial.locationsModule ? {
-        locations: trial.locationsModule.locations
-      } : undefined,
-      eligibilityModule: trial.eligibilityModule,
-      // These modules don't exist in the saved-trials type, but may be required by the modal
-      conditionsModule: undefined,
-      designModule: undefined,
-      armsInterventionsModule: undefined,
-      outcomesModule: undefined
-    } as ClinicalTrialWithProtocol['protocolSection']
-  };
+  // The trial passed to this component already has the protocolSection wrapper
+  // So we can pass it directly to the modal
+  // The modal will fetch fresh data if eligibility criteria is missing
+  const modalTrial = trial;
   
   return (
     <>

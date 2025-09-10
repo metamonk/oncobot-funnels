@@ -25,7 +25,7 @@ export function compressTrialForAI(trial: ClinicalTrial): any {
       
       // Status info
       overallStatus: trial.protocolSection?.statusModule?.overallStatus,
-      studyFirstSubmitDate: trial.protocolSection?.statusModule?.studyFirstSubmitDate,
+      studyFirstPostDate: trial.protocolSection?.statusModule?.studyFirstPostDateStruct?.date,
       
       // Brief summary for context (first 200 chars)
       briefSummary: trial.protocolSection?.descriptionModule?.briefSummary?.substring(0, 200),
