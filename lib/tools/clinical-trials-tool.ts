@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { DataStreamWriter } from 'ai';
 import { searchClinicalTrialsOrchestrated } from './clinical-trials-orchestrated';
 import { getUserHealthProfile } from '@/lib/health-profile-actions';
+import { createAISearchSummary } from './clinical-trials/services/trial-compression';
 
 // TRUE AI-DRIVEN: Simple schema that works with ALL models
 // The AI decides everything - we just need the query
@@ -27,11 +28,17 @@ export const clinicalTrialsOrchestratedTool = (
 ) => tool({
   description: `Search for clinical trials and compose comprehensive answers.
 
-IMPORTANT TOKEN OPTIMIZATION: The full trial objects are large. Focus on these key fields for your response:
-- trial.protocolSection.identificationModule.nctId: Trial identifier 
-- trial.protocolSection.identificationModule.briefTitle: Trial name
-- locationSummary: Complete location information with recruiting status
-- trial.protocolSection.statusModule.overallStatus: Trial status
+SMART DATA HANDLING: You receive compressed trial summaries to avoid context limits.
+Each trial summary contains:
+- nctId: Trial identifier 
+- briefTitle: Trial name
+- overallStatus: Current recruitment status
+- briefSummary: Short description (200 chars)
+- primaryCondition: Main cancer type
+- locationCount & recruitingLocationCount: Site statistics
+- sampleCities: Example locations
+- interventions: Treatment names
+- locationSummary: Complete location info with recruiting status (when available)
 - matchScore: Relevance score (when available)
 - eligibilityAssessment: Eligibility analysis (when available)
 
@@ -106,39 +113,25 @@ Search capabilities:
         });
       }
       
-      // SMART TOKEN MANAGEMENT: Return minimal data to AI
-      // The AI has access to the store and can query specific trials
-      // The writeMessageAnnotation above handles UI rendering
-      if (result.success && result.matches && result.matches.length > 0) {
-        // Create minimal result for AI context
-        const minimalResult = {
-          success: true,
-          totalCount: result.totalCount,
-          returnedCount: result.matches.length,
-          searchSummary: result.searchSummary,
-          message: result.message,
-          // Just NCT IDs and brief summaries for the AI
-          matches: result.matches.map((match: any) => ({
-            nctId: match.trial?.protocolSection?.identificationModule?.nctId,
-            briefTitle: match.trial?.protocolSection?.identificationModule?.briefTitle,
-            locationSummary: match.locationSummary || 'Location information not available',
-            overallStatus: match.trial?.protocolSection?.statusModule?.overallStatus,
-            matchScore: match.matchScore,
-            // Include key eligibility points if available
-            eligibilityHighlights: match.eligibilityAssessment?.keyPoints || undefined
-          })),
-          // Store reference that trials are in the conversation store
-          _storedInConversation: true,
-          _conversationId: chatId
-        };
+      // INTELLIGENT DATA SEPARATION: Full data for UI, compressed for AI
+      // This prevents context_length_exceeded errors while preserving functionality
+      if (result.success) {
+        const fullDataSize = JSON.stringify(result).length;
+        const compressedResult = createAISearchSummary(result);
+        const compressedSize = JSON.stringify(compressedResult).length;
         
-        console.log('🔬 Token-optimized response:', {
-          originalSize: JSON.stringify(result).length,
-          minimalSize: JSON.stringify(minimalResult).length,
-          reduction: `${((1 - JSON.stringify(minimalResult).length / JSON.stringify(result).length) * 100).toFixed(1)}%`
+        console.log('🔬 Smart data compression:', {
+          trialCount: result.matches?.length || 0,
+          fullDataSize,
+          compressedSize,
+          compressionRatio: `${Math.round((compressedSize / fullDataSize) * 100)}%`,
+          fullDataInAnnotations: true,
+          aiGetsCompressed: true
         });
         
-        return minimalResult;
+        // Return compressed data for AI to avoid context window limits
+        // Full data is already in annotations for UI rendering
+        return compressedResult;
       }
       
       // Return minimal structure even on failure
