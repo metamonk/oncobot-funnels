@@ -12,7 +12,7 @@ export const memoryManagerTool = tool({
     query: z.string().describe('The search query for search operations'),
   }),
   execute: async ({ action, content, query }: { action: 'add' | 'search'; content?: string; query?: string }) => {
-    const client = new MemoryClient({ apiKey: serverEnv.MEM0_API_KEY });
+    const client = new MemoryClient({ apiKey: serverEnv.MEM0_API_KEY || '' });
     const user = await getCurrentUser();
     let userId = user?.id;
     console.log('action', action);
