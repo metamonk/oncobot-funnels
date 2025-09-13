@@ -12,31 +12,60 @@ import type { Message } from '@/lib/db/schema';
 
 /**
  * Extract trial NCT IDs from message parts
- * Look for clinical trial annotations in assistant messages
+ * Look for clinical trial tool invocations in all messages
+ * Handles both old and new Vercel AI SDK formats
  */
 export function extractTrialReferences(messages: Message[]): string[] {
   const nctIds = new Set<string>();
   
   for (const message of messages) {
-    if (message.role !== 'assistant') continue;
-    
     // Check if parts contain trial references
     if (!message.parts || !Array.isArray(message.parts)) continue;
     
     for (const part of message.parts) {
-      // Look for tool results with clinical trials
-      if (part.type === 'tool-result' && part.result) {
-        // Check if this is a clinical trials tool result
-        if (part.result.matches && Array.isArray(part.result.matches)) {
-          for (const match of part.result.matches) {
-            if (match.nctId) {
-              nctIds.add(match.nctId);
+      // Handle Vercel AI SDK tool-invocation format (current format)
+      if (part.type === 'tool-invocation' && part.toolInvocation) {
+        const invocation = part.toolInvocation;
+        
+        // Check if this is a clinical_trials tool invocation
+        if (invocation.toolName === 'clinical_trials' && invocation.result) {
+          const result = invocation.result;
+          
+          // Extract NCT IDs from matches
+          if (result.matches && Array.isArray(result.matches)) {
+            for (const match of result.matches) {
+              if (match.nctId) {
+                nctIds.add(match.nctId);
+                debug.log(DebugCategory.CACHE, 'Found NCT ID in tool invocation', {
+                  nctId: match.nctId,
+                  messageId: message.id
+                });
+              }
             }
           }
         }
       }
       
-      // Also check for annotations stored in parts
+      // Handle older tool-result format for backwards compatibility
+      if (part.type === 'tool-result' && part.toolName === 'clinical_trials') {
+        const result = typeof part.result === 'string' 
+          ? JSON.parse(part.result) 
+          : part.result;
+        
+        if (result?.matches && Array.isArray(result.matches)) {
+          for (const match of result.matches) {
+            if (match.nctId) {
+              nctIds.add(match.nctId);
+              debug.log(DebugCategory.CACHE, 'Found NCT ID in tool result', {
+                nctId: match.nctId,
+                messageId: message.id
+              });
+            }
+          }
+        }
+      }
+      
+      // Also check for annotations stored in parts (for backwards compatibility)
       if (part.type === 'annotation' && part.data?.type === 'clinicalTrialsSearchResults') {
         const data = part.data.data;
         if (data?.matches && Array.isArray(data.matches)) {
@@ -44,6 +73,10 @@ export function extractTrialReferences(messages: Message[]): string[] {
             const nctId = match.trial?.protocolSection?.identificationModule?.nctId;
             if (nctId) {
               nctIds.add(nctId);
+              debug.log(DebugCategory.CACHE, 'Found NCT ID in annotation', {
+                nctId,
+                messageId: message.id
+              });
             }
           }
         }

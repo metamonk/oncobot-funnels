@@ -67,10 +67,7 @@ export const viewport: Viewport = {
   minimumScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0A0A0A' },
-  ],
+  themeColor: '#ffffff',
 };
 
 const inter = Inter({

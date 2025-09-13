@@ -6,10 +6,14 @@ export const clientEnv = createEnv({
   client: {
     NEXT_PUBLIC_APP_URL: z.string().min(1).url().optional().default('https://onco.bot'),
     NEXT_PUBLIC_API_URL: z.string().min(1).url().optional().default('https://api.onco.bot'),
-    NEXT_PUBLIC_MAPBOX_TOKEN: z.string().min(1),
-    NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1),
-    NEXT_PUBLIC_POSTHOG_HOST: z.string().min(1).url(),
-    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().min(1),
+    
+    // Analytics - optional but recommended
+    NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
+    NEXT_PUBLIC_POSTHOG_HOST: z.string().url().optional(),
+    
+    // Legacy search engine - optional (not used in eligibility funnel)
+    NEXT_PUBLIC_MAPBOX_TOKEN: z.string().optional(),
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
   },
   runtimeEnv: {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
