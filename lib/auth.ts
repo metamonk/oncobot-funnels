@@ -66,7 +66,7 @@ export const auth = betterAuth({
         try {
           // Determine the from address
           // Use EMAIL_FROM if set and domain is verified, otherwise use Resend's test domain
-          const fromAddress = serverEnv.EMAIL_FROM || 'OncoBot <onboarding@resend.dev>';
+          const fromAddress = serverEnv.EMAIL_FROM || 'oncobot <onboarding@resend.dev>';
           
           // Log the email details for debugging
           console.log('📧 Attempting to send magic link email:', {
@@ -80,7 +80,7 @@ export const auth = betterAuth({
           const { data, error } = await resend.emails.send({
             from: fromAddress,
             to: email,
-            subject: 'Sign in to OncoBot',
+            subject: 'Sign in to oncobot',
             react: MagicLinkEmail({ magicLink: url, email }),
           });
 

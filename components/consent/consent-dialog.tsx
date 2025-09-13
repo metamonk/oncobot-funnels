@@ -37,7 +37,7 @@ export function ConsentDialog({
   const getTitle = () => {
     switch (context) {
       case 'onboarding':
-        return 'Welcome to OncoBot - Data Consent';
+        return 'Welcome to oncobot - Data Consent';
       case 'health_profile':
         return 'Health Profile Data Consent';
       case 'eligibility_check':
@@ -52,7 +52,7 @@ export function ConsentDialog({
   const getDescription = () => {
     switch (context) {
       case 'onboarding':
-        return 'To match you with clinical trials and provide personalized recommendations, OncoBot needs permission to use and share your health information.';
+        return 'To match you with clinical trials and provide personalized recommendations, oncobot needs permission to use and share your health information.';
       case 'health_profile':
         return 'Your health profile will be used to find relevant clinical trials and check eligibility.';
       case 'eligibility_check':
@@ -94,11 +94,11 @@ export function ConsentDialog({
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Lock className="h-4 w-4 text-amber-500" />
-                <h3 className="font-semibold text-sm">Required for OncoBot Services</h3>
+                <h3 className="font-semibold text-sm">Required for oncobot Services</h3>
               </div>
               <div className="rounded-lg border border-border bg-card p-4">
                 <p className="text-sm text-muted-foreground mb-3">
-                  These permissions are essential for OncoBot to function and help you find clinical trials:
+                  These permissions are essential for oncobot to function and help you find clinical trials:
                 </p>
                 <ul className="space-y-3">
                   {requiredConsents.map((consent) => (

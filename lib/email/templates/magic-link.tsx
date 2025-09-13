@@ -25,12 +25,12 @@ export const MagicLinkEmail = ({
   return (
     <Html>
       <Head />
-      <Preview>Sign in to OncoBot</Preview>
+      <Preview>Sign in to oncobot</Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={box}>
             <div style={logoContainer}>
-              {/* OncoBot Logo - HTML table for universal email compatibility */}
+              {/* oncobot Logo - HTML table for universal email compatibility */}
               <table style={logoTable} cellPadding="0" cellSpacing="0" border={0}>
                 <tbody>
                   <tr>
@@ -50,19 +50,19 @@ export const MagicLinkEmail = ({
                   </tr>
                 </tbody>
               </table>
-              <Heading style={heading}>OncoBot</Heading>
+              <Heading style={heading}>oncobot</Heading>
             </div>
             <Hr style={hr} />
             <Text style={paragraph}>
               Hi there,
             </Text>
             <Text style={paragraph}>
-              You requested to sign in to OncoBot with the email address{' '}
+              You requested to sign in to oncobot with the email address{' '}
               <strong>{email}</strong>. Click the button below to sign in:
             </Text>
             <Section style={buttonContainer}>
               <Button style={button} href={magicLink}>
-                Sign in to OncoBot
+                Sign in to oncobot
               </Button>
             </Section>
             <Text style={paragraph}>
@@ -77,7 +77,7 @@ export const MagicLinkEmail = ({
               you can safely ignore it.
             </Text>
             <Text style={footer}>
-              — The OncoBot Team
+              — The oncobot Team
             </Text>
           </Section>
         </Container>

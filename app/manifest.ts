@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'OncoBot - Medical Oncology AI Assistant',
-    short_name: 'OncoBot',
+    name: 'oncobot - Medical Oncology AI Assistant',
+    short_name: 'oncobot',
     description:
       'AI-powered medical oncology assistant providing evidence-based cancer treatment insights, clinical trial matching, and personalized health information',
     start_url: '/',
