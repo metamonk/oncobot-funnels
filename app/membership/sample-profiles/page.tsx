@@ -66,8 +66,8 @@ export default function SampleProfilesPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero */}
-      <section className="py-16 border-b">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20 border-b">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center space-y-6">
             <h1 className="text-4xl sm:text-5xl font-bold">
               See Exactly What a &ldquo;Consent-Ready&rdquo; Handoff Looks Like
@@ -84,8 +84,8 @@ export default function SampleProfilesPage() {
       </section>
 
       {/* Sample Profiles */}
-      <section className="py-16">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-5xl mx-auto">
             <h2 className="text-2xl font-bold mb-8">Sample De-Identified Profiles</h2>
             
@@ -142,8 +142,8 @@ export default function SampleProfilesPage() {
       </section>
 
       {/* Pipeline Snapshot */}
-      <section className="py-16 bg-accent/10">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20 bg-accent/10">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-5xl mx-auto">
             <h2 className="text-2xl font-bold mb-8">Typical Pipeline Snapshot</h2>
             
@@ -208,8 +208,8 @@ export default function SampleProfilesPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <Card className="p-8 text-center bg-primary/5 border-primary/20">
               <h2 className="text-2xl font-bold mb-4">

@@ -19,10 +19,10 @@ export default function MembershipPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section className="py-16 border-b">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20 border-b">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center space-y-6">
-            <h1 className="text-4xl sm:text-5xl font-bold">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-balance">
               Reserve Prescreen Capacity. Get Priority Matches for Your Clinical Trials.
             </h1>
             <p className="text-xl text-muted-foreground">
@@ -59,8 +59,8 @@ export default function MembershipPage() {
       </section>
 
       {/* What You Get */}
-      <section className="py-16 bg-accent/10">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20 bg-accent/10">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold mb-8">What You Get</h2>
             <div className="space-y-4">
@@ -83,8 +83,8 @@ export default function MembershipPage() {
       </section>
 
       {/* How It Works */}
-      <section className="py-16">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold mb-8">How It Works</h2>
             <div className="grid md:grid-cols-2 gap-6">
@@ -132,8 +132,8 @@ export default function MembershipPage() {
       </section>
 
       {/* Pricing */}
-      <section className="py-16 bg-accent/10">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20 bg-accent/10">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold mb-8">Pricing (Aligned to Value)</h2>
             <div className="grid md:grid-cols-2 gap-6">
@@ -155,8 +155,8 @@ export default function MembershipPage() {
       </section>
 
       {/* Terms */}
-      <section className="py-16">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <Card className="p-8 border-primary/20">
               <h2 className="text-2xl font-bold mb-4">Terms — &ldquo;Reason-Why&rdquo; Anti-Guarantee</h2>
@@ -171,8 +171,8 @@ export default function MembershipPage() {
       </section>
 
       {/* Proof Section */}
-      <section className="py-16 bg-accent/10">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20 bg-accent/10">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold mb-8">Proof of Performance</h2>
             <div className="grid md:grid-cols-3 gap-6">
@@ -197,8 +197,8 @@ export default function MembershipPage() {
       </section>
 
       {/* FAQ */}
-      <section className="py-16">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold mb-8">FAQ</h2>
             <div className="space-y-4">

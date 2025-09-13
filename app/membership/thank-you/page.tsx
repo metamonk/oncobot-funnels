@@ -30,8 +30,8 @@ export default function ThankYouPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Success Hero */}
-      <section className="py-16 border-b bg-accent/10">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20 border-b bg-accent/10">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center space-y-6">
             <div className="flex justify-center mb-6">
               <div className="h-20 w-20 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
@@ -49,8 +49,8 @@ export default function ThankYouPage() {
       </section>
 
       {/* Next Steps */}
-      <section className="py-16">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold mb-8">What Happens Next</h2>
             
@@ -116,8 +116,8 @@ export default function ThankYouPage() {
       </section>
 
       {/* Quick Reference */}
-      <section className="py-16 bg-accent/10">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20 bg-accent/10">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold mb-8">Quick Reference</h2>
             
@@ -177,8 +177,8 @@ export default function ThankYouPage() {
       </section>
 
       {/* Sample Profiles CTA */}
-      <section className="py-16">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <Card className="p-8 text-center bg-primary/5 border-primary/20">
               <h2 className="text-2xl font-bold mb-4">
@@ -200,8 +200,8 @@ export default function ThankYouPage() {
       </section>
 
       {/* Contact Info */}
-      <section className="py-16 border-t">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20 border-t">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-xl font-semibold mb-4">Need Help?</h2>
             <div className="flex flex-wrap justify-center gap-6">

@@ -87,14 +87,14 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="relative overflow-hidden border-b">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
-        <div className="container relative max-w-screen-xl mx-auto px-4 py-20 lg:py-28">
-          <div className="max-w-4xl mx-auto text-center space-y-8">
+        <div className="container relative max-w-6xl mx-auto px-4 py-12 sm:py-16 lg:py-20">
+          <div className="max-w-4xl mx-auto text-center space-y-6">
             <Badge variant="secondary" className="px-4 py-1.5">
               <Zap className="mr-2 h-3 w-3" />
               AI-Powered Clinical Trial Matching
             </Badge>
             
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-balance">
               Connect Patients to
               <span className="text-primary block mt-2">Life-Saving Trials</span>
             </h1>
@@ -124,7 +124,7 @@ export default function HomePage() {
 
       {/* Trust Strip */}
       <section className="py-8 border-b bg-accent/10">
-        <div className="container max-w-screen-xl mx-auto px-4">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat) => (
               <div key={stat.label} className="text-center">
@@ -137,8 +137,8 @@ export default function HomePage() {
       </section>
 
       {/* Patient Section */}
-      <section id="patients" className="py-20">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section id="patients" className="py-12 sm:py-16 lg:py-20">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center mb-12">
             <Badge variant="outline" className="mb-4">
               <Users className="mr-2 h-3 w-3" />
@@ -188,8 +188,8 @@ export default function HomePage() {
       </section>
 
       {/* Site Section */}
-      <section id="sites" className="py-20 bg-accent/10">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section id="sites" className="py-12 sm:py-16 lg:py-20 bg-accent/10">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center mb-12">
             <Badge variant="outline" className="mb-4">
               <Building2 className="mr-2 h-3 w-3" />
@@ -262,8 +262,8 @@ export default function HomePage() {
       </section>
 
       {/* How It Works */}
-      <section className="py-20">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
               How OncoBot Works
@@ -358,8 +358,8 @@ export default function HomePage() {
       </section>
 
       {/* Final CTA */}
-      <section className="py-20 border-t bg-accent/10">
-        <div className="container max-w-screen-xl mx-auto px-4">
+      <section className="py-12 sm:py-16 lg:py-20 border-t bg-accent/10">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center space-y-8">
             <h2 className="text-3xl sm:text-4xl font-bold">
               Ready to Get Started?
@@ -390,7 +390,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="py-12 border-t">
-        <div className="container max-w-screen-xl mx-auto px-4">
+        <div className="container max-w-6xl mx-auto px-4">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <h3 className="font-semibold mb-4">For Patients</h3>
