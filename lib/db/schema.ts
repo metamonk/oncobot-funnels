@@ -366,7 +366,25 @@ export const userConsent = pgTable('user_consent', {
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });
 
+// Membership bookings table
+export const membershipBookings = pgTable('membership_bookings', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  companyName: text('companyName').notNull(),
+  contactName: text('contactName').notNull(),
+  email: text('email').notNull(),
+  phone: text('phone').notNull(),
+  indication: text('indication').notNull(),
+  siteLocation: text('siteLocation').notNull(),
+  monthlyVolume: text('monthlyVolume'),
+  notes: text('notes'),
+  selectedTime: text('selectedTime').notNull(),
+  status: varchar('status', { length: 50 }).notNull().default('pending'), // pending, confirmed, cancelled
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
 export type EligibilityCheck = InferSelectModel<typeof eligibilityCheck>;
 export type EligibilityResponse = InferSelectModel<typeof eligibilityResponse>;
 export type ParsedCriteriaCache = InferSelectModel<typeof parsedCriteriaCache>;
 export type UserConsent = InferSelectModel<typeof userConsent>;
+export type MembershipBooking = InferSelectModel<typeof membershipBookings>;

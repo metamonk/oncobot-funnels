@@ -54,7 +54,16 @@ export default function HomePage() {
           ))}
         </div>
 
-        <div className="text-center mt-12">
+        <div className="text-center mt-12 space-y-4">
+          <div className="p-6 bg-primary/5 rounded-lg border border-primary/20 max-w-2xl mx-auto">
+            <h3 className="font-semibold mb-2">For Healthcare Providers & Sites</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Get consent-ready candidates with guaranteed SLAs
+            </p>
+            <Link href="/membership" className="text-primary hover:underline font-medium">
+              View Membership Benefits →
+            </Link>
+          </div>
           <p className="text-sm text-muted-foreground">
             For healthcare providers: <Link href="/providers" className="text-primary hover:underline">Partner with us</Link>
           </p>
