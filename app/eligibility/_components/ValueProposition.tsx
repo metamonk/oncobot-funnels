@@ -64,7 +64,7 @@ export function ValueProposition({ points }: ValuePropositionProps) {
           {/* Social Proof Section */}
           <div className="text-center pt-6">
             <p className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">10,247 patients</span> matched to trials this year
+              <span className="font-semibold text-foreground">Join thousands of patients</span> searching for clinical trials
             </p>
           </div>
         </motion.div>

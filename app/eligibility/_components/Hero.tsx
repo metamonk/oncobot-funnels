@@ -109,7 +109,7 @@ export function Hero({ headline, subheadline, hooks, indication }: HeroProps) {
           <div className="flex items-center justify-center gap-2 pt-2">
             <Users className="h-4 w-4 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              <span className="font-semibold">10,247 patients</span> matched to trials this month
+              <span className="font-semibold">Connecting patients</span> with clinical trials nationwide
             </p>
           </div>
 

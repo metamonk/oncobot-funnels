@@ -229,7 +229,7 @@ function MonitoringConfirmationPageContent() {
 
         {/* Trust Indicators */}
         <div className="text-center mt-8 text-sm text-gray-500">
-          <p>HIPAA-Secure • 2,847 patients matched • Free coordinator service • 24/7 monitoring</p>
+          <p>HIPAA-Secure • Free coordinator service • 24/7 monitoring • Nationwide trial access</p>
         </div>
       </div>
     </div>

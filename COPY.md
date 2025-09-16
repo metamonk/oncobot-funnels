@@ -9,7 +9,7 @@
 - Our coordinators search trials you can't find online. 2-minute intake, human-powered matching, ongoing monitoring until you find the right fit.
 
 ### Trust Strip (Above Fold)
-- HIPAA-secure • 2,847 patients matched • Free coordinator service • 24/7 monitoring
+- HIPAA-secure • Free coordinator service • 24/7 monitoring • Nationwide trial access
 
 ### Primary CTA
 - Start My Trial Search
