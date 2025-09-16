@@ -1,12 +1,12 @@
 import Script from 'next/script';
-import { FunnelHeader } from './_components/FunnelHeader';
+import { Header } from '@/components/layout/header';
+import { GoogleAnalyticsProvider } from '@/components/analytics/google-analytics-provider';
 
 export default function FunnelLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const gaId = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID;
   const fbPixelId = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID;
 
   return (
@@ -35,26 +35,7 @@ export default function FunnelLayout({
         `
       }} />
       
-      <FunnelHeader />
-      {/* Google Analytics & Ads */}
-      {gaId && (
-        <>
-          <Script
-            src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
-            strategy="afterInteractive"
-          />
-          <Script id="google-analytics" strategy="afterInteractive">
-            {`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', '${gaId}', {
-                page_path: window.location.pathname,
-              });
-            `}
-          </Script>
-        </>
-      )}
+      <Header variant="minimal" />
 
       {/* Facebook Pixel */}
       {fbPixelId && (
@@ -74,7 +55,9 @@ export default function FunnelLayout({
         </Script>
       )}
 
-      {children}
+      <GoogleAnalyticsProvider>
+        {children}
+      </GoogleAnalyticsProvider>
     </>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, Phone, Mail, Calendar, ArrowRight, Shield, Clock } from 'lucide-react';
+import { CheckCircle, Phone, Mail, Calendar, ArrowRight, Shield, Clock, MessageSquare } from 'lucide-react';
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -168,13 +168,13 @@ export default function ThankYouPage() {
         <div className="mt-12 p-6 text-center border-t border-border">
           <p className="text-sm text-muted-foreground mb-3">Need immediate assistance?</p>
           <div className="flex items-center justify-center gap-4">
-            <a href="tel:1-800-TRIALS" className="flex items-center gap-2 px-4 py-2 bg-card rounded-full border border-border hover:bg-accent transition-colors">
-              <Phone className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">1-800-TRIALS</span>
+            <a href="/contact" className="flex items-center gap-2 px-4 py-2 bg-card rounded-full border border-border hover:bg-accent transition-colors">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">Contact Form</span>
             </a>
-            <a href="mailto:support@clinicaltrials.com" className="flex items-center gap-2 px-4 py-2 bg-card rounded-full border border-border hover:bg-accent transition-colors">
+            <a href="mailto:support@onco.bot" className="flex items-center gap-2 px-4 py-2 bg-card rounded-full border border-border hover:bg-accent transition-colors">
               <Mail className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">support@clinicaltrials.com</span>
+              <span className="text-sm font-medium">support@onco.bot</span>
             </a>
           </div>
         </div>

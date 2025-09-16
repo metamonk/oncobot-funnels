@@ -191,7 +191,7 @@ export default function HomePage() {
       <section id="sites" className="py-12 sm:py-16 lg:py-20 bg-accent/10">
         <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center mb-12">
-            <Badge variant="outline" className="mb-4">
+            <Badge className="mb-4 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800">
               <Building2 className="mr-2 h-3 w-3" />
               For Clinical Trial Sites
             </Badge>
@@ -207,9 +207,9 @@ export default function HomePage() {
             {siteFeatures.map((feature) => {
               const Icon = feature.icon;
               return (
-                <Card key={feature.title} className="p-6 text-center">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                    <Icon className="h-6 w-6 text-primary" />
+                <Card key={feature.title} className="p-6 text-center border-green-100 dark:border-green-900/30 hover:border-green-300 dark:hover:border-green-700 transition-colors">
+                  <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
+                    <Icon className="h-6 w-6 text-green-600 dark:text-green-400" />
                   </div>
                   <h3 className="font-semibold mb-2">{feature.title}</h3>
                   <p className="text-sm text-muted-foreground">{feature.description}</p>
@@ -218,7 +218,7 @@ export default function HomePage() {
             })}
           </div>
 
-          <Card className="p-8 max-w-4xl mx-auto bg-primary/5 border-primary/20">
+          <Card className="p-8 max-w-4xl mx-auto bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30">
             <div className="text-center space-y-6">
               <h3 className="text-2xl font-bold">Ready to Accelerate Your Enrollment?</h3>
               <p className="text-muted-foreground max-w-2xl mx-auto">
@@ -244,15 +244,15 @@ export default function HomePage() {
               </div>
               <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground pt-4">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                   <span>No setup fees</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                   <span>Month-to-month</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                   <span>HIPAA compliant</span>
                 </div>
               </div>
@@ -316,10 +316,10 @@ export default function HomePage() {
 
             {/* Site Flow */}
             <div>
-              <Badge className="mb-4">For Sites</Badge>
+              <Badge className="mb-4 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800">For Sites</Badge>
               <div className="space-y-4">
                 <div className="flex gap-4">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
                     1
                   </div>
                   <div>
@@ -330,7 +330,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
                     2
                   </div>
                   <div>
@@ -341,7 +341,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
                     3
                   </div>
                   <div>

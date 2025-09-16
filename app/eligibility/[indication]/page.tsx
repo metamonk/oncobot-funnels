@@ -7,7 +7,7 @@ import { QuizCTA } from '../_components/QuizCTA';
 import { FAQ } from '../_components/FAQ';
 import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
-import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
+import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
 
 // Configuration for each indication following copy guidelines from COPY.md
 const indicationConfig = {
@@ -87,24 +87,15 @@ export default function LandingPage() {
   const indication = params.indication as keyof typeof indicationConfig;
   const config = indicationConfig[indication] || indicationConfig.lung;
   
-  const { track } = useUnifiedAnalytics();
+  const { trackPatientLandingPageView, getHeadlineVariant } = useFunnelAnalytics();
 
   useEffect(() => {
-    // Track page view with indication
-    track('Page Viewed', {
-      page: 'landing',
-      indication,
-      source: 'google_ads',
-      step: 'landing_page'
-    });
+    // Track landing page view with indication
+    trackPatientLandingPageView(indication);
     
-    // Track eligibility flow entry
-    track('Eligibility Step', {
-      step_name: 'landing_view',
-      indication,
-      timestamp: new Date().toISOString()
-    });
-  }, [indication, track]);
+    // Get A/B test variant for headline (for future implementation)
+    // const headlineVariant = getHeadlineVariant();
+  }, [indication, trackPatientLandingPageView]);
 
   return (
     <div className="min-h-screen bg-background">

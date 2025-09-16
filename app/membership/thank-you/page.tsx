@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
+import {
   CheckCircle2,
   Calendar,
   Clock,
@@ -11,24 +11,25 @@ import {
   ArrowRight,
   Mail,
   Shield,
-  Users
+  Users,
+  Bell
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
+import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
+import { PageLayout } from '@/components/layout/page-layout';
 
 export default function ThankYouPage() {
-  const { track } = useUnifiedAnalytics();
+  const { trackThankYouPageView } = useFunnelAnalytics();
 
   useEffect(() => {
     // Track thank you page view for conversion tracking
-    track('booking_complete', {
-      type: 'protocol_intake'
-    });
-  }, [track]);
+    trackThankYouPageView();
+  }, [trackThankYouPageView]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <PageLayout headerProps={{ variant: 'minimal' }}>
+      <div className="min-h-screen bg-background">
       {/* Success Hero */}
       <section className="py-12 sm:py-16 lg:py-20 border-b bg-accent/10">
         <div className="container max-w-6xl mx-auto px-4">
@@ -44,6 +45,27 @@ export default function ThankYouPage() {
             <p className="text-xl text-muted-foreground">
               Your protocol intake is confirmed. Check your email for meeting details.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Reminder Notification */}
+      <section className="py-6">
+        <div className="container max-w-6xl mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <Card className="p-4 bg-primary/5 border-primary/20">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <Bell className="h-5 w-5 text-primary mt-0.5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm mb-1">Reminders set</h3>
+                  <p className="text-sm text-muted-foreground">
+                    We&apos;ll text/email reminders 24h, 12h, and 3h before the call.
+                  </p>
+                </div>
+              </div>
+            </Card>
           </div>
         </div>
       </section>
@@ -222,5 +244,6 @@ export default function ThankYouPage() {
         </div>
       </section>
     </div>
+    </PageLayout>
   );
 }

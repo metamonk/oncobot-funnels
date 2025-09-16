@@ -2,7 +2,12 @@ import { vi } from 'vitest';
 
 // Set up environment variables
 process.env.NEXT_PUBLIC_STARTER_TIER = 'test';
-process.env.NODE_ENV = 'test';
+// Use defineProperty to set NODE_ENV in test environment
+Object.defineProperty(process.env, 'NODE_ENV', {
+  value: 'test',
+  writable: true,
+  configurable: true
+});
 
 // Mock Next.js specific modules
 vi.mock('next/headers', () => ({

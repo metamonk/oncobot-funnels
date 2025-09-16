@@ -3,10 +3,10 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Calendar, 
-  Clock, 
-  Shield, 
+import {
+  Calendar,
+  Clock,
+  Shield,
   FileText,
   MapPin,
   Users,
@@ -14,20 +14,21 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
+import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
+import { SiteFunnelEvents } from '@/lib/analytics/funnel-events';
 import { BookingForm } from './_components/BookingForm';
+import { PageLayout } from '@/components/layout/page-layout';
 
 export default function BookingPage() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const router = useRouter();
-  const { track } = useUnifiedAnalytics();
+  const { trackBookingPageView, trackBookingFormStart, track } = useFunnelAnalytics();
 
   useEffect(() => {
-    track('booking_page_viewed', {
-      source: 'membership_funnel'
-    });
-  }, [track]);
+    // Track booking page view
+    trackBookingPageView();
+  }, [trackBookingPageView]);
 
   // Mock available times - in production, this would come from a calendar API
   const availableTimes = [
@@ -40,16 +41,19 @@ export default function BookingPage() {
 
   const handleContinue = () => {
     if (selectedTime) {
-      track('time_selected', {
+      // Track time selection and form start
+      track(SiteFunnelEvents.BOOKING_TIME_SELECTED, {
         time: selectedTime,
         type: 'protocol_intake'
       });
+      trackBookingFormStart();
       setShowForm(true);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <PageLayout headerProps={{ variant: 'minimal' }}>
+      <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <section className="py-12 sm:py-16 lg:py-20 border-b">
         <div className="container max-w-6xl mx-auto px-4">
@@ -196,5 +200,6 @@ export default function BookingPage() {
         </div>
       </section>
     </div>
+    </PageLayout>
   );
 }

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useRouter } from 'next/navigation';
-import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
+import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 interface BookingFormProps {
@@ -16,7 +16,7 @@ interface BookingFormProps {
 
 export function BookingForm({ selectedTime }: BookingFormProps) {
   const router = useRouter();
-  const { track } = useUnifiedAnalytics();
+  const { trackBookingFormSubmit, track } = useFunnelAnalytics();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -38,8 +38,15 @@ export function BookingForm({ selectedTime }: BookingFormProps) {
 
     try {
       // Track form submission
-      track('membership_booking_submitted', {
-        ...formData,
+      trackBookingFormSubmit({
+        companyName: formData.companyName,
+        contactName: formData.contactName,
+        email: formData.email,
+        phone: formData.phone,
+        indication: formData.indication,
+        siteLocation: formData.siteLocation,
+        monthlyVolume: formData.monthlyVolume,
+        notes: formData.notes,
         selectedTime
       });
 

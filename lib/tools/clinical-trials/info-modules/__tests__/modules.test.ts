@@ -215,7 +215,7 @@ describe('Info Module System', () => {
       ];
       
       queries.forEach(query => {
-        const canHandle = eligibilityModule.canHandle(query, { hasProfile: false, query });
+        const canHandle = safetyModule.canHandle(query, { hasProfile: false, query });
         expect(canHandle).toBe(true);
       });
     });

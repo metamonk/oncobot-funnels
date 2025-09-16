@@ -11,27 +11,43 @@ import { TooltipProvider } from '@radix-ui/react-tooltip';
 
 // Initialize PostHog for the unified analytics system
 // This is used by the PostHogProvider in lib/analytics/providers/posthog-provider.ts
-if (typeof window !== 'undefined') {
-  posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY!, {
-    api_host: clientEnv.NEXT_PUBLIC_POSTHOG_HOST,
-    person_profiles: 'always',
-    persistence: 'localStorage+cookie', // Better persistence across sessions
-    autocapture: true, // Capture all clicks/interactions automatically
-    capture_pageview: true, // Automatic pageview tracking
-    capture_pageleave: true, // Track when users leave
-    session_recording: {
-      maskAllInputs: false, // Show form inputs in recordings
-      maskTextSelector: '[data-private]', // Mask elements with data-private
-    },
-    loaded: (posthog) => {
-      // Set initial session properties
-      posthog.register_once({
-        initial_referrer: document.referrer,
-        initial_utm_source: new URLSearchParams(window.location.search).get('utm_source'),
-        session_start_time: Date.now(),
-      });
-    },
-  });
+if (typeof window !== 'undefined' && clientEnv.NEXT_PUBLIC_POSTHOG_KEY) {
+  try {
+    posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY, {
+      api_host: clientEnv.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
+      person_profiles: 'always',
+      persistence: 'localStorage+cookie', // Better persistence across sessions
+      autocapture: true, // Capture all clicks/interactions automatically
+      capture_pageview: true, // Automatic pageview tracking
+      capture_pageleave: true, // Track when users leave
+      session_recording: {
+        maskAllInputs: false, // Show form inputs in recordings
+        maskTextSelector: '[data-private]', // Mask elements with data-private
+      },
+      loaded: (posthog) => {
+        // Set initial session properties
+        posthog.register_once({
+          initial_referrer: document.referrer,
+          initial_utm_source: new URLSearchParams(window.location.search).get('utm_source'),
+          session_start_time: Date.now(),
+        });
+      },
+      // Disable in development if no key is configured
+      disable_session_recording: !clientEnv.NEXT_PUBLIC_POSTHOG_KEY,
+      // Silence network errors in development
+      request_batching: false,
+      // Add error handling
+      on_xhr_error: (failedRequest: any) => {
+        // Silently fail in development/local environments
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('PostHog analytics unavailable (network error) - this is normal in development');
+        }
+      },
+    });
+  } catch (error) {
+    // Fail silently if PostHog can't be initialized
+    console.debug('PostHog initialization skipped:', error);
+  }
 }
 
 // Create a client

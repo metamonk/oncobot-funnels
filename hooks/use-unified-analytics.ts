@@ -11,6 +11,8 @@ import { getAnalytics, AnalyticsClient } from '@/lib/analytics/core/analytics-cl
 import { EventCategory } from '@/lib/analytics/core/types';
 import { PlausibleProvider } from '@/lib/analytics/providers/plausible-provider';
 import { PostHogClientProvider } from '@/lib/analytics/providers/posthog-client-provider';
+import { GoogleAnalyticsProvider } from '@/lib/analytics/providers/google-analytics-provider';
+import { VercelAnalyticsProvider } from '@/lib/analytics/providers/vercel-analytics-provider';
 
 // Initialize analytics client with default config
 let analyticsInitialized = false;
@@ -22,6 +24,8 @@ function initializeAnalytics(): AnalyticsClient {
 
   const analytics = getAnalytics({
     providers: [
+      { name: 'vercel-analytics', enabled: true },
+      { name: 'google-analytics', enabled: true },
       { name: 'plausible', enabled: true },
       { name: 'posthog', enabled: true },
     ],
@@ -35,6 +39,8 @@ function initializeAnalytics(): AnalyticsClient {
   });
 
   // Add providers - only client-side providers in hooks
+  analytics.addProvider(new VercelAnalyticsProvider());
+  analytics.addProvider(new GoogleAnalyticsProvider());
   analytics.addProvider(new PlausibleProvider());
   analytics.addProvider(new PostHogClientProvider());
 

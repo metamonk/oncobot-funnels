@@ -50,10 +50,8 @@ export function ValueProposition({ points }: ValuePropositionProps) {
             {points.map((point, index) => (
               <motion.div key={index} variants={item}>
                 <div className="w-full rounded-lg border border-primary/30 bg-primary/5 dark:bg-primary/10 overflow-hidden hover:border-primary/50 transition-colors h-full">
-                  <div className="px-4 py-3 flex items-center gap-2.5 h-full">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center flex-shrink-0">
-                      <CheckCircle2 className="h-4 w-4 text-primary" />
-                    </div>
+                  <div className="px-4 py-3 flex items-center gap-3 h-full">
+                    <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
                     <div className="flex-1">
                       <div className="text-sm font-medium text-foreground">{point}</div>
                     </div>

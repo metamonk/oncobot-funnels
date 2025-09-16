@@ -1,11 +1,14 @@
+'use client';
+
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { 
-  Shield, 
-  Clock, 
-  CheckCircle2, 
+import {
+  Shield,
+  Clock,
+  CheckCircle2,
   ArrowRight,
   Calendar,
   Users,
@@ -14,10 +17,19 @@ import {
   BarChart3,
   Lock
 } from 'lucide-react';
+import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
+import { PageLayout } from '@/components/layout/page-layout';
 
 export default function MembershipPage() {
+  const { trackMembershipPageView } = useFunnelAnalytics();
+  
+  useEffect(() => {
+    // Track membership page view
+    trackMembershipPageView();
+  }, [trackMembershipPageView]);
   return (
-    <div className="min-h-screen bg-background">
+    <PageLayout headerProps={{ variant: 'default' }}>
+      <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <section className="py-12 sm:py-16 lg:py-20 border-b">
         <div className="container max-w-6xl mx-auto px-4">
@@ -231,5 +243,6 @@ export default function MembershipPage() {
         </div>
       </section>
     </div>
+    </PageLayout>
   );
 }

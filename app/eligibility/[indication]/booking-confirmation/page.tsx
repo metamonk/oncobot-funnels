@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, Calendar, Clock, Phone, Bell } from 'lucide-react';
+import { CheckCircle, CheckCircle2, Calendar, Clock, Phone, Bell } from 'lucide-react';
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { motion } from 'framer-motion';
 
@@ -87,45 +87,49 @@ export default function BookingConfirmationPage() {
           </div>
         </Card>
 
-        <Card className="p-8 mb-8 bg-accent/50">
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <Bell className="h-5 w-5 text-primary" />
-            Reminders set
-          </h3>
-          <p className="text-muted-foreground">
-            We&apos;ll text/email reminders 24h, 12h, and 3h before the call.
-          </p>
+        <Card className="p-4 mb-8 bg-primary/5 border-primary/20">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <Bell className="h-5 w-5 text-primary mt-0.5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm mb-1">Reminders set</h3>
+              <p className="text-sm text-muted-foreground">
+                We&apos;ll text/email reminders 24h, 12h, and 3h before the call.
+              </p>
+            </div>
+          </div>
         </Card>
 
-        <div className="text-center">
-          <h3 className="font-semibold mb-2">Prepare for your call</h3>
+        <Card className="p-6 bg-primary/5 border-primary/20">
+          <h3 className="font-semibold mb-3">Prepare for your call</h3>
           <p className="text-sm text-muted-foreground mb-4">
             Have these items ready for a productive conversation:
           </p>
-          <ul className="text-sm text-muted-foreground space-y-1 max-w-md mx-auto text-left">
-            <li className="flex items-start">
-              <span className="mr-2">•</span>
-              <span>Your complete diagnosis details</span>
-            </li>
-            <li className="flex items-start">
-              <span className="mr-2">•</span>
-              <span>List of current and past treatments</span>
-            </li>
-            <li className="flex items-start">
-              <span className="mr-2">•</span>
-              <span>Any biomarker or genetic test results</span>
-            </li>
-            <li className="flex items-start">
-              <span className="mr-2">•</span>
-              <span>Questions about the trial process</span>
-            </li>
-          </ul>
-        </div>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <span className="text-sm">Your complete diagnosis details</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <span className="text-sm">List of current and past treatments</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <span className="text-sm">Any biomarker or genetic test results</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <span className="text-sm">Questions about the trial process</span>
+            </div>
+          </div>
+        </Card>
 
-        <div className="mt-12 text-center text-sm text-muted-foreground">
-          <p>Need to reschedule?</p>
-          <a href="tel:1-800-TRIALS" className="text-primary hover:underline">
-            Call 1-800-TRIALS
+        <div className="mt-12 text-center">
+          <p className="text-sm text-muted-foreground mb-2">Have questions?</p>
+          <a href="/contact" className="text-primary hover:underline font-medium text-sm">
+            Contact our support team →
           </a>
         </div>
       </div>
