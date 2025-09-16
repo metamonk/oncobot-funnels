@@ -711,7 +711,9 @@ ${validatedData.message}`,
 // GET endpoint for health check
 export async function GET() {
   const hasResend = !!process.env.RESEND_API_KEY;
-  const hasCRM = !!process.env.GHL_API_KEY && !process.env.GHL_API_KEY.includes('YOUR_NEW_V2');
+  // Check both GHL_INTEGRATION_TOKEN and GHL_API_KEY for compatibility
+  const ghlToken = process.env.GHL_INTEGRATION_TOKEN || process.env.GHL_API_KEY || '';
+  const hasCRM = !!ghlToken && !ghlToken.includes('YOUR_NEW_V2') && !ghlToken.includes('your_');
 
   return NextResponse.json({
     status: 'ok',
