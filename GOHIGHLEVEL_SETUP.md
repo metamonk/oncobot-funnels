@@ -27,7 +27,7 @@ Add these to your `.env` or `.env.local` file:
 
 ```bash
 # GoHighLevel API Configuration
-GHL_API_KEY=your_api_key_here
+GHL_INTEGRATION_TOKEN=your_v2_integration_token_here
 GHL_LOCATION_ID=your_location_id_here
 GHL_WEBHOOK_URL=  # Optional: Leave empty to use API directly
 ```

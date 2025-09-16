@@ -107,10 +107,11 @@ After deploying, verify the configuration by:
 
 ### Form Not Working
 - Check that `RESEND_API_KEY` is set correctly
-- Verify `GHL_INTEGRATION_TOKEN` is set (not `GHL_API_KEY`)
+- Verify `GHL_INTEGRATION_TOKEN` is set correctly
 - Ensure `EMAIL_FROM` and `CONTACT_EMAIL_TO` are valid email addresses
 
 ### GoHighLevel Not Recording Leads
+- Verify `GHL_INTEGRATION_TOKEN` is set correctly
 - Verify `GHL_LOCATION_ID` matches your GoHighLevel location
 - Check that pipeline IDs and stage IDs are correct
 - Test the token using the test script: `pnpm tsx scripts/test-v2-integration.ts`

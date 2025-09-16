@@ -9,7 +9,7 @@ import { config } from 'dotenv';
 config();
 
 const GHL_V2_CONFIG = {
-  apiKey: process.env.GHL_INTEGRATION_TOKEN || process.env.GHL_API_KEY || '',
+  apiKey: process.env.GHL_INTEGRATION_TOKEN || '',
   locationId: process.env.GHL_LOCATION_ID || '7qrG3oKzkJyRQ5GDihMI',
   apiBaseUrl: 'https://services.leadconnectorhq.com'
 };

@@ -18,7 +18,7 @@ Your current JWT token only works with V1 API (`rest.gohighlevel.com`). To use V
      - `pipelines.readonly` - Read pipeline data
      - `locations.readonly` - Read location data
 5. **Generate Token**: Copy the new token (it will start with `Bearer` or be a longer JWT)
-6. **Update .env**: Replace `GHL_API_KEY` with the new V2 token
+6. **Update .env**: Set `GHL_INTEGRATION_TOKEN` with the new V2 token
 
 ## Step 2: Set Up Pipelines in GoHighLevel
 
@@ -64,7 +64,7 @@ Add these to your `.env` file:
 
 ```bash
 # GoHighLevel V2 API Configuration
-GHL_API_KEY=YOUR_NEW_V2_PRIVATE_INTEGRATION_TOKEN
+GHL_INTEGRATION_TOKEN=YOUR_NEW_V2_PRIVATE_INTEGRATION_TOKEN
 GHL_LOCATION_ID=7qrG3oKzkJyRQ5GDihMI
 
 # Pipeline IDs (get these after creating pipelines)

@@ -36,8 +36,8 @@ const membershipSchema = z.object({
 
 // GoHighLevel V2 configuration
 const GHL_V2_CONFIG = {
-  apiKey: process.env.GHL_INTEGRATION_TOKEN || process.env.GHL_API_KEY || '', // Use new variable name
-  locationId: process.env.GHL_LOCATION_ID || '', // Yes, we still need this!
+  apiKey: process.env.GHL_INTEGRATION_TOKEN || '',
+  locationId: process.env.GHL_LOCATION_ID || '',
   apiBaseUrl: 'https://services.leadconnectorhq.com',
   
   // Pipeline configuration
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     
     // Check if V2 token is configured
     if (!GHL_V2_CONFIG.apiKey || GHL_V2_CONFIG.apiKey.includes('YOUR_NEW_V2')) {
-      logger.warn('GoHighLevel V2 token not configured. Please update GHL_API_KEY in .env');
+      logger.warn('GoHighLevel V2 token not configured. Please update GHL_INTEGRATION_TOKEN in .env');
       // Fallback to V1 API if available
       return NextResponse.json({ 
         success: false, 

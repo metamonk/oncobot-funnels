@@ -19,7 +19,7 @@ const contactFormSchema = z.object({
 
 // GoHighLevel V2 configuration
 const GHL_V2_CONFIG = {
-  apiKey: process.env.GHL_INTEGRATION_TOKEN || process.env.GHL_API_KEY || '',
+  apiKey: process.env.GHL_INTEGRATION_TOKEN || '',
   locationId: process.env.GHL_LOCATION_ID || '',
   apiBaseUrl: 'https://services.leadconnectorhq.com',
 
@@ -711,8 +711,8 @@ ${validatedData.message}`,
 // GET endpoint for health check
 export async function GET() {
   const hasResend = !!process.env.RESEND_API_KEY;
-  // Check both GHL_INTEGRATION_TOKEN and GHL_API_KEY for compatibility
-  const ghlToken = process.env.GHL_INTEGRATION_TOKEN || process.env.GHL_API_KEY || '';
+  // Check GHL_INTEGRATION_TOKEN only
+  const ghlToken = process.env.GHL_INTEGRATION_TOKEN || '';
   const hasCRM = !!ghlToken && !ghlToken.includes('YOUR_NEW_V2') && !ghlToken.includes('your_');
 
   return NextResponse.json({

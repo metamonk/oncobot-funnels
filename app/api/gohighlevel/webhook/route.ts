@@ -39,7 +39,7 @@ const GHL_CONFIG = {
   // For webhooks, use the webhook URL if provided
   // V2 Private Integration tokens use the V2 API endpoint
   webhookUrl: process.env.GHL_WEBHOOK_URL || '',
-  apiKey: process.env.GHL_INTEGRATION_TOKEN || process.env.GHL_API_KEY || '', // Support both variable names
+  apiKey: process.env.GHL_INTEGRATION_TOKEN || '',
   locationId: process.env.GHL_LOCATION_ID || '',
   // API v2 base URL for Private Integration tokens
   apiBaseUrl: 'https://services.leadconnectorhq.com'

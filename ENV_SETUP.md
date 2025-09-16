@@ -10,7 +10,7 @@ This guide explains the environment variables required for the oncobot eligibili
 #### CRM Integration
 ```bash
 GHL_WEBHOOK_URL=        # GoHighLevel webhook endpoint for lead capture
-GHL_API_KEY=            # GoHighLevel API authentication
+GHL_INTEGRATION_TOKEN=  # GoHighLevel V2 API authentication
 GHL_LOCATION_ID=        # GoHighLevel location identifier
 ```
 
