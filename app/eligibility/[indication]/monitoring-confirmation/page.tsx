@@ -3,15 +3,12 @@
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, Clock, Phone, FileText, Bell, Shield } from 'lucide-react';
 
-// Force dynamic rendering to prevent build-time errors with client-side features
-export const dynamic = 'force-dynamic';
-
-export default function MonitoringConfirmationPage() {
+function MonitoringConfirmationPageContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const { track } = useFunnelAnalytics();
@@ -236,5 +233,14 @@ export default function MonitoringConfirmationPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main export wrapped in Suspense to handle useSearchParams properly
+export default function MonitoringConfirmationPage() {
+  return (
+    <Suspense fallback={null}>
+      <MonitoringConfirmationPageContent />
+    </Suspense>
   );
 }

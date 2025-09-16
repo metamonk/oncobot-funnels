@@ -6,11 +6,8 @@ import { VideoTestimonials } from '../_components/VideoTestimonials';
 import { QuizCTA } from '../_components/QuizCTA';
 import { FAQ } from '../_components/FAQ';
 import { useParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
-
-// Force dynamic rendering to prevent build-time errors with client-side features
-export const dynamic = 'force-dynamic';
 
 // Configuration for each indication following copy guidelines from COPY.md
 const indicationConfig = {
@@ -85,7 +82,7 @@ const indicationConfig = {
   }
 };
 
-export default function LandingPage() {
+function LandingPageContent() {
   const params = useParams();
   const indication = params.indication as keyof typeof indicationConfig;
   const config = indicationConfig[indication] || indicationConfig.lung;
@@ -117,5 +114,14 @@ export default function LandingPage() {
       />
       <FAQ />
     </div>
+  );
+}
+
+// Main export wrapped in Suspense to handle useSearchParams properly
+export default function LandingPage() {
+  return (
+    <Suspense fallback={null}>
+      <LandingPageContent />
+    </Suspense>
   );
 }

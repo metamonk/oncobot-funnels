@@ -12,17 +12,14 @@ import {
   Users,
   CheckCircle2
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
 import { SiteFunnelEvents } from '@/lib/analytics/funnel-events';
 import { BookingForm } from './_components/BookingForm';
 import { PageLayout } from '@/components/layout/page-layout';
 
-// Force dynamic rendering to prevent build-time errors with client-side features
-export const dynamic = 'force-dynamic';
-
-export default function BookingPage() {
+function BookingPageContent() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const router = useRouter();
@@ -204,5 +201,14 @@ export default function BookingPage() {
       </section>
     </div>
     </PageLayout>
+  );
+}
+
+// Main export wrapped in Suspense to handle useSearchParams properly
+export default function BookingPage() {
+  return (
+    <Suspense fallback={null}>
+      <BookingPageContent />
+    </Suspense>
   );
 }

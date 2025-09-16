@@ -15,14 +15,11 @@ import {
   Bell
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
 import { PageLayout } from '@/components/layout/page-layout';
 
-// Force dynamic rendering to prevent build-time errors with client-side features
-export const dynamic = 'force-dynamic';
-
-export default function ThankYouPage() {
+function ThankYouPageContent() {
   const { trackThankYouPageView } = useFunnelAnalytics();
 
   useEffect(() => {
@@ -248,5 +245,14 @@ export default function ThankYouPage() {
       </section>
     </div>
     </PageLayout>
+  );
+}
+
+// Main export wrapped in Suspense to handle useSearchParams properly
+export default function ThankYouPage() {
+  return (
+    <Suspense fallback={null}>
+      <ThankYouPageContent />
+    </Suspense>
   );
 }

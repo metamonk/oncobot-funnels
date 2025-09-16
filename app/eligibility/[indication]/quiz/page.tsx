@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,10 +41,7 @@ const biomarkerOptions = {
   gi: ['None/Unknown', 'MSI-High', 'HER2', 'KRAS', 'BRAF']
 };
 
-// Force dynamic rendering to prevent build-time errors with client-side features
-export const dynamic = 'force-dynamic';
-
-export default function EligibilityQuiz() {
+function EligibilityQuizContent() {
   const params = useParams();
   const router = useRouter();
   const indication = params.indication as string;
@@ -606,5 +603,14 @@ export default function EligibilityQuiz() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main export wrapped in Suspense to handle useSearchParams properly
+export default function EligibilityQuiz() {
+  return (
+    <Suspense fallback={null}>
+      <EligibilityQuizContent />
+    </Suspense>
   );
 }

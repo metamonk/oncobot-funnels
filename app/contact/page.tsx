@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,10 +13,7 @@ import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
 import Link from 'next/link';
 import { PageLayout } from '@/components/layout/page-layout';
 
-// Force dynamic rendering to prevent build-time errors with client-side features
-export const dynamic = 'force-dynamic';
-
-export default function ContactPage() {
+function ContactPageContent() {
   const router = useRouter();
   const { track } = useFunnelAnalytics();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -347,5 +344,14 @@ export default function ContactPage() {
       </section>
     </div>
     </PageLayout>
+  );
+}
+
+// Main export wrapped in Suspense to handle useSearchParams properly
+export default function ContactPage() {
+  return (
+    <Suspense fallback={null}>
+      <ContactPageContent />
+    </Suspense>
   );
 }

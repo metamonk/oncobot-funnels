@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,10 +20,7 @@ import {
 import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
 import { PageLayout } from '@/components/layout/page-layout';
 
-// Force dynamic rendering to prevent build-time errors with client-side features
-export const dynamic = 'force-dynamic';
-
-export default function MembershipPage() {
+function MembershipPageContent() {
   const { trackMembershipPageView } = useFunnelAnalytics();
   
   useEffect(() => {
@@ -247,5 +244,14 @@ export default function MembershipPage() {
       </section>
     </div>
     </PageLayout>
+  );
+}
+
+// Main export wrapped in Suspense to handle useSearchParams properly
+export default function MembershipPage() {
+  return (
+    <Suspense fallback={null}>
+      <MembershipPageContent />
+    </Suspense>
   );
 }
