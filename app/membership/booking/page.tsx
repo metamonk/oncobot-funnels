@@ -19,6 +19,9 @@ import { SiteFunnelEvents } from '@/lib/analytics/funnel-events';
 import { BookingForm } from './_components/BookingForm';
 import { PageLayout } from '@/components/layout/page-layout';
 
+// Force dynamic rendering to prevent build-time errors with client-side features
+export const dynamic = 'force-dynamic';
+
 export default function BookingPage() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);

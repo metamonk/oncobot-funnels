@@ -41,6 +41,9 @@ const biomarkerOptions = {
   gi: ['None/Unknown', 'MSI-High', 'HER2', 'KRAS', 'BRAF']
 };
 
+// Force dynamic rendering to prevent build-time errors with client-side features
+export const dynamic = 'force-dynamic';
+
 export default function EligibilityQuiz() {
   const params = useParams();
   const router = useRouter();

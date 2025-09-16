@@ -9,6 +9,9 @@ import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
 
+// Force dynamic rendering to prevent build-time errors with client-side features
+export const dynamic = 'force-dynamic';
+
 // Configuration for each indication following copy guidelines from COPY.md
 const indicationConfig = {
   lung: {

@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, Clock, Phone, FileText, Bell, Shield } from 'lucide-react';
 
+// Force dynamic rendering to prevent build-time errors with client-side features
+export const dynamic = 'force-dynamic';
+
 export default function MonitoringConfirmationPage() {
   const params = useParams();
   const searchParams = useSearchParams();

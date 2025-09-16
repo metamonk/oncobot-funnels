@@ -20,6 +20,9 @@ import {
 import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
 import { PageLayout } from '@/components/layout/page-layout';
 
+// Force dynamic rendering to prevent build-time errors with client-side features
+export const dynamic = 'force-dynamic';
+
 export default function MembershipPage() {
   const { trackMembershipPageView } = useFunnelAnalytics();
   
