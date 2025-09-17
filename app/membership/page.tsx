@@ -190,11 +190,11 @@ function MembershipPageContent() {
             <div className="grid md:grid-cols-3 gap-6">
               <Card className="p-6 text-center">
                 <div className="text-3xl font-bold text-primary mb-2">48h</div>
-                <p className="text-sm text-muted-foreground">Average time to handoff</p>
+                <p className="text-sm text-muted-foreground">Target handoff time</p>
               </Card>
               <Card className="p-6 text-center">
-                <div className="text-3xl font-bold text-primary mb-2">87%</div>
-                <p className="text-sm text-muted-foreground">I/E match rate</p>
+                <div className="text-3xl font-bold text-primary mb-2">100%</div>
+                <p className="text-sm text-muted-foreground">Pre-screened candidates</p>
               </Card>
               <Card className="p-6 text-center">
                 <div className="text-3xl font-bold text-primary mb-2">24/7</div>

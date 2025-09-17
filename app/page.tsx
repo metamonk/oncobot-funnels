@@ -76,10 +76,10 @@ export default function HomePage() {
   ];
 
   const stats = [
-    { value: '15,000+', label: 'Patients Matched' },
-    { value: '200+', label: 'Trial Sites' },
-    { value: '87%', label: 'Match Rate' },
-    { value: '48h', label: 'Avg. Handoff' }
+    { value: '1,847+', label: 'Active Trials' },
+    { value: '50+', label: 'Cancer Types' },
+    { value: '100%', label: 'Free Service' },
+    { value: '24/7', label: 'Monitoring' }
   ];
 
   return (
@@ -222,7 +222,7 @@ export default function HomePage() {
             <div className="text-center space-y-6">
               <h3 className="text-2xl font-bold">Ready to Accelerate Your Enrollment?</h3>
               <p className="text-muted-foreground max-w-2xl mx-auto">
-                Join 200+ sites getting qualified candidates faster. 
+                Get qualified candidates faster with our AI-powered matching.
                 15-minute protocol intake, go-live in 48 hours.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
