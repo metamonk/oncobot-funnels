@@ -16,7 +16,17 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ghlClient, type LeadData } from '@/lib/gohighlevel/client';
 import { getCancerConfig, commonCancerTypes, treatmentOptions } from '@/lib/cancer-config';
-import { saveQuizProgress, submitPartialLead } from '@/lib/quiz-persistence';
+import {
+  saveQuizProgress,
+  loadQuizProgress,
+  clearQuizProgress,
+  submitPartialLead,
+  setupExitIntentDetection,
+  getResumptionMessage,
+  calculateCompletionPercentage
+} from '@/lib/quiz-persistence';
+import { ExitIntentModal } from '@/app/eligibility/_components/ExitIntentModal';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface QuizData {
   zipCode: string;
@@ -50,6 +60,9 @@ function EligibilityQuizContent() {
   
   const [currentStep, setCurrentStep] = useState(1);
   const [emailOptional, setEmailOptional] = useState(true); // Make email optional in Step 1
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [showResumptionBanner, setShowResumptionBanner] = useState(false);
+  const [savedProgress, setSavedProgress] = useState<any>(null);
 
   // Adjust total steps for 'other' indication (adds cancer type selection step)
   const totalSteps = indication === 'other' ? 4 : 3;
@@ -88,6 +101,40 @@ function EligibilityQuizContent() {
       setQuizData(prev => ({ ...prev, stage: cancerConfig.stageOptions[0] }));
     }
   }, [cancerConfig]);
+
+  // Load saved progress on mount
+  useEffect(() => {
+    const saved = loadQuizProgress(indication);
+    if (saved && saved.currentStep && saved.currentStep > 1) {
+      setSavedProgress(saved);
+      setShowResumptionBanner(true);
+    }
+  }, [indication]);
+
+  // Save progress on each change
+  useEffect(() => {
+    if (currentStep > 0 && (quizData.zipCode || quizData.email)) {
+      saveQuizProgress({
+        ...quizData,
+        indication,
+        currentStep
+      });
+    }
+  }, [quizData, currentStep, indication]);
+
+  // Setup exit intent detection
+  useEffect(() => {
+    const cleanup = setupExitIntentDetection(() => {
+      // Only show if they have valuable data but haven't completed
+      if (currentStep < totalSteps && (quizData.zipCode || quizData.cancerType) && !showExitModal) {
+        setShowExitModal(true);
+      }
+    }, {
+      inactivityTimeout: 45000 // 45 seconds
+    });
+
+    return cleanup;
+  }, [currentStep, totalSteps, quizData, showExitModal]);
 
   useEffect(() => {
     // Track quiz start
@@ -166,6 +213,8 @@ function EligibilityQuizContent() {
 
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
+      // Hide resumption banner after first action
+      setShowResumptionBanner(false);
     } else {
       handleSubmit();
     }
@@ -232,6 +281,9 @@ function EligibilityQuizContent() {
         // Don't block navigation even if CRM submission fails
       }
 
+      // Clear saved progress on successful submission
+      clearQuizProgress();
+
       // Navigate to match result page with quiz data as query params
       const queryParams = new URLSearchParams({
         zipCode: quizData.zipCode || '',
@@ -266,9 +318,60 @@ function EligibilityQuizContent() {
 
   const progressPercentage = (currentStep / totalSteps) * 100;
 
+  // Handler for resuming saved progress
+  const handleResume = () => {
+    if (savedProgress) {
+      setQuizData(savedProgress);
+      setCurrentStep(savedProgress.currentStep || 1);
+      setShowResumptionBanner(false);
+    }
+  };
+
+  // Handler for dismissing saved progress
+  const handleDismissProgress = () => {
+    clearQuizProgress();
+    setShowResumptionBanner(false);
+    setSavedProgress(null);
+  };
+
+  const completionPercentage = calculateCompletionPercentage(
+    currentStep,
+    totalSteps,
+    !!quizData.email,
+    !!(quizData.email && quizData.phone && quizData.fullName)
+  );
+
   return (
     <div className="min-h-screen bg-background py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-2xl">
+        {/* Resumption Banner */}
+        {showResumptionBanner && savedProgress && (
+          <Alert className="mb-6 border-primary/20 bg-primary/5">
+            <AlertDescription className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="font-medium">{getResumptionMessage(savedProgress)}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  You were {completionPercentage}% complete
+                </p>
+              </div>
+              <div className="flex gap-2 ml-4">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleDismissProgress}
+                >
+                  Start Over
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleResume}
+                >
+                  Continue
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
         {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex justify-between text-sm text-muted-foreground mb-2">
@@ -449,8 +552,8 @@ function EligibilityQuizContent() {
                           {/* Social Proof */}
                           <div className="pt-2 border-t border-primary/10">
                             <p className="text-xs text-muted-foreground">
-                              <span className="font-semibold text-foreground">Join 2,847+ patients</span> who found
-                              matching trials through our free service
+                              <span className="font-semibold text-foreground">Get matched</span> with relevant
+                              clinical trials through our free service
                             </p>
                           </div>
                         </div>
@@ -802,6 +905,22 @@ function EligibilityQuizContent() {
           <span>Your information is secure and HIPAA-compliant</span>
         </div>
       </div>
+
+      {/* Exit Intent Modal */}
+      <ExitIntentModal
+        isOpen={showExitModal}
+        onClose={() => setShowExitModal(false)}
+        onContinue={() => setShowExitModal(false)}
+        quizData={{
+          indication,
+          cancerType: quizData.cancerType,
+          zipCode: quizData.zipCode,
+          stage: quizData.stage,
+          currentStep,
+          email: quizData.email
+        }}
+        completionPercentage={completionPercentage}
+      />
     </div>
   );
 }

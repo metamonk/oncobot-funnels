@@ -69,26 +69,26 @@ export function FunnelDashboard() {
           console.error('Failed to fetch metrics, using mock data');
           setMetrics({
             patientFunnel: {
-              landingViews: 2847,
-              quizStarts: 1423,
-              quizCompletions: 854,
-              leadsSubmitted: 768,
-              trialsContacted: 231,
-              enrollments: 47,
-              conversionRate: 1.65,
-              averageLeadScore: 72,
-              totalValue: 23500
+              landingViews: 0,
+              quizStarts: 0,
+              quizCompletions: 0,
+              leadsSubmitted: 0,
+              trialsContacted: 0,
+              enrollments: 0,
+              conversionRate: 0,
+              averageLeadScore: 0,
+              totalValue: 0
             },
             siteFunnel: {
-              homepageViews: 543,
-              membershipViews: 234,
-              bookingViews: 87,
-              bookingsSubmitted: 34,
-              intakesAttended: 28,
-              membershipsActivated: 12,
-              conversionRate: 2.21,
-              monthlyRecurring: 24000,
-              totalValue: 144000
+              homepageViews: 0,
+              membershipViews: 0,
+              bookingViews: 0,
+              bookingsSubmitted: 0,
+              intakesAttended: 0,
+              membershipsActivated: 0,
+              conversionRate: 0,
+              monthlyRecurring: 0,
+              totalValue: 0
             }
           });
         }
