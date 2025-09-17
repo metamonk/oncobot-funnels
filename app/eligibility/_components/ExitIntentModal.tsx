@@ -76,107 +76,108 @@ export function ExitIntentModal({
             <AlertCircle className="h-5 w-5 text-amber-500" />
             <DialogTitle>Wait! Don&apos;t lose your progress</DialogTitle>
           </div>
-          <DialogDescription className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-accent/50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">
-                  You&apos;re {completionPercentage}% complete
-                </span>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-3 bg-accent/50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">
+                You&apos;re {completionPercentage}% complete
+              </span>
+            </div>
+            <div className="flex gap-1">
+              {[...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "h-2 w-8 rounded-full",
+                    i < Math.ceil(completionPercentage / 25)
+                      ? "bg-primary"
+                      : "bg-muted"
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+
+          {!success ? (
+            <>
+              <div className="text-sm text-muted-foreground">
+                Save your progress and we&apos;ll send you matching clinical trials.
+                You can complete the quiz anytime.
               </div>
-              <div className="flex gap-1">
-                {[...Array(4)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "h-2 w-8 rounded-full",
-                      i < Math.ceil(completionPercentage / 25)
-                        ? "bg-primary"
-                        : "bg-muted"
-                    )}
-                  />
-                ))}
+
+              <div className="space-y-2">
+                <Label htmlFor="exit-email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Email address
+                </Label>
+                <Input
+                  id="exit-email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={cn(
+                    error && "border-destructive focus:ring-destructive"
+                  )}
+                  disabled={isSubmitting}
+                />
+                {error && (
+                  <div className="text-sm text-destructive">{error}</div>
+                )}
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
+                <div className="text-xs text-blue-700 dark:text-blue-300">
+                  <Heart className="inline h-3 w-3 mr-1" />
+                  We&apos;ll send you relevant trials based on your answers so far,
+                  including trials near ZIP {quizData.zipCode || 'your area'}.
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={onContinue}
+                  disabled={isSubmitting}
+                  className="flex-1"
+                >
+                  Continue Quiz
+                </Button>
+                <Button
+                  onClick={handleSaveProgress}
+                  disabled={isSubmitting}
+                  className="flex-1 flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    "Saving..."
+                  ) : (
+                    <>
+                      Save & Exit
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="text-center space-y-3 py-4">
+              <div className="h-12 w-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto">
+                <Heart className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <div className="font-semibold text-green-700 dark:text-green-300">
+                  Progress saved successfully!
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  We&apos;ll email you matching trials shortly.
+                </div>
               </div>
             </div>
-
-            {!success ? (
-              <>
-                <p className="text-sm">
-                  Save your progress and we&apos;ll send you matching clinical trials.
-                  You can complete the quiz anytime.
-                </p>
-
-                <div className="space-y-2">
-                  <Label htmlFor="exit-email" className="flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
-                    Email address
-                  </Label>
-                  <Input
-                    id="exit-email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={cn(
-                      error && "border-destructive focus:ring-destructive"
-                    )}
-                    disabled={isSubmitting}
-                  />
-                  {error && (
-                    <p className="text-sm text-destructive">{error}</p>
-                  )}
-                </div>
-
-                <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
-                  <p className="text-xs text-blue-700 dark:text-blue-300">
-                    <Heart className="inline h-3 w-3 mr-1" />
-                    We&apos;ll send you relevant trials based on your answers so far,
-                    including trials near ZIP {quizData.zipCode || 'your area'}.
-                  </p>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    onClick={onContinue}
-                    disabled={isSubmitting}
-                    className="flex-1"
-                  >
-                    Continue Quiz
-                  </Button>
-                  <Button
-                    onClick={handleSaveProgress}
-                    disabled={isSubmitting}
-                    className="flex-1 flex items-center gap-2"
-                  >
-                    {isSubmitting ? (
-                      "Saving..."
-                    ) : (
-                      <>
-                        Save & Exit
-                        <ArrowRight className="h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="text-center space-y-3 py-4">
-                <div className="h-12 w-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto">
-                  <Heart className="h-6 w-6 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <p className="font-semibold text-green-700 dark:text-green-300">
-                    Progress saved successfully!
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    We&apos;ll email you matching trials shortly.
-                  </p>
-                </div>
-              </div>
-            )}
-          </DialogDescription>
-        </DialogHeader>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
