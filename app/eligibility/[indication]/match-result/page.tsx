@@ -8,73 +8,9 @@ import { CheckCircle, Calendar, Clock, Phone, Mail, ArrowRight, Bell, Search, Ac
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { getCancerConfig, adjustTrialCountsByZip, calculateMatchProbability } from '@/lib/cancer-config';
 
-// Honest triage logic based on actual user data
-function calculateMatchProbability(
-  indication: string,
-  stage?: string | null,
-  biomarkers?: string | null,
-  priorTherapy?: string | null,
-  zipCode?: string | null
-) {
-  let score = 0;
-
-  // Base score for having complete data
-  if (zipCode) score += 15;
-  if (stage) score += 10;
-  if (biomarkers) score += 10;
-  if (priorTherapy) score += 10;
-
-  // Stage-based scoring (earlier stages often have more trial options)
-  if (stage) {
-    if (stage.includes('1') || stage.includes('2') || stage.includes('Early') || stage.includes('Localized')) {
-      score += 25; // Early stage - many trials
-    } else if (stage.includes('3') || stage.includes('Advanced') || stage.includes('Regional')) {
-      score += 20; // Mid stage - moderate trials
-    } else if (stage.includes('4') || stage.includes('Metastatic')) {
-      score += 30; // Advanced - actually many trials for new therapies
-    } else {
-      score += 10; // Not sure - needs review
-    }
-  }
-
-  // Biomarker scoring (targeted therapies are hot)
-  if (biomarkers && biomarkers !== 'None/Unknown') {
-    score += 20; // Has biomarkers - good for targeted trials
-  }
-
-  // Prior therapy scoring
-  if (priorTherapy === 'no_prior_treatment') {
-    score += 15; // Treatment naive - more options
-  } else if (priorTherapy === 'currently_on_treatment') {
-    score += 10; // On treatment - some options
-  } else if (priorTherapy === 'completed_treatment') {
-    score += 12; // Completed - depends on response
-  }
-
-  return Math.min(score, 95); // Cap at 95 to never promise 100%
-}
-
-// Generate realistic trial counts based on indication
-function getTrialStats(indication: string, zipCode?: string | null) {
-  const baseStats = {
-    lung: { nationwide: 347, regional: 82, nearby: 23 },
-    prostate: { nationwide: 218, regional: 56, nearby: 14 },
-    gi: { nationwide: 189, regional: 41, nearby: 9 },
-  };
-
-  const stats = baseStats[indication as keyof typeof baseStats] || baseStats.lung;
-
-  // Adjust based on ZIP (major metros have more trials)
-  if (zipCode) {
-    const majorMetros = ['10', '11', '12', '90', '94', '60', '77', '75', '85', '98', '02', '20', '30', '33'];
-    if (majorMetros.some(prefix => zipCode.startsWith(prefix))) {
-      stats.nearby = Math.floor(stats.nearby * 1.5);
-    }
-  }
-
-  return stats;
-}
+// Removed duplicate functions - now imported from cancer-config.ts
 
 export default function MatchResultPage() {
   const params = useParams();
@@ -87,20 +23,21 @@ export default function MatchResultPage() {
   const stage = searchParams.get('stage');
   const biomarkers = searchParams.get('biomarkers');
   const priorTherapy = searchParams.get('priorTherapy');
+  const cancerType = searchParams.get('cancerType') || indication;
 
   const { track, trackConversion } = useUnifiedAnalytics();
 
   // Calculate match probability based on actual user data
   const matchProbability = useMemo(() =>
-    calculateMatchProbability(indication, stage, biomarkers, priorTherapy, zipCode),
-    [indication, stage, biomarkers, priorTherapy, zipCode]
+    calculateMatchProbability(cancerType, stage, biomarkers, priorTherapy, zipCode),
+    [cancerType, stage, biomarkers, priorTherapy, zipCode]
   );
 
-  // Get trial statistics
-  const trialStats = useMemo(() =>
-    getTrialStats(indication, zipCode),
-    [indication, zipCode]
-  );
+  // Get trial statistics from centralized config
+  const trialStats = useMemo(() => {
+    const config = getCancerConfig(cancerType);
+    return adjustTrialCountsByZip(config.trialCounts, zipCode);
+  }, [cancerType, zipCode]);
 
   // Determine triage path based on probability
   const triagePath = useMemo(() => {

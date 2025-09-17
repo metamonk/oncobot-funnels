@@ -9,15 +9,18 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Card } from '@/components/ui/card';
-import { ArrowLeft, ArrowRight, MapPin, Mail, Phone, Shield, Check, User, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, ArrowRight, MapPin, Mail, Phone, Shield, Check, User, Loader2, Info } from 'lucide-react';
 import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ghlClient, type LeadData } from '@/lib/gohighlevel/client';
+import { getCancerConfig, commonCancerTypes, treatmentOptions } from '@/lib/cancer-config';
 
 interface QuizData {
   zipCode: string;
   condition: string;
+  cancerType?: string; // For 'other' indication
   forWhom?: string;
   stage?: string;
   biomarkers?: string;
@@ -29,17 +32,7 @@ interface QuizData {
   consent: boolean;
 }
 
-const stageOptions = {
-  lung: ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Not sure'],
-  prostate: ['Localized', 'Regional', 'Metastatic', 'Not sure'],
-  gi: ['Early Stage', 'Locally Advanced', 'Metastatic', 'Not sure']
-};
-
-const biomarkerOptions = {
-  lung: ['None/Unknown', 'EGFR', 'ALK', 'ROS1', 'KRAS', 'PD-L1 positive'],
-  prostate: ['None/Unknown', 'BRCA1/2', 'ATM', 'MSI-High'],
-  gi: ['None/Unknown', 'MSI-High', 'HER2', 'KRAS', 'BRAF']
-};
+// Removed hardcoded options - now using centralized config from cancer-config.ts
 
 function EligibilityQuizContent() {
   const params = useParams();
@@ -55,23 +48,25 @@ function EligibilityQuizContent() {
   } = useFunnelAnalytics();
   
   const [currentStep, setCurrentStep] = useState(1);
-  
-  // Remove this function - we'll use consistent first-option defaults
-  
+
+  // Adjust total steps for 'other' indication (adds cancer type selection step)
+  const totalSteps = indication === 'other' ? 4 : 3;
+
   const [quizData, setQuizData] = useState<Partial<QuizData>>({
     // Core fields
     condition: indication,
+    cancerType: indication === 'other' ? '' : indication, // For 'other', user must select
     zipCode: '', // User must enter
 
     // Step 1 defaults
     forWhom: 'self', // Default: most are seeking for themselves
 
-    // Step 2 defaults
-    stage: indication === 'lung' ? 'Stage 1' : indication === 'prostate' ? 'Localized' : 'Early Stage', // First option for each
-    biomarkers: 'None/Unknown', // First biomarker option (same for all)
-    priorTherapy: 'no_prior_treatment', // First option - matches "No prior treatment"
+    // Step 2 defaults - use first option from config (will be set after config is loaded)
+    stage: '', // Will be set based on cancer type
+    biomarkers: 'None/Unknown', // Default biomarker option
+    priorTherapy: 'no_prior_treatment', // First treatment option
 
-    // Step 3 defaults
+    // Step 3/4 defaults
     fullName: '', // User must enter
     email: '', // User must enter
     phone: '', // User must enter
@@ -81,29 +76,46 @@ function EligibilityQuizContent() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // For 'other' indication, dynamically get config based on selected cancer type
+  const effectiveCancerType = indication === 'other' ? (quizData.cancerType || 'other') : indication;
+  const cancerConfig = getCancerConfig(effectiveCancerType);
+
+  // Set default stage if not set
+  useEffect(() => {
+    if (!quizData.stage && cancerConfig.stageOptions.length > 0) {
+      setQuizData(prev => ({ ...prev, stage: cancerConfig.stageOptions[0] }));
+    }
+  }, [cancerConfig]);
+
   useEffect(() => {
     // Track quiz start
     trackQuizStart(indication);
     
     // Track abandonment on unmount
     return () => {
-      if (currentStep < 3 && !quizData.email) {
-        trackQuizAbandoned(indication, currentStep, 3);
+      if (currentStep < totalSteps && !quizData.email) {
+        trackQuizAbandoned(indication, currentStep, totalSteps);
       }
     };
   }, []);
 
   const validateStep = () => {
     const newErrors: Record<string, string> = {};
-    
+
     if (currentStep === 1) {
       if (!quizData.zipCode || !/^\d{5}$/.test(quizData.zipCode)) {
         newErrors.zipCode = 'Please enter a valid 5-digit ZIP code';
       }
-    } else if (currentStep === 2) {
+      // For 'other' indication, validate cancer type selection
+      if (indication === 'other' && !quizData.cancerType) {
+        newErrors.cancerType = 'Please select your cancer type';
+      }
+    } else if ((indication === 'other' && currentStep === 3) || (indication !== 'other' && currentStep === 2)) {
+      // Medical details step
       if (!quizData.stage) newErrors.stage = 'Please select your cancer stage';
       if (!quizData.priorTherapy) newErrors.priorTherapy = 'Please select your treatment history';
-    } else if (currentStep === 3) {
+    } else if (currentStep === totalSteps) {
+      // Contact info step (last step)
       if (!quizData.fullName || quizData.fullName.trim().length < 2) {
         newErrors.fullName = 'Please enter your full name';
       }
@@ -117,7 +129,7 @@ function EligibilityQuizContent() {
         newErrors.consent = 'Please agree to be contacted about potential trials';
       }
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -128,15 +140,24 @@ function EligibilityQuizContent() {
 
     // Track quiz question answers
     const questionId = `step_${currentStep}`;
-    const questionText = currentStep === 1 ? 'Location' : currentStep === 2 ? 'Medical Details' : 'Contact Info';
-    trackQuizQuestion(questionId, questionText, quizData, currentStep, 3);
+    let questionText = '';
+    if (currentStep === 1) {
+      questionText = indication === 'other' ? 'Location & Cancer Type' : 'Location';
+    } else if ((indication === 'other' && currentStep === 2) || (indication !== 'other' && currentStep === 2)) {
+      questionText = 'For Whom';
+    } else if ((indication === 'other' && currentStep === 3) || (indication !== 'other' && currentStep === 2)) {
+      questionText = 'Medical Details';
+    } else {
+      questionText = 'Contact Info';
+    }
+    trackQuizQuestion(questionId, questionText, quizData, currentStep, totalSteps);
 
-    if (currentStep === 2) {
+    if (currentStep === totalSteps - 1) {
       // Track lead form start when moving to contact step
       trackLeadFormStart(indication);
     }
 
-    if (currentStep < 3) {
+    if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     } else {
       handleSubmit();
@@ -158,7 +179,7 @@ function EligibilityQuizContent() {
       // Track quiz completion
       trackQuizComplete(indication, {
         zipCode: quizData.zipCode,
-        cancerType: indication,
+        cancerType: indication === 'other' ? quizData.cancerType : indication,
         stage: quizData.stage,
         biomarkers: quizData.biomarkers,
         priorTherapy: quizData.priorTherapy,
@@ -169,7 +190,7 @@ function EligibilityQuizContent() {
       // Track lead form submission
       trackLeadFormSubmit({
         zipCode: quizData.zipCode,
-        cancerType: indication,
+        cancerType: indication === 'other' ? quizData.cancerType : indication,
         stage: quizData.stage,
         biomarkers: quizData.biomarkers,
         priorTherapy: quizData.priorTherapy,
@@ -186,6 +207,7 @@ function EligibilityQuizContent() {
           phone: quizData.phone || '',
           source: 'eligibility_quiz',
           indication,
+          cancerType: indication === 'other' ? quizData.cancerType : indication,
           timestamp: new Date().toISOString()
         } as LeadData);
 
@@ -210,6 +232,10 @@ function EligibilityQuizContent() {
         biomarkers: quizData.biomarkers || '',
         priorTherapy: quizData.priorTherapy || ''
       });
+      // Add cancer type for 'other' indication
+      if (indication === 'other' && quizData.cancerType) {
+        queryParams.append('cancerType', quizData.cancerType);
+      }
       router.push(`/eligibility/${indication}/match-result?${queryParams.toString()}`);
     } catch (error) {
       console.error('Error during form submission:', error);
@@ -223,11 +249,15 @@ function EligibilityQuizContent() {
         biomarkers: quizData.biomarkers || '',
         priorTherapy: quizData.priorTherapy || ''
       });
+      // Add cancer type for 'other' indication
+      if (indication === 'other' && quizData.cancerType) {
+        queryParams.append('cancerType', quizData.cancerType);
+      }
       router.push(`/eligibility/${indication}/match-result?${queryParams.toString()}`);
     }
   };
 
-  const progressPercentage = (currentStep / 3) * 100;
+  const progressPercentage = (currentStep / totalSteps) * 100;
 
   return (
     <div className="min-h-screen bg-background py-12">
@@ -235,7 +265,7 @@ function EligibilityQuizContent() {
         {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex justify-between text-sm text-muted-foreground mb-2">
-            <span>Step {currentStep} of 3</span>
+            <span>Step {currentStep} of {totalSteps}</span>
             <span>{Math.round(progressPercentage)}% Complete</span>
           </div>
           <Progress value={progressPercentage} className="h-2" />
@@ -250,13 +280,17 @@ function EligibilityQuizContent() {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Step 1: Location & Condition */}
+              {/* Step 1: Location & Cancer Type (for 'other') */}
               {currentStep === 1 && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-bold mb-2">Step 1 — Where are you?</h2>
+                    <h2 className="text-2xl font-bold mb-2">
+                      Step 1 — {indication === 'other' ? 'Your location and cancer type' : 'Where are you?'}
+                    </h2>
                     <p className="text-muted-foreground">
-                      We&apos;ll find trials within driving distance of your location
+                      {indication === 'other'
+                        ? "We'll match you with trials for your specific cancer type"
+                        : "We'll find trials within driving distance of your location"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
                       <span className="text-destructive">*</span> Required fields
@@ -287,6 +321,66 @@ function EligibilityQuizContent() {
                       )}
                     </div>
 
+                    {/* Cancer Type Selection for 'other' indication */}
+                    {indication === 'other' && (
+                      <div>
+                        <Label htmlFor="cancerType" className="flex items-center gap-2 mb-2">
+                          <Info className="h-4 w-4" />
+                          What type of cancer do you have?
+                          <span className="text-destructive font-medium">*</span>
+                        </Label>
+                        <Select
+                          value={quizData.cancerType}
+                          onValueChange={(value) => {
+                            setQuizData({
+                              ...quizData,
+                              cancerType: value,
+                              // Reset stage and biomarkers when cancer type changes
+                              stage: getCancerConfig(value).stageOptions[0],
+                              biomarkers: getCancerConfig(value).biomarkerOptions[0]
+                            });
+                          }}
+                        >
+                          <SelectTrigger
+                            id="cancerType"
+                            className={cn(
+                              "text-lg",
+                              errors.cancerType && "border-destructive focus:ring-destructive"
+                            )}
+                          >
+                            <SelectValue placeholder="Select your cancer type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {commonCancerTypes.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {errors.cancerType && (
+                          <p className="text-sm text-destructive mt-1">{errors.cancerType}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Can&apos;t find your cancer type? Select &quot;Other - Not Listed&quot; and we&apos;ll help you find relevant trials.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: For Whom (if 'other') or Medical Details (if not 'other') */}
+              {currentStep === 2 && indication === 'other' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold mb-2">Step 2 — Who is this for?</h2>
+                    <p className="text-muted-foreground">
+                      Let us know if you&apos;re seeking trials for yourself or someone else
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
                     <div>
                       <Label className="mb-2 block text-base">Are you completing this for yourself or a loved one?</Label>
                       <RadioGroup
@@ -312,11 +406,13 @@ function EligibilityQuizContent() {
                 </div>
               )}
 
-              {/* Step 2: Medical Details */}
-              {currentStep === 2 && (
+              {/* Medical Details Step */}
+              {((currentStep === 2 && indication !== 'other') || (currentStep === 3 && indication === 'other')) && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-bold mb-2">Step 2 — About your diagnosis</h2>
+                    <h2 className="text-2xl font-bold mb-2">
+                      Step {indication === 'other' ? '3' : '2'} — About your diagnosis
+                    </h2>
                     <p className="text-muted-foreground">
                       This helps us match you with the most relevant trials
                     </p>
@@ -336,7 +432,7 @@ function EligibilityQuizContent() {
                         onValueChange={(value) => setQuizData({ ...quizData, stage: value })}
                         className="space-y-2"
                       >
-                        {stageOptions[indication as keyof typeof stageOptions]?.map((stage) => (
+                        {cancerConfig.stageOptions.map((stage) => (
                           <div key={stage} className="flex items-center space-x-2 p-3 rounded-lg border border-transparent hover:border-accent hover:bg-accent/50 transition-all">
                             <RadioGroupItem value={stage} id={stage} />
                             <Label htmlFor={stage} className="cursor-pointer flex-1">
@@ -357,7 +453,7 @@ function EligibilityQuizContent() {
                         onValueChange={(value) => setQuizData({ ...quizData, biomarkers: value })}
                         className="space-y-2"
                       >
-                        {biomarkerOptions[indication as keyof typeof biomarkerOptions]?.map((marker) => (
+                        {cancerConfig.biomarkerOptions.map((marker) => (
                           <div key={marker} className="flex items-center space-x-2 p-3 rounded-lg border border-transparent hover:border-accent hover:bg-accent/50 transition-all">
                             <RadioGroupItem value={marker} id={marker} />
                             <Label htmlFor={marker} className="cursor-pointer flex-1">
@@ -378,7 +474,7 @@ function EligibilityQuizContent() {
                         onValueChange={(value) => setQuizData({ ...quizData, priorTherapy: value })}
                         className="space-y-2"
                       >
-                        {['No prior treatment', 'Chemotherapy', 'Immunotherapy', 'Targeted therapy', 'Multiple treatments'].map((therapy) => (
+                        {treatmentOptions.map((therapy) => (
                           <div key={therapy} className="flex items-center space-x-2 p-3 rounded-lg border border-transparent hover:border-accent hover:bg-accent/50 transition-all">
                             <RadioGroupItem value={therapy.toLowerCase().replace(/ /g, '_')} id={therapy} />
                             <Label htmlFor={therapy} className="cursor-pointer flex-1">
@@ -395,11 +491,13 @@ function EligibilityQuizContent() {
                 </div>
               )}
 
-              {/* Step 3: Contact Information */}
-              {currentStep === 3 && (
+              {/* Contact Information Step (Step 3 for non-other, Step 4 for other) */}
+              {currentStep === totalSteps && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-bold mb-2">Step 3 — Contact & consent</h2>
+                    <h2 className="text-2xl font-bold mb-2">
+                      Step {totalSteps} — Contact & consent
+                    </h2>
                     <p className="text-muted-foreground">
                       We&apos;ll send you matching trials and have a coordinator contact you
                     </p>
@@ -581,7 +679,7 @@ function EligibilityQuizContent() {
                   Submitting
                   <Loader2 className="h-4 w-4 animate-spin" />
                 </>
-              ) : currentStep === 3 ? (
+              ) : currentStep === totalSteps ? (
                 <>
                   Submit & Get Matches
                   <Check className="h-4 w-4" />
