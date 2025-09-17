@@ -102,9 +102,9 @@ export function VideoTestimonials({
           viewport={{ once: true }}
         >
           <div className="text-center space-y-4">
-            <h2 className="text-3xl font-bold">Real Patient Success Stories</h2>
+            <h2 className="text-3xl font-bold">Real Patient Experiences</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Hear from patients who found hope and healing through clinical trials
+              Hear from patients who participated in clinical trials
             </p>
           </div>
 

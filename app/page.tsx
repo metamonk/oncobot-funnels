@@ -96,7 +96,7 @@ export default function HomePage() {
             
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-balance">
               Connect Patients to
-              <span className="text-primary block mt-2">Life-Saving Trials</span>
+              <span className="text-primary block mt-2">Clinical Trials</span>
             </h1>
             
             <p className="text-xl sm:text-2xl text-muted-foreground max-w-3xl mx-auto">

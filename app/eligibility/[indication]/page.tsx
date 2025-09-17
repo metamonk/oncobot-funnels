@@ -23,10 +23,10 @@ const indicationConfig = {
     },
     value: {
       points: [
-        "Access cutting-edge treatments before FDA approval",
+        "Access to investigational treatments in clinical trials",
         "Close monitoring by cancer specialists",
         "All trial costs covered by sponsors",
-        "Potential for better outcomes than standard care"
+        "Participation in research studying new approaches"
       ]
     },
     cta: {
@@ -46,7 +46,7 @@ const indicationConfig = {
     },
     value: {
       points: [
-        "Access tomorrow's treatments today",
+        "Access to investigational treatments",
         "Expert oncology team monitoring",
         "No cost for trial medications",
         "Contribute to advancing cancer care"
@@ -72,7 +72,7 @@ const indicationConfig = {
         "First access to innovative treatments",
         "Comprehensive care from specialists",
         "All study-related costs covered",
-        "Hope when standard options are limited"
+        "Additional options to explore with your doctor"
       ]
     },
     cta: {
