@@ -10,12 +10,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, ArrowRight, MapPin, Mail, Phone, Shield, Check, User, Loader2, Info } from 'lucide-react';
+import { ArrowLeft, ArrowRight, MapPin, Mail, Phone, Shield, Check, User, Loader2, Info, Save, Lock } from 'lucide-react';
 import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ghlClient, type LeadData } from '@/lib/gohighlevel/client';
 import { getCancerConfig, commonCancerTypes, treatmentOptions } from '@/lib/cancer-config';
+import { saveQuizProgress, submitPartialLead } from '@/lib/quiz-persistence';
 
 interface QuizData {
   zipCode: string;
@@ -48,6 +49,7 @@ function EligibilityQuizContent() {
   } = useFunnelAnalytics();
   
   const [currentStep, setCurrentStep] = useState(1);
+  const [emailOptional, setEmailOptional] = useState(true); // Make email optional in Step 1
 
   // Adjust total steps for 'other' indication (adds cancer type selection step)
   const totalSteps = indication === 'other' ? 4 : 3;
@@ -110,6 +112,10 @@ function EligibilityQuizContent() {
       if (indication === 'other' && !quizData.cancerType) {
         newErrors.cancerType = 'Please select your cancer type';
       }
+      // Email is optional in Step 1 but validate format if provided
+      if (quizData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(quizData.email)) {
+        newErrors.email = 'Please enter a valid email address';
+      }
     } else if ((indication === 'other' && currentStep === 3) || (indication !== 'other' && currentStep === 2)) {
       // Medical details step
       if (!quizData.stage) newErrors.stage = 'Please select your cancer stage';
@@ -119,6 +125,7 @@ function EligibilityQuizContent() {
       if (!quizData.fullName || quizData.fullName.trim().length < 2) {
         newErrors.fullName = 'Please enter your full name';
       }
+      // Only require email if not already captured in Step 1
       if (!quizData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(quizData.email)) {
         newErrors.email = 'Please enter a valid email address';
       }
@@ -366,6 +373,89 @@ function EligibilityQuizContent() {
                         </p>
                       </div>
                     )}
+
+                    {/* Smart Email Capture with Value Proposition */}
+                    <div className="border-2 border-primary/20 bg-primary/5 rounded-lg p-4 space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                          <Save className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1 space-y-3">
+                          <div>
+                            <h3 className="font-semibold text-sm flex items-center gap-2">
+                              Save your progress & get instant matches
+                              <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
+                            </h3>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              We&apos;ll save your answers and email you matching trials near {quizData.zipCode || 'your ZIP'}.
+                              You can complete this anytime.
+                            </p>
+                          </div>
+
+                          <div>
+                            <Label htmlFor="early-email" className="flex items-center gap-2 mb-2 text-sm">
+                              <Mail className="h-3 w-3" />
+                              Email address
+                              {!emailOptional && <span className="text-destructive font-medium">*</span>}
+                            </Label>
+                            <Input
+                              id="early-email"
+                              type="email"
+                              placeholder="your@email.com (optional - helps us save progress)"
+                              value={quizData.email || ''}
+                              onChange={async (e) => {
+                                const newEmail = e.target.value;
+                                setQuizData({ ...quizData, email: newEmail });
+
+                                // Auto-save partial lead when valid email entered
+                                if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+                                  // Save to localStorage
+                                  saveQuizProgress({
+                                    ...quizData,
+                                    email: newEmail,
+                                    currentStep,
+                                    indication
+                                  });
+
+                                  // Submit partial lead to CRM for recovery
+                                  await submitPartialLead({
+                                    email: newEmail,
+                                    zipCode: quizData.zipCode,
+                                    cancerType: indication === 'other' ? quizData.cancerType : indication,
+                                    indication,
+                                    currentStep: 1
+                                  });
+
+                                  if (typeof window !== 'undefined') {
+                                    localStorage.setItem('quiz_email_captured', 'true');
+                                  }
+                                }
+                              }}
+                              className={cn(
+                                "text-base",
+                                errors.email && "border-destructive focus:ring-destructive"
+                              )}
+                            />
+                            {errors.email && (
+                              <p className="text-sm text-destructive mt-1">{errors.email}</p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Lock className="h-3 w-3" />
+                            <span>Your information is secure and HIPAA-compliant</span>
+                          </div>
+
+                          {/* Social Proof */}
+                          <div className="pt-2 border-t border-primary/10">
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-semibold text-foreground">Join 2,847+ patients</span> who found
+                              matching trials through our free service
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -533,21 +623,33 @@ function EligibilityQuizContent() {
                       <Label htmlFor="email" className="flex items-center gap-2 mb-2">
                         <Mail className="h-4 w-4" />
                         Email Address
-                        <span className="text-destructive font-medium">*</span>
+                        {!quizData.email && <span className="text-destructive font-medium">*</span>}
+                        {quizData.email && (
+                          <span className="text-xs text-green-600 font-normal flex items-center gap-1">
+                            <Check className="h-3 w-3" />
+                            Already saved
+                          </span>
+                        )}
                       </Label>
                       <Input
                         id="email"
                         type="email"
-                        placeholder="Enter your email address"
+                        placeholder={quizData.email ? quizData.email : "Enter your email address"}
                         value={quizData.email || ''}
                         onChange={(e) => setQuizData({ ...quizData, email: e.target.value })}
                         className={cn(
                           "text-lg",
+                          quizData.email && "bg-accent/50",
                           errors.email && "border-destructive focus:ring-destructive"
                         )}
                       />
                       {errors.email && (
                         <p className="text-sm text-destructive mt-1">{errors.email}</p>
+                      )}
+                      {quizData.email && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          We already have your email from Step 1. You can update it if needed.
+                        </p>
                       )}
                     </div>
 
