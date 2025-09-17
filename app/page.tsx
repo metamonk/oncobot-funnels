@@ -181,7 +181,7 @@ export default function HomePage() {
 
           <div className="mt-8 text-center">
             <p className="text-sm text-muted-foreground">
-              More cancer types? <Link href="/eligibility/other" className="text-primary hover:underline">Browse all trials</Link>
+              More cancer types? <Link href="/eligibility/other" className="text-primary hover:underline">Check eligibility for other cancers</Link>
             </p>
           </div>
         </div>
