@@ -21,11 +21,9 @@ import {
   loadQuizProgress,
   clearQuizProgress,
   submitPartialLead,
-  setupExitIntentDetection,
   getResumptionMessage,
   calculateCompletionPercentage
 } from '@/lib/quiz-persistence';
-import { ExitIntentModal } from '@/app/eligibility/_components/ExitIntentModal';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface QuizData {
@@ -59,8 +57,6 @@ function EligibilityQuizContent() {
   } = useFunnelAnalytics();
   
   const [currentStep, setCurrentStep] = useState(1);
-  const [emailOptional, setEmailOptional] = useState(true); // Make email optional in Step 1
-  const [showExitModal, setShowExitModal] = useState(false);
   const [showResumptionBanner, setShowResumptionBanner] = useState(false);
   const [savedProgress, setSavedProgress] = useState<any>(null);
 
@@ -122,19 +118,7 @@ function EligibilityQuizContent() {
     }
   }, [quizData, currentStep, indication]);
 
-  // Setup exit intent detection
-  useEffect(() => {
-    const cleanup = setupExitIntentDetection(() => {
-      // Only show if they have valuable data but haven't completed
-      if (currentStep < totalSteps && (quizData.zipCode || quizData.cancerType) && !showExitModal) {
-        setShowExitModal(true);
-      }
-    }, {
-      inactivityTimeout: 45000 // 45 seconds
-    });
-
-    return cleanup;
-  }, [currentStep, totalSteps, quizData, showExitModal]);
+  // No longer need exit intent since email is required upfront
 
   useEffect(() => {
     // Track quiz start
@@ -159,8 +143,8 @@ function EligibilityQuizContent() {
       if (indication === 'other' && !quizData.cancerType) {
         newErrors.cancerType = 'Please select your cancer type';
       }
-      // Email is optional in Step 1 but validate format if provided
-      if (quizData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(quizData.email)) {
+      // Email is now required in Step 1
+      if (!quizData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(quizData.email)) {
         newErrors.email = 'Please enter a valid email address';
       }
     } else if ((indication === 'other' && currentStep === 3) || (indication !== 'other' && currentStep === 2)) {
@@ -487,11 +471,10 @@ function EligibilityQuizContent() {
                           <div>
                             <h3 className="font-semibold text-sm flex items-center gap-2">
                               Save your progress & get instant matches
-                              <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
+                              <span className="text-destructive font-medium">*</span>
                             </h3>
                             <p className="text-xs text-muted-foreground mt-1">
                               We&apos;ll save your answers and email you matching trials near {quizData.zipCode || 'your ZIP'}.
-                              You can complete this anytime.
                             </p>
                           </div>
 
@@ -499,12 +482,12 @@ function EligibilityQuizContent() {
                             <Label htmlFor="early-email" className="flex items-center gap-2 mb-2 text-sm">
                               <Mail className="h-3 w-3" />
                               Email address
-                              {!emailOptional && <span className="text-destructive font-medium">*</span>}
+                              <span className="text-destructive font-medium">*</span>
                             </Label>
                             <Input
                               id="early-email"
                               type="email"
-                              placeholder="your@email.com (optional - helps us save progress)"
+                              placeholder="your@email.com"
                               value={quizData.email || ''}
                               onChange={async (e) => {
                                 const newEmail = e.target.value;
@@ -905,22 +888,6 @@ function EligibilityQuizContent() {
           <span>Your information is secure and HIPAA-compliant</span>
         </div>
       </div>
-
-      {/* Exit Intent Modal */}
-      <ExitIntentModal
-        isOpen={showExitModal}
-        onClose={() => setShowExitModal(false)}
-        onContinue={() => setShowExitModal(false)}
-        quizData={{
-          indication,
-          cancerType: quizData.cancerType,
-          zipCode: quizData.zipCode,
-          stage: quizData.stage,
-          currentStep,
-          email: quizData.email
-        }}
-        completionPercentage={completionPercentage}
-      />
     </div>
   );
 }
