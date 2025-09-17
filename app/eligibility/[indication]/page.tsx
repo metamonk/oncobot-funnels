@@ -79,6 +79,29 @@ const indicationConfig = {
       primary: "Start Eligibility Check",
       secondary: "Takes ~2 minutes"
     }
+  },
+  other: {
+    hero: {
+      headline: "Find clinical trials for your cancer type",
+      subheadline: "Check eligibility for 50+ cancer types. Free and HIPAA-secure.",
+      hooks: [
+        "Access trials for rare and common cancers",
+        "Personalized matching based on your diagnosis",
+        "Connect with specialized coordinators"
+      ]
+    },
+    value: {
+      points: [
+        "Coverage for 50+ cancer types including rare cancers",
+        "Access to 1,847+ active clinical trials nationwide",
+        "Specialized coordinators for your cancer type",
+        "Same-day eligibility results"
+      ]
+    },
+    cta: {
+      primary: "Find Trials for My Cancer",
+      secondary: "All cancer types welcome"
+    }
   }
 };
 
