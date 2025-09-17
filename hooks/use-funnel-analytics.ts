@@ -78,10 +78,16 @@ export function useFunnelAnalytics() {
 
   const trackQuizQuestion = useCallback(
     (questionId: string, questionText: string, answer: any, questionNumber: number, totalQuestions: number) => {
+      // Serialize answer to be compatible with Vercel Analytics
+      // Vercel only accepts strings, numbers, booleans, and null
+      const serializedAnswer = typeof answer === 'object' && answer !== null
+        ? JSON.stringify(answer)
+        : answer;
+
       return analytics.track(PatientFunnelEvents.QUIZ_QUESTION_ANSWERED, {
         question_id: questionId,
         question_text: questionText,
-        answer,
+        answer: serializedAnswer,
         question_number: questionNumber,
         total_questions: totalQuestions,
         session_id: getSessionId()
@@ -201,10 +207,16 @@ export function useFunnelAnalytics() {
 
   const trackEligibilityQuestionAnswered = useCallback(
     (trialId: string, questionId: string, answer: any) => {
+      // Serialize answer to be compatible with Vercel Analytics
+      // Vercel only accepts strings, numbers, booleans, and null
+      const serializedAnswer = typeof answer === 'object' && answer !== null
+        ? JSON.stringify(answer)
+        : answer;
+
       return analytics.track(PatientFunnelEvents.ELIGIBILITY_QUESTION_ANSWERED, {
         trialId,
         question_id: questionId,
-        answer,
+        answer: serializedAnswer,
         session_id: getSessionId()
       } as PatientFunnelProperties);
     },
