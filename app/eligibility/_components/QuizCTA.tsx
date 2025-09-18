@@ -53,7 +53,7 @@ export function QuizCTA({ primaryText, secondaryText, indication }: QuizCTAProps
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-full border border-border">
               <Star className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">Instant Results</span>
+              <span className="text-sm font-medium">Quick Review</span>
             </div>
           </div>
 

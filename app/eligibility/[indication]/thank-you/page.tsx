@@ -1,29 +1,55 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, Phone, Mail, Calendar, ArrowRight, Shield, Clock, MessageSquare } from 'lucide-react';
+import {
+  CheckCircle,
+  Phone,
+  Mail,
+  Calendar,
+  ArrowRight,
+  Shield,
+  Clock,
+  MessageSquare,
+  Search,
+  Bell,
+  FileText,
+  Heart
+} from 'lucide-react';
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
 export default function ThankYouPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const indication = params.indication as string;
   const { track, trackConversion } = useUnifiedAnalytics();
+
+  // Get quiz data from URL params for personalization
+  const zipCode = searchParams.get('zipCode');
+  const stage = searchParams.get('stage');
+  const biomarkers = searchParams.get('biomarkers');
+  const cancerType = searchParams.get('cancerType') || indication;
 
   useEffect(() => {
     // Track conversion - this is the money metric
     trackConversion('quiz_complete', 100, {
-      indication
+      indication,
+      zipCode,
+      stage,
+      biomarkers,
+      cancerType
     });
 
     // Track page view
     track('Page Viewed', {
       page: 'thank_you',
-      indication
+      indication,
+      zipCode,
+      stage
     });
 
     // Fire Google Ads conversion if gtag is available
@@ -43,13 +69,13 @@ export default function ThankYouPage() {
         content_category: indication
       });
     }
-  }, [indication, trackConversion, track]);
+  }, [indication, zipCode, stage, biomarkers, cancerType, trackConversion, track]);
 
   return (
     <div className="min-h-screen bg-background py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-3xl">
-        {/* Success Message */}
-        <motion.div 
+        {/* Success Message with Animation */}
+        <motion.div
           className="text-center mb-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -59,17 +85,46 @@ export default function ThankYouPage() {
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            Thank You! Your Matches Are Ready
+            Thank You! We&apos;ve Received Your Information
           </h1>
           <p className="text-lg text-muted-foreground">
-            We&apos;ve identified potential clinical trials in your area
+            A trial coordinator will review available trials in your area
           </p>
         </motion.div>
 
-        {/* What Happens Next */}
+        {/* Trial Activity Card - Shows we're working on it */}
+        <Card className="p-6 mb-6 bg-accent/30">
+          <h3 className="font-semibold mb-4 flex items-center gap-2">
+            <Search className="h-5 w-5 text-primary" />
+            What our coordinators will review:
+          </h3>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-2xl font-bold text-primary">Active</p>
+              <p className="text-sm text-muted-foreground">Recruiting trials</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-primary">Your area</p>
+              <p className="text-sm text-muted-foreground">Near {zipCode || 'your ZIP'}</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-primary">{stage || 'All stages'}</p>
+              <p className="text-sm text-muted-foreground">Stage-specific</p>
+            </div>
+          </div>
+          {biomarkers && biomarkers !== 'None/Unknown' && (
+            <div className="mt-3 text-center">
+              <p className="text-sm text-muted-foreground">
+                Including trials for <span className="font-semibold text-foreground">{biomarkers}</span> biomarkers
+              </p>
+            </div>
+          )}
+        </Card>
+
+        {/* What Happens Next - Clear Process */}
         <Card className="p-8 mb-8">
-          <h2 className="text-2xl font-bold mb-6">What Happens Next?</h2>
-          
+          <h2 className="text-2xl font-bold mb-6">What Happens Next</h2>
+
           <div className="space-y-6">
             <div className="flex gap-4">
               <div className="flex-shrink-0">
@@ -78,9 +133,15 @@ export default function ThankYouPage() {
                 </div>
               </div>
               <div>
-                <h3 className="font-semibold mb-1">Email Confirmation</h3>
+                <h3 className="font-semibold mb-1 flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-primary" />
+                  Email Confirmation
+                </h3>
                 <p className="text-muted-foreground">
-                  You&apos;ll receive an email within 5 minutes with your matching trials
+                  Check your inbox for confirmation and next steps
+                  <span className="text-sm block mt-1 text-muted-foreground/80">
+                    Within 5 minutes • Check spam if needed
+                  </span>
                 </p>
               </div>
             </div>
@@ -92,9 +153,15 @@ export default function ThankYouPage() {
                 </div>
               </div>
               <div>
-                <h3 className="font-semibold mb-1">Coordinator Call</h3>
+                <h3 className="font-semibold mb-1 flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-primary" />
+                  Coordinator Review
+                </h3>
                 <p className="text-muted-foreground">
-                  A trial coordinator will contact you within 24-48 hours to discuss your matches
+                  Our team will review available trials matching your profile
+                  <span className="text-sm block mt-1 text-muted-foreground/80">
+                    Within 24-48 hours • Multiple area codes possible
+                  </span>
                 </p>
               </div>
             </div>
@@ -106,39 +173,63 @@ export default function ThankYouPage() {
                 </div>
               </div>
               <div>
-                <h3 className="font-semibold mb-1">Screening Appointment</h3>
+                <h3 className="font-semibold mb-1 flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  Personalized Discussion
+                </h3>
                 <p className="text-muted-foreground">
-                  If interested, we&apos;ll schedule a screening visit at a convenient trial site
+                  5-10 minute call to discuss relevant trials and next steps
+                  <span className="text-sm block mt-1 text-muted-foreground/80">
+                    No obligation • Free consultation
+                  </span>
                 </p>
               </div>
             </div>
           </div>
         </Card>
 
-        {/* Important Information */}
-        <Card className="p-8 mb-8 bg-accent/50">
-          <h3 className="font-semibold mb-3 flex items-center gap-2 text-foreground">
-            <Shield className="h-5 w-5 text-primary" />
-            Important Information
+        {/* Preparation Tips */}
+        <Card className="p-6 mb-8 bg-primary/5 border-primary/20">
+          <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            Prepare for Your Coordinator Call
           </h3>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li className="flex items-start">
-              <span className="mr-2">•</span>
-              <span>Keep your phone available - coordinators may call from various area codes</span>
-            </li>
-            <li className="flex items-start">
-              <span className="mr-2">•</span>
-              <span>Check your email spam folder if you don&apos;t see our message</span>
-            </li>
-            <li className="flex items-start">
-              <span className="mr-2">•</span>
-              <span>Have your medical records ready for the coordinator call</span>
-            </li>
-            <li className="flex items-start">
-              <span className="mr-2">•</span>
-              <span>There&apos;s no obligation to enroll in any trial</span>
-            </li>
-          </ul>
+          <div className="grid sm:grid-cols-2 gap-3 text-sm">
+            <div className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+              <span className="text-muted-foreground">Your diagnosis date and stage</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+              <span className="text-muted-foreground">Current and past treatments</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+              <span className="text-muted-foreground">Your oncologist&apos;s name</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+              <span className="text-muted-foreground">Questions about trials</span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Important Reminders */}
+        <Card className="p-4 mb-8 border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900">
+          <div className="flex items-start gap-3">
+            <Bell className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+            <div className="space-y-2 text-sm">
+              <p className="font-semibold text-orange-900 dark:text-orange-200">
+                Important Reminders
+              </p>
+              <ul className="space-y-1 text-orange-800 dark:text-orange-300">
+                <li>• Keep your phone available - various area codes possible</li>
+                <li>• Check email spam folder if you don&apos;t see confirmation</li>
+                <li>• No obligation to enroll in any trial</li>
+                <li>• All services are completely free</li>
+              </ul>
+            </div>
+          </div>
         </Card>
 
         {/* Additional Resources */}
@@ -146,7 +237,7 @@ export default function ThankYouPage() {
           <p className="text-muted-foreground mb-6">
             While you wait, learn more about clinical trials:
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button variant="outline" asChild>
               <Link href="/resources/clinical-trials-guide">
@@ -154,7 +245,7 @@ export default function ThankYouPage() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            
+
             <Button variant="outline" asChild>
               <Link href="/resources/questions-to-ask">
                 Questions to Ask
@@ -164,17 +255,34 @@ export default function ThankYouPage() {
           </div>
         </div>
 
+        {/* Trust Elements */}
+        <div className="mt-12 pt-8 border-t border-border">
+          <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-green-600" />
+              <span>HIPAA Compliant</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Heart className="h-4 w-4 text-green-600" />
+              <span>Patient-First Approach</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-green-600" />
+              <span>Quick Response Time</span>
+            </div>
+          </div>
+        </div>
+
         {/* Contact Support */}
-        <div className="mt-12 p-6 text-center border-t border-border">
+        <div className="mt-8 text-center">
           <p className="text-sm text-muted-foreground mb-3">Need immediate assistance?</p>
           <div className="flex items-center justify-center gap-4">
-            <a href="/contact" className="flex items-center gap-2 px-4 py-2 bg-card rounded-full border border-border hover:bg-accent transition-colors">
-              <MessageSquare className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">Contact Form</span>
-            </a>
-            <a href="mailto:support@onco.bot" className="flex items-center gap-2 px-4 py-2 bg-card rounded-full border border-border hover:bg-accent transition-colors">
-              <Mail className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">support@onco.bot</span>
+            <a
+              href="/contact"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-accent transition-colors"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Contact Support
             </a>
           </div>
         </div>

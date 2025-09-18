@@ -279,7 +279,7 @@ function EligibilityQuizContent() {
       if (indication === 'other' && quizData.cancerType) {
         queryParams.append('cancerType', quizData.cancerType);
       }
-      router.push(`/eligibility/${indication}/match-result?${queryParams.toString()}`);
+      router.push(`/eligibility/${indication}/thank-you?${queryParams.toString()}`);
     } catch (error) {
       console.error('Error during form submission:', error);
       // Re-enable button on error
@@ -296,7 +296,7 @@ function EligibilityQuizContent() {
       if (indication === 'other' && quizData.cancerType) {
         queryParams.append('cancerType', quizData.cancerType);
       }
-      router.push(`/eligibility/${indication}/match-result?${queryParams.toString()}`);
+      router.push(`/eligibility/${indication}/thank-you?${queryParams.toString()}`);
     }
   };
 
@@ -470,11 +470,11 @@ function EligibilityQuizContent() {
                         <div className="flex-1 space-y-3">
                           <div>
                             <h3 className="font-semibold text-sm flex items-center gap-2">
-                              Save your progress & get instant matches
+                              Save your progress for coordinator review
                               <span className="text-destructive font-medium">*</span>
                             </h3>
                             <p className="text-xs text-muted-foreground mt-1">
-                              We&apos;ll save your answers and email you matching trials near {quizData.zipCode || 'your ZIP'}.
+                              We&apos;ll save your answers for coordinator review near {quizData.zipCode || 'your ZIP'}.
                             </p>
                           </div>
 
@@ -675,7 +675,7 @@ function EligibilityQuizContent() {
                       Step {totalSteps} — Contact & consent
                     </h2>
                     <p className="text-muted-foreground">
-                      We&apos;ll send you matching trials and have a coordinator contact you
+                      A coordinator will review trials in your area and contact you
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
                       <span className="text-destructive">*</span> Required fields
@@ -830,7 +830,7 @@ function EligibilityQuizContent() {
                         {quizData.consent && (
                           <div className="flex items-center gap-2 text-sm text-green-700 animate-in fade-in duration-300">
                             <Check className="h-4 w-4" />
-                            <span>Great! You&apos;re one step away from finding matching trials.</span>
+                            <span>Great! You&apos;re one step away from coordinator review.</span>
                           </div>
                         )}
                       </div>
