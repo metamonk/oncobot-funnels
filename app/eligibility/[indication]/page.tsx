@@ -1,6 +1,6 @@
 'use client';
 
-import { Hero } from '../_components/Hero';
+import { HeroWrapper } from '../_components/HeroWrapper';
 import { ValueProposition } from '../_components/ValueProposition';
 import { VideoTestimonials } from '../_components/VideoTestimonials';
 import { QuizCTA } from '../_components/QuizCTA';
@@ -122,7 +122,7 @@ function LandingPageContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Hero 
+      <HeroWrapper
         headline={config.hero.headline}
         subheadline={config.hero.subheadline}
         hooks={config.hero.hooks}

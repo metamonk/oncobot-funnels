@@ -2,43 +2,59 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ArrowRight, CheckCircle2, Shield, Clock, Users } from 'lucide-react';
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { TextShimmer } from '@/components/core/text-shimmer';
 import { CountdownTimer } from '@/components/core/countdown-timer';
 import { VideoTestimonials } from './VideoTestimonials';
+import { getDynamicHeadline, parseUTMData, SUPPORTING_TEXT_ROTATION } from '@/lib/hooks/dynamic-headlines';
 
 interface HeroProps {
-  headline: string;
+  headline: string; // Default headline if no UTM match
   subheadline: string;
-  hooks: string[];
+  hooks: string[]; // Legacy - will be replaced with SUPPORTING_TEXT_ROTATION
   indication: string;
 }
 
 export function Hero({ headline, subheadline, hooks, indication }: HeroProps) {
   const router = useRouter();
-  const [currentHook, setCurrentHook] = useState(0);
+  const searchParams = useSearchParams();
+  const [currentSupportText, setCurrentSupportText] = useState(0);
   const { track } = useUnifiedAnalytics();
 
-  // Rotate through hooks every 5 seconds for A/B testing
+  // Get dynamic headline based on UTM parameters for ad-to-landing-page continuity
+  const utmContent = searchParams.get('utm_content');
+  const placeholderData = {
+    indication,
+    ...parseUTMData(searchParams)
+  };
+  const dynamicHeadline = getDynamicHeadline(utmContent, placeholderData);
+
+  // Use SUPPORTING_TEXT_ROTATION or fallback to legacy hooks
+  const supportingTexts = SUPPORTING_TEXT_ROTATION.length > 0 ? SUPPORTING_TEXT_ROTATION : hooks;
+
+  // Rotate through supporting text every 5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentHook((prev) => (prev + 1) % hooks.length);
+      setCurrentSupportText((prev) => (prev + 1) % supportingTexts.length);
     }, 5000);
     return () => clearInterval(interval);
-  }, [hooks.length]);
+  }, [supportingTexts.length]);
 
   const handleCTAClick = () => {
-    // Track CTA click with hook variant
+    // Track CTA click with dynamic headline and supporting text
     track('cta_clicked', {
       location: 'hero',
       indication,
-      hook_variant: currentHook,
-      hook_text: hooks[currentHook]
+      headline: dynamicHeadline,
+      supporting_text: supportingTexts[currentSupportText],
+      utm_content: utmContent || 'direct',
+      utm_source: searchParams.get('utm_source') || 'direct',
+      utm_campaign: searchParams.get('utm_campaign') || 'none'
     });
-    
+
     router.push(`/eligibility/${indication}/quiz`);
   };
 
@@ -46,22 +62,22 @@ export function Hero({ headline, subheadline, hooks, indication }: HeroProps) {
     <section className="relative py-12 sm:py-16 lg:py-20">
       <div className="container max-w-6xl mx-auto px-4">
         <div className="text-center space-y-5">
-          {/* Dynamic Hook - Rotates for testing */}
+          {/* Main Headline - Dynamic to match ad campaigns for continuity */}
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-balance max-w-4xl mx-auto leading-tight">
+            {dynamicHeadline}
+          </h1>
+
+          {/* Supporting Text - Rotates for additional value props */}
           <div className="h-12 flex items-center justify-center">
-            <div 
-              key={currentHook}
+            <div
+              key={currentSupportText}
               className="text-base sm:text-lg text-muted-foreground animate-in fade-in-0 duration-200"
             >
               <TextShimmer as="span" className="font-medium">
-                {hooks[currentHook]}
+                {supportingTexts[currentSupportText]}
               </TextShimmer>
             </div>
           </div>
-
-          {/* Main Headline - Optimized for LCP */}
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-balance max-w-4xl mx-auto leading-tight">
-            {headline}
-          </h1>
 
           {/* Prominent Countdown Timer - Above the fold for maximum impact */}
           <div className="flex justify-center h-10">
