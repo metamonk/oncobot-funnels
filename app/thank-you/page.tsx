@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -22,13 +22,12 @@ import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
-export default function ThankYouPage() {
-  const params = useParams();
+function ThankYouContent() {
   const searchParams = useSearchParams();
-  const indication = params.indication as string;
   const { track, trackConversion } = useUnifiedAnalytics();
 
-  // Get quiz data from URL params for personalization
+  // Get all data from URL params - indication is now a query param
+  const indication = searchParams.get('indication') || 'cancer';
   const zipCode = searchParams.get('zipCode');
   const stage = searchParams.get('stage');
   const biomarkers = searchParams.get('biomarkers');
@@ -71,6 +70,20 @@ export default function ThankYouPage() {
     }
   }, [indication, zipCode, stage, biomarkers, cancerType, trackConversion, track]);
 
+  // Format indication for display
+  const formatIndication = (ind: string) => {
+    const mapping: { [key: string]: string } = {
+      lung: 'Lung Cancer',
+      prostate: 'Prostate Cancer',
+      gi: 'GI Cancer',
+      other: 'Cancer',
+      cancer: 'Cancer'
+    };
+    return mapping[ind.toLowerCase()] || 'Cancer';
+  };
+
+  const displayIndication = formatIndication(indication);
+
   return (
     <div className="min-h-screen bg-background py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-3xl">
@@ -88,7 +101,7 @@ export default function ThankYouPage() {
             Thank You! We&apos;ve Received Your Information
           </h1>
           <p className="text-lg text-muted-foreground">
-            A trial coordinator will review available trials in your area
+            A trial coordinator will review available {displayIndication} trials in your area
           </p>
         </motion.div>
 
@@ -288,5 +301,14 @@ export default function ThankYouPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main export wrapped in Suspense to handle useSearchParams properly
+export default function ThankYouPage() {
+  return (
+    <Suspense fallback={null}>
+      <ThankYouContent />
+    </Suspense>
   );
 }

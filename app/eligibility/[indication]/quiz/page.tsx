@@ -270,6 +270,7 @@ function EligibilityQuizContent() {
 
       // Navigate to match result page with quiz data as query params
       const queryParams = new URLSearchParams({
+        indication: indication,
         zipCode: quizData.zipCode || '',
         stage: quizData.stage || '',
         biomarkers: quizData.biomarkers || '',
@@ -279,7 +280,7 @@ function EligibilityQuizContent() {
       if (indication === 'other' && quizData.cancerType) {
         queryParams.append('cancerType', quizData.cancerType);
       }
-      router.push(`/eligibility/${indication}/thank-you?${queryParams.toString()}`);
+      router.push(`/thank-you?${queryParams.toString()}`);
     } catch (error) {
       console.error('Error during form submission:', error);
       // Re-enable button on error
@@ -287,6 +288,7 @@ function EligibilityQuizContent() {
       console.error('Form submission failed:', error);
       // Still navigate to results page even on error - we have their data in CRM
       const queryParams = new URLSearchParams({
+        indication: indication,
         zipCode: quizData.zipCode || '',
         stage: quizData.stage || '',
         biomarkers: quizData.biomarkers || '',
@@ -296,7 +298,7 @@ function EligibilityQuizContent() {
       if (indication === 'other' && quizData.cancerType) {
         queryParams.append('cancerType', quizData.cancerType);
       }
-      router.push(`/eligibility/${indication}/thank-you?${queryParams.toString()}`);
+      router.push(`/thank-you?${queryParams.toString()}`);
     }
   };
 
