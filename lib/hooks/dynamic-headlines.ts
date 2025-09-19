@@ -89,9 +89,17 @@ export function replacePlaceholders(
 ): string {
   let result = template;
 
-  // Indication - capitalize first letter
+  // Indication - use full cancer names for clarity
   if (data.indication) {
-    const indication = data.indication.charAt(0).toUpperCase() + data.indication.slice(1);
+    const indicationMap: { [key: string]: string } = {
+      'lung': 'Lung Cancer',
+      'prostate': 'Prostate Cancer',
+      'gi': 'GI Cancer',
+      'breast': 'Breast Cancer',
+      'other': 'Cancer'
+    };
+    const indication = indicationMap[data.indication.toLowerCase()] ||
+                      (data.indication.charAt(0).toUpperCase() + data.indication.slice(1) + ' Cancer');
     result = result.replace(/\[Indication\]/g, indication);
   }
 

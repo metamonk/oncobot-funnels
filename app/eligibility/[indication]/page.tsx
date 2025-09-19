@@ -13,7 +13,7 @@ import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
 const indicationConfig = {
   lung: {
     hero: {
-      headline: "Do you qualify for a Lung clinical trial near you?",
+      headline: "Do you qualify for a Lung Cancer clinical trial near you?",
       subheadline: "Check eligibility in 2 minutes. Free and HIPAA-secure.",
       hooks: [
         "See potential trial options near your ZIP",
@@ -36,7 +36,7 @@ const indicationConfig = {
   },
   prostate: {
     hero: {
-      headline: "Do you qualify for a Prostate clinical trial near you?",
+      headline: "Do you qualify for a Prostate Cancer clinical trial near you?",
       subheadline: "Check eligibility in 2 minutes. Free and HIPAA-secure.",
       hooks: [
         "See potential trial options near your ZIP",
@@ -59,7 +59,7 @@ const indicationConfig = {
   },
   gi: {
     hero: {
-      headline: "Do you qualify for a GI clinical trial near you?",
+      headline: "Do you qualify for a GI Cancer clinical trial near you?",
       subheadline: "Check eligibility in 2 minutes. Free and HIPAA-secure.",
       hooks: [
         "See potential trial options near your ZIP",

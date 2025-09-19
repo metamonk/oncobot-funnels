@@ -117,9 +117,9 @@ export default function RootLayout({
         </NuqsAdapter>
         <Analytics />
         <SpeedInsights />
-        <Script 
-          defer 
-          data-domain="onco.bot" 
+        <Script
+          defer
+          data-domain="trials.onco.bot"
           src="https://plausible.io/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"
         />
         <Script id="plausible-init">
