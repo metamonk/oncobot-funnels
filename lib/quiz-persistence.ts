@@ -117,7 +117,7 @@ export async function submitPartialLead(data: PartialQuizData): Promise<void> {
     const leadData: LeadData = {
       email: data.email || '',
       phone: data.phone || '',
-      fullName: data.fullName || 'Quiz Abandoner',
+      fullName: data.fullName || '',  // Don't set "Quiz Abandoner" - let the API handle defaults
       source: 'partial_quiz',
       indication: data.cancerType || data.indication || '',
       condition: data.cancerType || data.indication || '',

@@ -198,13 +198,16 @@ export async function POST(request: NextRequest) {
       
       // Parse full name if provided, otherwise use defaults
       let firstName = 'Patient';
-      let lastName = data.indication ? 
+      let lastName = data.indication ?
         `${data.indication.charAt(0).toUpperCase() + data.indication.slice(1)}` : 'Lead';
-      
-      if (data.fullName && data.fullName.trim()) {
+
+      if (data.fullName && data.fullName.trim() && data.fullName !== 'Quiz Abandoner') {
         const nameParts = data.fullName.trim().split(' ');
         firstName = nameParts[0] || firstName;
         lastName = nameParts.slice(1).join(' ') || lastName;
+        logger.debug(`Parsed name from fullName: "${data.fullName}" -> firstName: "${firstName}", lastName: "${lastName}"`);
+      } else {
+        logger.debug(`No valid fullName provided or is default: "${data.fullName}"`);
       }
       
       const leadScore = calculatePatientLeadScore(data);
@@ -278,6 +281,12 @@ export async function POST(request: NextRequest) {
 
           // UPDATE the existing contact with new data
           logger.debug(`Updating existing contact ${contactId} with new information...`);
+
+          // Extract only the fields we want to update (remove locationId for updates)
+          const { locationId, ...updateData } = contactData;
+
+          logger.debug(`Updating contact with firstName: ${updateData.firstName}, lastName: ${updateData.lastName}`);
+
           const updateResponse = await fetch(
             `${GHL_V2_CONFIG.apiBaseUrl}/contacts/${contactId}`,
             {
@@ -287,7 +296,7 @@ export async function POST(request: NextRequest) {
                 'Authorization': `Bearer ${GHL_V2_CONFIG.apiKey}`,
                 'Version': '2021-07-28'
               },
-              body: JSON.stringify(contactData)
+              body: JSON.stringify(updateData)
             }
           );
 
