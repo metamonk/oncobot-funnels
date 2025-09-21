@@ -70,7 +70,7 @@ const AB_TEST_CONFIGS: Record<string, Record<'A' | 'B' | 'C', ABTestVariant>> = 
     C: {
       variant: 'C',
       headline: 'New Prostate Cancer trials opening weekly — get matched first',
-      subheadline: 'We monitor trials you can't find online. Free coordinator service.',
+      subheadline: 'We monitor trials you cannot find online. Free coordinator service.',
       ctaText: 'Start Monitoring',
       urgencyLevel: 'high',
       showTestimonials: true,

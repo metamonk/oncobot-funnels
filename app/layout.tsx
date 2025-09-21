@@ -14,6 +14,9 @@ import { Toaster } from 'sonner';
 import { Providers } from './providers';
 import { config } from '@/lib/config';
 import { WebVitalsTracker } from '@/components/web-vitals-tracker';
+import MetaPixel from '@/components/tracking/meta-pixel';
+import GoogleAds from '@/components/tracking/google-ads';
+import { GoogleAnalyticsProvider } from '@/components/analytics/google-analytics-provider';
 
 export const metadata: Metadata = {
   metadataBase: new URL(config.app.url),
@@ -110,9 +113,13 @@ export default function RootLayout({
       <body className={`${inter.variable} ${merriweather.variable} ${jetbrainsMono.variable} ${oxanium.variable} font-sans antialiased`} suppressHydrationWarning>
         <NuqsAdapter>
           <Providers>
-            <WebVitalsTracker />
-            <Toaster position="top-center" />
-            {children}
+            <GoogleAnalyticsProvider>
+              <WebVitalsTracker />
+              <MetaPixel />
+              <GoogleAds />
+              <Toaster position="top-center" />
+              {children}
+            </GoogleAnalyticsProvider>
           </Providers>
         </NuqsAdapter>
         <Analytics />

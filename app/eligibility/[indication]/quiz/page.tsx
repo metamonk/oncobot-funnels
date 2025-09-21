@@ -25,6 +25,8 @@ import {
   calculateCompletionPercentage
 } from '@/lib/quiz-persistence';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useMetaTracking } from '@/hooks/use-meta-tracking';
+import { fireQuizConversionEvents } from '@/lib/tracking/conversion-tracker';
 
 interface QuizData {
   zipCode: string;
@@ -47,14 +49,15 @@ function EligibilityQuizContent() {
   const params = useParams();
   const router = useRouter();
   const indication = params.indication as string;
-  const { 
-    trackQuizStart, 
-    trackQuizQuestion, 
-    trackQuizComplete, 
+  const {
+    trackQuizStart,
+    trackQuizQuestion,
+    trackQuizComplete,
     trackQuizAbandoned,
     trackLeadFormStart,
-    trackLeadFormSubmit 
+    trackLeadFormSubmit
   } = useFunnelAnalytics();
+  const { trackConversion } = useMetaTracking();
   
   const [currentStep, setCurrentStep] = useState(1);
   const [showResumptionBanner, setShowResumptionBanner] = useState(false);
@@ -236,6 +239,19 @@ function EligibilityQuizContent() {
         priorTherapy: quizData.priorTherapy,
         email: quizData.email,
         phone: quizData.phone
+      });
+
+      // Fire ALL conversion events (Google Ads, GA4, Meta Pixel, etc.)
+      await fireQuizConversionEvents({
+        email: quizData.email,
+        phone: quizData.phone,
+        fullName: quizData.fullName,
+        zipCode: quizData.zipCode,
+        indication,
+        cancerType: indication === 'other' ? quizData.cancerType : indication,
+        stage: quizData.stage,
+        biomarkers: quizData.biomarkers,
+        priorTherapy: quizData.priorTherapy
       });
 
       // Send to GoHighLevel V2

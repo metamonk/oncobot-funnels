@@ -21,6 +21,7 @@ import {
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { verifyQuizCompletion, clearQuizCompletion } from '@/lib/tracking/conversion-tracker';
 
 function ThankYouContent() {
   const searchParams = useSearchParams();
@@ -34,41 +35,35 @@ function ThankYouContent() {
   const cancerType = searchParams.get('cancerType') || indication;
 
   useEffect(() => {
-    // Track conversion - this is the money metric
-    trackConversion('quiz_complete', 100, {
-      indication,
-      zipCode,
-      stage,
-      biomarkers,
-      cancerType
-    });
+    // Verify user actually completed the quiz
+    const isLegitimate = verifyQuizCompletion();
 
-    // Track page view
+    if (!isLegitimate) {
+      console.warn('Direct navigation to thank you page detected - no conversions fired');
+      // Optionally redirect them back to the quiz
+      // router.push(`/eligibility/${indication || 'cancer'}/quiz`);
+    }
+
+    // Track page view (always track this for analytics)
     track('Page Viewed', {
       page: 'thank_you',
       indication,
       zipCode,
-      stage
+      stage,
+      legitimate_completion: isLegitimate
     });
 
-    // Fire Google Ads conversion if gtag is available
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', 'conversion', {
-        'send_to': process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID,
-        'value': 100.0,
-        'currency': 'USD'
-      });
+    // Clear the quiz completion flag
+    if (isLegitimate) {
+      // Clear after a short delay to ensure all tracking is complete
+      setTimeout(() => {
+        clearQuizCompletion();
+      }, 1000);
     }
 
-    // Fire Facebook Pixel conversion if fbq is available
-    if (typeof window !== 'undefined' && (window as any).fbq) {
-      (window as any).fbq('track', 'Lead', {
-        value: 100.0,
-        currency: 'USD',
-        content_category: indication
-      });
-    }
-  }, [indication, zipCode, stage, biomarkers, cancerType, trackConversion, track]);
+    // NOTE: Conversions are now fired during quiz submission, not here!
+    // This prevents false conversions from direct navigation
+  }, [indication, zipCode, stage, track]);
 
   // Format indication for display
   const formatIndication = (ind: string) => {
