@@ -510,31 +510,43 @@ function EligibilityQuizContent() {
                               type="email"
                               placeholder="your@email.com"
                               value={quizData.email || ''}
-                              onChange={async (e) => {
+                              onChange={(e) => {
                                 const newEmail = e.target.value;
                                 setQuizData({ ...quizData, email: newEmail });
 
-                                // Auto-save partial lead when valid email entered
+                                // Save progress to localStorage only
                                 if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
-                                  // Save to localStorage
                                   saveQuizProgress({
                                     ...quizData,
                                     email: newEmail,
                                     currentStep,
                                     indication
                                   });
+                                }
+                              }}
+                              onBlur={async () => {
+                                // Submit partial lead only on blur with valid email
+                                // This prevents multiple submissions while typing
+                                if (quizData.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(quizData.email)) {
+                                  const emailAlreadyCaptured = localStorage.getItem('quiz_email_captured');
+                                  const lastCapturedEmail = localStorage.getItem('quiz_last_captured_email');
 
-                                  // Submit partial lead to CRM for recovery
-                                  await submitPartialLead({
-                                    email: newEmail,
-                                    zipCode: quizData.zipCode,
-                                    cancerType: indication === 'other' ? quizData.cancerType : indication,
-                                    indication,
-                                    currentStep: 1
-                                  });
+                                  // Only submit if this is a new email or first capture
+                                  if (!emailAlreadyCaptured || lastCapturedEmail !== quizData.email) {
+                                    await submitPartialLead({
+                                      email: quizData.email,
+                                      fullName: quizData.fullName || '',
+                                      phone: quizData.phone || '',
+                                      zipCode: quizData.zipCode,
+                                      cancerType: indication === 'other' ? quizData.cancerType : indication,
+                                      indication,
+                                      currentStep: 1
+                                    });
 
-                                  if (typeof window !== 'undefined') {
-                                    localStorage.setItem('quiz_email_captured', 'true');
+                                    if (typeof window !== 'undefined') {
+                                      localStorage.setItem('quiz_email_captured', 'true');
+                                      localStorage.setItem('quiz_last_captured_email', quizData.email);
+                                    }
                                   }
                                 }
                               }}

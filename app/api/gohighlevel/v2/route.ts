@@ -285,27 +285,39 @@ export async function POST(request: NextRequest) {
           // Extract only the fields we want to update (remove locationId for updates)
           const { locationId, ...updateData } = contactData;
 
-          logger.debug(`Updating contact with firstName: ${updateData.firstName}, lastName: ${updateData.lastName}`);
+          // Ensure we have meaningful updates before sending
+          // Only update if we have more than just email (since that's what triggered the duplicate)
+          const hasSubstantialUpdate = updateData.firstName !== 'Patient' ||
+                                       updateData.phone ||
+                                       (updateData.customFields && updateData.customFields.length > 0);
 
-          const updateResponse = await fetch(
-            `${GHL_V2_CONFIG.apiBaseUrl}/contacts/${contactId}`,
-            {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${GHL_V2_CONFIG.apiKey}`,
-                'Version': '2021-07-28'
-              },
-              body: JSON.stringify(updateData)
+          if (hasSubstantialUpdate) {
+            logger.debug(`Updating contact with firstName: ${updateData.firstName}, lastName: ${updateData.lastName}, phone: ${updateData.phone}`);
+
+            const updateResponse = await fetch(
+              `${GHL_V2_CONFIG.apiBaseUrl}/contacts/${contactId}`,
+              {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${GHL_V2_CONFIG.apiKey}`,
+                  'Version': '2021-07-28'
+                },
+                body: JSON.stringify(updateData)
+              }
+            );
+
+            if (!updateResponse.ok) {
+              const updateError = await updateResponse.text();
+              logger.warn(`Failed to update existing contact: ${updateError}`);
+              // Don't fail the whole request - continue with opportunity creation
+            } else {
+              const updateResult = await updateResponse.json();
+              logger.info(`Successfully updated contact ${contactId} with latest information`);
+              logger.debug(`Update result: ${JSON.stringify(updateResult.contact?.firstName)} ${JSON.stringify(updateResult.contact?.lastName)}`);
             }
-          );
-
-          if (!updateResponse.ok) {
-            const updateError = await updateResponse.text();
-            logger.warn(`Failed to update existing contact: ${updateError}`);
-            // Don't fail the whole request - continue with opportunity creation
           } else {
-            logger.info(`Successfully updated contact ${contactId} with latest information`);
+            logger.info(`Skipping update for contact ${contactId} - no substantial new data`);
           }
 
         } else if (errorText.includes('Invalid JWT') || errorText.includes('401')) {
