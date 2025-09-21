@@ -33,7 +33,7 @@ function generateSessionId(): string {
  * Get or create user session from cookies
  */
 export async function getUserSession(): Promise<UserSessionData> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(COOKIE_NAME);
 
   if (sessionCookie) {
@@ -71,7 +71,7 @@ export async function getUserSession(): Promise<UserSessionData> {
  * Set user session in cookies
  */
 export async function setUserSession(session: UserSessionData): Promise<void> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   cookieStore.set(COOKIE_NAME, JSON.stringify(session), {
     httpOnly: true,

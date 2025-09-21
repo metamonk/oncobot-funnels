@@ -1,5 +1,8 @@
 'use client';
 
+// Force dynamic rendering to avoid prerendering issues with useSearchParams
+export const dynamic = 'force-dynamic';
+
 import { HeroWrapper } from '../_components/HeroWrapper';
 import { ValueProposition } from '../_components/ValueProposition';
 import { VideoTestimonials } from '../_components/VideoTestimonials';

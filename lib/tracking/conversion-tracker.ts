@@ -1,3 +1,13 @@
+/**
+ * Conversion Tracking Orchestrator
+ *
+ * Central orchestration for all conversion events across multiple platforms.
+ * Following CLAUDE.md principles - explicit, coordinated, context-aware.
+ *
+ * Each platform maintains its full capabilities while being orchestrated
+ * from this central location for consistency.
+ */
+
 'use client';
 
 import { trackStandardEvent } from '@/components/tracking/meta-pixel';
@@ -16,40 +26,56 @@ interface ConversionData {
 }
 
 /**
- * Fire all conversion events when a quiz is successfully submitted
- * This should be called BEFORE navigating to thank you page
+ * Fire all conversion events when a quiz is successfully submitted.
+ *
+ * This orchestrates conversions across all platforms:
+ * - Google Ads: Direct gtag for conversion tracking with Smart Goals
+ * - GA4: Enhanced conversion tracking with full event parameters
+ * - Meta Pixel: Client-side standard events
+ * - Meta CAPI: Server-side conversion API for reliability
+ *
+ * Called BEFORE navigating to thank you page to ensure all pixels fire.
  */
 export async function fireQuizConversionEvents(data: ConversionData) {
   const conversionValue = 100; // $100 per lead
+  const transactionId = Date.now().toString(); // Dedupe across platforms
 
   try {
-    // 1. Google Ads Conversion (using gtag directly)
+    // ============================================================
+    // 1. GOOGLE ADS CONVERSION
+    // Direct gtag implementation for maximum control
+    // ============================================================
     if (typeof window !== 'undefined' && (window as any).gtag) {
-      // For form submission conversions, we don't need a label if using Smart Goals
-      // But if you have a specific conversion action, add the label
       (window as any).gtag('event', 'conversion', {
         'send_to': process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID || process.env.NEXT_PUBLIC_GOOGLE_ADS_ID,
         'value': conversionValue,
         'currency': 'USD',
-        'transaction_id': Date.now().toString(), // Prevent duplicate conversions
+        'transaction_id': transactionId,
       });
 
-      console.log('Google Ads conversion fired');
+      console.log('[Google Ads] Conversion fired', { transactionId });
     }
 
-    // 2. GA4 Conversion Event
+    // ============================================================
+    // 2. GOOGLE ANALYTICS 4 CONVERSION
+    // Using GA4-specific function for enhanced tracking
+    // ============================================================
     trackGA4Conversion('generate_lead', conversionValue, 'USD', {
       indication: data.indication,
       cancer_type: data.cancerType || data.indication,
       stage: data.stage,
       biomarkers: data.biomarkers,
       zip_code: data.zipCode,
-      form_destination: 'quiz_completion'
+      form_destination: 'quiz_completion',
+      transaction_id: transactionId,
     });
 
-    console.log('GA4 conversion fired');
+    console.log('[GA4] Conversion fired', { transactionId });
 
-    // 3. Meta/Facebook Pixel Conversion
+    // ============================================================
+    // 3. META/FACEBOOK PIXEL CONVERSION
+    // Client-side standard event tracking
+    // ============================================================
     trackStandardEvent('Lead', {
       value: conversionValue,
       currency: 'USD',
@@ -58,9 +84,12 @@ export async function fireQuizConversionEvents(data: ConversionData) {
       content_ids: [data.indication || 'unknown']
     });
 
-    console.log('Meta Pixel conversion fired');
+    console.log('[Meta Pixel] Conversion fired');
 
-    // 4. Server-side conversions (Meta CAPI)
+    // ============================================================
+    // 4. META CONVERSIONS API (SERVER-SIDE)
+    // Enhanced reliability with server-side tracking
+    // ============================================================
     if (data.email || data.phone) {
       await fetch('/api/track', {
         method: 'POST',
@@ -82,15 +111,19 @@ export async function fireQuizConversionEvents(data: ConversionData) {
             indication: data.indication,
             cancerType: data.cancerType,
             stage: data.stage,
-            biomarkers: data.biomarkers
+            biomarkers: data.biomarkers,
+            event_id: transactionId, // Deduplication
           }
         })
       });
 
-      console.log('Server-side conversion fired');
+      console.log('[Meta CAPI] Server-side conversion fired');
     }
 
-    // 5. Mark quiz as completed for thank you page validation
+    // ============================================================
+    // 5. SESSION VALIDATION
+    // Prevent false conversions from direct navigation
+    // ============================================================
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('quiz_completed', JSON.stringify({
         timestamp: Date.now(),

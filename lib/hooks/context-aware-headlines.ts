@@ -7,7 +7,7 @@
 
 import { getCancerConfig } from '@/lib/cancer-config';
 
-interface UserContext {
+export interface UserContext {
   indication: string;
   visitCount?: number;
   referrer?: string;

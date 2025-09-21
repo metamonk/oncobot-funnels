@@ -13,7 +13,8 @@ import {
   getContextAwareHeadline,
   getContextAwareSubheadline,
   getValueProps,
-  detectUserContext
+  detectUserContext,
+  type UserContext
 } from '@/lib/hooks/context-aware-headlines';
 
 interface HeroContextAwareProps {
@@ -27,7 +28,7 @@ interface HeroContextAwareProps {
 export function HeroContextAware({ indication }: HeroContextAwareProps) {
   const router = useRouter();
   const [currentValueProp, setCurrentValueProp] = useState(0);
-  const [userContext, setUserContext] = useState({ indication });
+  const [userContext, setUserContext] = useState<UserContext>({ indication });
   const { track } = useUnifiedAnalytics();
 
   // Detect user context on mount
@@ -163,12 +164,12 @@ export function HeroContextAware({ indication }: HeroContextAwareProps) {
           {(userContext.timeOfDay === 'evening' || userContext.timeOfDay === 'night') && (
             <div className="pt-4">
               <CountdownTimer
-                deadline={new Date(Date.now() + 24 * 60 * 60 * 1000)}
-                onComplete={() => console.log('Timer completed')}
-                showDays={false}
+                className="justify-center"
+                urgencyThresholdHours={24}
+                cycleType="weekly"
               />
               <p className="text-xs text-muted-foreground mt-2">
-                Coordinator availability refreshes daily at midnight
+                Coordinator availability refreshes weekly
               </p>
             </div>
           )}

@@ -1,5 +1,8 @@
 'use client';
 
+// Force dynamic rendering to avoid prerendering issues
+export const dynamic = 'force-dynamic';
+
 import { useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';

@@ -2,7 +2,7 @@
 
 import { GoogleAnalytics, sendGAEvent } from '@next/third-parties/google';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, Suspense } from 'react';
 import { GAEventParams } from '@/lib/analytics/funnel-events';
 
 // GA4 Measurement ID from environment
@@ -12,7 +12,7 @@ interface GoogleAnalyticsProviderProps {
   children?: React.ReactNode;
 }
 
-export function GoogleAnalyticsProvider({ children }: GoogleAnalyticsProviderProps) {
+function GoogleAnalyticsProviderInner({ children }: GoogleAnalyticsProviderProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -69,6 +69,15 @@ export function GoogleAnalyticsProvider({ children }: GoogleAnalyticsProviderPro
       <GoogleAnalytics gaId={GA_ID} />
       {children}
     </>
+  );
+}
+
+// Export component wrapped in Suspense to prevent build errors
+export function GoogleAnalyticsProvider(props: GoogleAnalyticsProviderProps) {
+  return (
+    <Suspense fallback={null}>
+      <GoogleAnalyticsProviderInner {...props} />
+    </Suspense>
   );
 }
 

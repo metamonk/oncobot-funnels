@@ -1,5 +1,8 @@
 'use client';
 
+// Force dynamic rendering to avoid prerendering issues with useSearchParams
+export const dynamic = 'force-dynamic';
+
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
