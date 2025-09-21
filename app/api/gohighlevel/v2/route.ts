@@ -275,7 +275,30 @@ export async function POST(request: NextRequest) {
           logger.info(`Contact already exists with ID: ${errorData.meta.contactId}`);
           contactId = errorData.meta.contactId;
           isExistingContact = true;
-          // Continue to create opportunity with existing contact
+
+          // UPDATE the existing contact with new data
+          logger.debug(`Updating existing contact ${contactId} with new information...`);
+          const updateResponse = await fetch(
+            `${GHL_V2_CONFIG.apiBaseUrl}/contacts/${contactId}`,
+            {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${GHL_V2_CONFIG.apiKey}`,
+                'Version': '2021-07-28'
+              },
+              body: JSON.stringify(contactData)
+            }
+          );
+
+          if (!updateResponse.ok) {
+            const updateError = await updateResponse.text();
+            logger.warn(`Failed to update existing contact: ${updateError}`);
+            // Don't fail the whole request - continue with opportunity creation
+          } else {
+            logger.info(`Successfully updated contact ${contactId} with latest information`);
+          }
+
         } else if (errorText.includes('Invalid JWT') || errorText.includes('401')) {
           // Token issue - this is an actual error
           logger.error('Invalid V2 API token', new Error(errorText));
@@ -349,7 +372,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: isExistingContact
-        ? 'Lead updated successfully - contact already exists'
+        ? 'Contact updated successfully with latest information'
         : 'Lead submitted successfully via V2 API',
       contactId: contactId,
       isExistingContact,
