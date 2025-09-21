@@ -289,7 +289,7 @@ export async function POST(request: NextRequest) {
           // Only update if we have more than just email (since that's what triggered the duplicate)
           const hasSubstantialUpdate = updateData.firstName !== 'Patient' ||
                                        updateData.phone ||
-                                       (updateData.customFields && updateData.customFields.length > 0);
+                                       (updateData.customFields && Array.isArray(updateData.customFields) && updateData.customFields.length > 0);
 
           if (hasSubstantialUpdate) {
             logger.debug(`Updating contact with firstName: ${updateData.firstName}, lastName: ${updateData.lastName}, phone: ${updateData.phone}`);
