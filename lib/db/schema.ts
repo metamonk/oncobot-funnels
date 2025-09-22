@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, varchar } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, varchar, integer } from 'drizzle-orm/pg-core';
 import { generateId } from 'ai';
 import { InferSelectModel } from 'drizzle-orm';
 
@@ -70,9 +70,53 @@ export const membershipBookings = pgTable('membership_bookings', {
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });
 
+// Admin tables for managing ad headlines and campaigns
+export const indications = pgTable('indications', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  isActive: boolean('isActive').notNull().default(true),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+});
+
+export const landingPages = pgTable('landing_pages', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  name: text('name').notNull(),
+  path: text('path').notNull(),
+  description: text('description'),
+  isActive: boolean('isActive').notNull().default(true),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+});
+
+export const adHeadlines = pgTable('ad_headlines', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  indicationId: text('indicationId').references(() => indications.id, { onDelete: 'cascade' }),
+
+  // Google Ads text components
+  headline: varchar('headline', { length: 30 }).notNull(),
+  longHeadline: varchar('longHeadline', { length: 90 }).notNull(),
+  description: varchar('description', { length: 90 }).notNull(),
+
+  // Configuration
+  landingPageId: text('landingPageId').references(() => landingPages.id, { onDelete: 'set null' }),
+  category: text('category'), // 'problem-agitate', 'curiosity-gap', 'social-proof'
+  isActive: boolean('isActive').notNull().default(false),
+
+  // Performance metrics
+  impressions: integer('impressions').notNull().default(0),
+  clicks: integer('clicks').notNull().default(0),
+  conversions: integer('conversions').notNull().default(0),
+
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
 export type User = InferSelectModel<typeof user>;
 export type Session = InferSelectModel<typeof session>;
 export type Account = InferSelectModel<typeof account>;
 export type Verification = InferSelectModel<typeof verification>;
 export type MembershipBooking = InferSelectModel<typeof membershipBookings>;
+export type Indication = InferSelectModel<typeof indications>;
+export type LandingPage = InferSelectModel<typeof landingPages>;
+export type AdHeadline = InferSelectModel<typeof adHeadlines>;
 

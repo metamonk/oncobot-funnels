@@ -1,10 +1,15 @@
-./components/ui/form-component.tsx:1164:57
-Type error: Property 'split' does not exist on type 'never'.
-  1162 |
-  1163 |           if (moderationResult !== 'safe') {
-> 1164 |             const [status, category] = moderationResult.split('\n');
-       |                                                         ^
-  1165 |             if (status === 'unsafe') {
-  1166 |               console.warn('Unsafe image detected, category:', category);
-  1167 |               toast.error(`Image content violates safety guidelines (${category}). Please choose different images.`);
-Next.js build worker exited with code: 1 and signal: null
+- we do not need a lead management system (gohighlevel is already handling it) so Phase 1 is unnecessary.
+- Let's break down Phase 2. There are some things we need, some things we don't: 
+	- need CRUD operations for marketing headlines
+	- don't need A/B testing variants tracking
+	- don't we have a mechanism already for this through google ads or analytics or plausible or posthog or gohighlevel? explain your reason for this.
+	- there are different versions of headlines (short and long) for the ads but the one thing I know we need to guarantee is that the landing pages that the user lands on after clicking an ad should say the same thing, so the headline must match the ad. we are running the ads independently through google ads manager so what do you propose we add in this system to maintain this? is the best way to manually point the ads to the different landing pages?
+	- The "hooks" are the "headlines" - the headlines should "hook" the user so make sure our system reflects this. review all associated code that was produced before since this may not have been clear.
+	- Indications should be managed as well. what is the best way to do this considering our whole system so far?
+	- we don't need ad campaign manager, we do however need to have a single source of truth however, when it comes to managing the creatives for our system so for example, if we add a hook and we switch it 'on' for an indication, we should also have the ad produced dynamically in the admin page, placeholder image for the media is fine for now.
+	- do we not already have Phase 3: Analytics & Optimization completed?
+	- we don't need Email Campaign Management for now.
+	- we don't need the Quiz Builder
+	- we should however, review the Compliance & Documentation
+	- does this change what we need for the database?
+	- what is the plan overall?

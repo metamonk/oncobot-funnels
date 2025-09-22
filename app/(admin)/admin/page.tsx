@@ -12,25 +12,25 @@ import Link from 'next/link';
 
 const stats = [
   {
-    title: 'Total Headlines',
+    title: 'Headlines',
     value: '0',
     change: '+0%',
     icon: FileText,
     href: '/admin/headlines',
   },
   {
-    title: 'Active Hooks',
-    value: '0',
-    change: '+0%',
+    title: 'Indications',
+    value: '5',
+    change: 'Active',
     icon: MousePointerClick,
-    href: '/admin/hooks',
+    href: '/admin/indications',
   },
   {
-    title: 'Ad Campaigns',
-    value: '0',
-    change: '+0%',
+    title: 'Landing Pages',
+    value: '4',
+    change: 'Active',
     icon: Megaphone,
-    href: '/admin/ads',
+    href: '/admin/landing-pages',
   },
   {
     title: 'Total Users',
@@ -106,16 +106,16 @@ export default async function AdminDashboard() {
               Create New Headline
             </Link>
             <Link
-              href="/admin/hooks/new"
+              href="/admin/indications"
               className="block p-3 rounded-md bg-primary/10 hover:bg-primary/20 text-center"
             >
-              Add New Hook
+              Manage Indications
             </Link>
             <Link
-              href="/admin/ads/new"
+              href="/admin/landing-pages"
               className="block p-3 rounded-md bg-primary/10 hover:bg-primary/20 text-center"
             >
-              Create Ad Campaign
+              Manage Landing Pages
             </Link>
           </div>
         </Card>
