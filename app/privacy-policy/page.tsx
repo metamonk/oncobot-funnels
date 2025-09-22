@@ -70,8 +70,8 @@ export default function PrivacyPage() {
             This Privacy Policy explains how we collect, use, and safeguard your information when you use our medical
             oncology AI assistant. We understand the sensitive nature of health information and maintain strict
             confidentiality standards. For information about how we handle AI-generated content, see our{' '}
-            <Link href="/ai-terms" className="underline">
-              AI Terms of Use
+            <Link href="/terms" className="underline">
+              Terms of Use
             </Link>
             .
           </p>
@@ -190,12 +190,45 @@ export default function PrivacyPage() {
           </ul>
           <p>To exercise any of these rights, contact us at hi@onco.bot</p>
 
+          <h2>HIPAA Compliance</h2>
+          <p>
+            OncoBot takes the protection of your health information seriously. We implement administrative, physical,
+            and technical safeguards to protect your Protected Health Information (PHI) in accordance with HIPAA regulations.
+          </p>
+
+          <h3>How We Protect Your Health Information</h3>
+          <ul>
+            <li><strong>Encryption:</strong> All health data is encrypted both in transit (TLS 1.3) and at rest (AES-256)</li>
+            <li><strong>Access Controls:</strong> Role-based access controls limit who can view your information</li>
+            <li><strong>Audit Logs:</strong> We maintain comprehensive logs of all access to PHI</li>
+            <li><strong>Business Associate Agreements:</strong> All partners who handle PHI sign BAAs</li>
+            <li><strong>Minimum Necessary:</strong> We only use the minimum information needed for each purpose</li>
+            <li><strong>De-identification:</strong> When possible, we use de-identified data for analytics and research</li>
+          </ul>
+
+          <h3>Your HIPAA Rights</h3>
+          <p>Under HIPAA, you have the right to:</p>
+          <ul>
+            <li>Request a copy of your health records</li>
+            <li>Request corrections to your health information</li>
+            <li>Request restrictions on uses and disclosures</li>
+            <li>Choose how we communicate with you about your health</li>
+            <li>Request an accounting of disclosures</li>
+            <li>File a complaint if you believe your rights have been violated</li>
+          </ul>
+
+          <p>
+            For HIPAA-related requests or concerns, please contact our Privacy Officer at privacy@onco.bot
+            or call 1-800-XXX-XXXX. You may also file a complaint with the U.S. Department of Health and
+            Human Services Office for Civil Rights.
+          </p>
+
           <h2>Consent Management</h2>
           <p>
             OncoBot uses a progressive consent system that gives you granular control over how your data is used.
             You can manage your consent preferences directly in the app through the Settings menu.
           </p>
-          
+
           <h3>Core Permissions (Required for Service)</h3>
           <p>These permissions are essential for OncoBot to function and provide personalized trial matching:</p>
           <ul>
@@ -305,8 +338,8 @@ export default function PrivacyPage() {
               <Link href="/privacy-policy" className="text-neutral-900 dark:text-neutral-100 font-medium">
                 Privacy
               </Link>
-              <Link href="/ai-terms" className="hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors">
-                AI Terms
+              <Link href="/terms" className="hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors">
+                Terms
               </Link>
             </div>
           </div>

@@ -401,7 +401,6 @@ export default function HomePage() {
                 <li><Link href="/eligibility/lung" className="hover:text-foreground">Lung Cancer Trials</Link></li>
                 <li><Link href="/eligibility/prostate" className="hover:text-foreground">Prostate Cancer Trials</Link></li>
                 <li><Link href="/eligibility/gi" className="hover:text-foreground">GI Cancer Trials</Link></li>
-                <li><Link href="/how-it-works" className="hover:text-foreground">How It Works</Link></li>
               </ul>
             </div>
             <div>
@@ -410,7 +409,6 @@ export default function HomePage() {
                 <li><Link href="/membership" className="hover:text-foreground">Membership Benefits</Link></li>
                 <li><Link href="/membership/booking" className="hover:text-foreground">Book Intake</Link></li>
                 <li><Link href="/membership/sample-profiles" className="hover:text-foreground">Sample Profiles</Link></li>
-                <li><Link href="/pricing" className="hover:text-foreground">Pricing</Link></li>
               </ul>
             </div>
             <div>
@@ -418,17 +416,13 @@ export default function HomePage() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link href="/about" className="hover:text-foreground">About Us</Link></li>
                 <li><Link href="/contact" className="hover:text-foreground">Contact</Link></li>
-                <li><Link href="/blog" className="hover:text-foreground">Blog</Link></li>
-                <li><Link href="/careers" className="hover:text-foreground">Careers</Link></li>
               </ul>
             </div>
             <div>
               <h3 className="font-semibold mb-4">Legal</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link></li>
+                <li><Link href="/privacy-policy" className="hover:text-foreground">Privacy Policy</Link></li>
                 <li><Link href="/terms" className="hover:text-foreground">Terms of Service</Link></li>
-                <li><Link href="/hipaa" className="hover:text-foreground">HIPAA Compliance</Link></li>
-                <li><Link href="/disclaimer" className="hover:text-foreground">Medical Disclaimer</Link></li>
               </ul>
             </div>
           </div>

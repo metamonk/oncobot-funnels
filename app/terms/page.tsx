@@ -69,12 +69,7 @@ export default function TermsPage() {
             Welcome to OncoBot, a medical oncology AI assistant. These Terms of Service govern your use of our platform
             and services. By using OncoBot, you agree to these terms in full. If you disagree with any part of these
             terms, please do not use our service. <strong>OncoBot is designed to assist healthcare professionals and
-            should not be used as a substitute for professional medical judgment.</strong> For specific terms regarding 
-            our AI features, please see our{' '}
-            <Link href="/ai-terms" className="underline">
-              AI Terms of Use
-            </Link>
-            .
+            should not be used as a substitute for professional medical judgment.</strong>
           </p>
 
           <h2>1. Acceptance of Terms</h2>
@@ -221,7 +216,26 @@ export default function TermsPage() {
             OncoBot operates, without regard to its conflict of law provisions.
           </p>
 
-          <h2>14. Contact Us</h2>
+          <h2>14. Medical Disclaimer</h2>
+          <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800/50 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100 mb-3">Important Medical Notice</h3>
+            <p className="text-yellow-800 dark:text-yellow-200 mb-4">
+              <strong>OncoBot is NOT a substitute for professional medical advice, diagnosis, or treatment.</strong>
+            </p>
+            <ul className="space-y-2 text-yellow-800 dark:text-yellow-200">
+              <li>• This service provides information about clinical trials for educational purposes only</li>
+              <li>• Always consult with qualified healthcare professionals before making medical decisions</li>
+              <li>• Never delay seeking medical advice because of information obtained from this service</li>
+              <li>• Clinical trial eligibility determinations are preliminary and must be confirmed by trial sites</li>
+              <li>• Individual results and experiences may vary significantly</li>
+              <li>• We do not recommend or endorse any specific trials, treatments, or medical facilities</li>
+            </ul>
+            <p className="mt-4 text-yellow-800 dark:text-yellow-200">
+              <strong>In case of a medical emergency, call 911 or your local emergency services immediately.</strong>
+            </p>
+          </div>
+
+          <h2>15. Contact Us</h2>
           <p>If you have any questions about these Terms of Service, please contact us at:</p>
           <p>
             <a href="mailto:hi@onco.bot" className="flex items-center gap-1">
@@ -273,9 +287,6 @@ export default function TermsPage() {
                 className="hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
               >
                 Privacy
-              </Link>
-              <Link href="/ai-terms" className="hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors">
-                AI Terms
               </Link>
             </div>
           </div>

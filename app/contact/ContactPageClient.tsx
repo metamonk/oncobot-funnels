@@ -314,15 +314,15 @@ function ContactPageContent() {
                     <Mail className="h-5 w-5 text-primary" />
                     Prefer Email?
                   </h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    You can also reach us directly at:
+                  <p className="text-sm text-muted-foreground">
+                    You can also reach us directly at:{' '}
+                    <a
+                      href="mailto:support@onco.bot"
+                      className="text-primary hover:underline font-medium"
+                    >
+                      support@onco.bot
+                    </a>
                   </p>
-                  <a
-                    href="mailto:support@onco.bot"
-                    className="text-primary hover:underline font-medium text-sm"
-                  >
-                    support@onco.bot
-                  </a>
                 </Card>
 
                 {/* Privacy Notice */}
