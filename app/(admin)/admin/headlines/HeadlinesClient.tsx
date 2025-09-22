@@ -452,11 +452,17 @@ export default function HeadlinesClient({
                   <SelectValue placeholder="Select an indication" />
                 </SelectTrigger>
                 <SelectContent>
-                  {indications.map((ind) => (
-                    <SelectItem key={ind.id} value={ind.id}>
-                      {ind.name}
+                  {indications.length === 0 ? (
+                    <SelectItem value="no-data" disabled>
+                      No indications available - please add indications first
                     </SelectItem>
-                  ))}
+                  ) : (
+                    indications.map((ind) => (
+                      <SelectItem key={ind.id} value={ind.id}>
+                        {ind.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>

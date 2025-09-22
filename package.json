@@ -11,7 +11,8 @@
     "test:unit": "vitest",
     "test:integration": "tsx scripts/test-clinical-trials-tool.ts",
     "test:scoring": "tsx scripts/test-clinical-trials-scoring.ts",
-    "benchmark:clinical-trials": "tsx scripts/benchmark-clinical-trials.ts"
+    "benchmark:clinical-trials": "tsx scripts/benchmark-clinical-trials.ts",
+    "seed:admin": "tsx lib/db/seed-admin.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",
