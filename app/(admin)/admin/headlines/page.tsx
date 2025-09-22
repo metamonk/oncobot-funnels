@@ -14,15 +14,25 @@ async function getHeadlines() {
       category: adHeadlines.category,
       clicks: adHeadlines.clicks,
       conversions: adHeadlines.conversions,
+      impressions: adHeadlines.impressions,
+      indicationId: adHeadlines.indicationId,
+      landingPageId: adHeadlines.landingPageId,
+      createdAt: adHeadlines.createdAt,
+      updatedAt: adHeadlines.updatedAt,
       indication: {
         id: indications.id,
         name: indications.name,
         slug: indications.slug,
+        isActive: indications.isActive,
+        createdAt: indications.createdAt,
       },
       landingPage: {
         id: landingPages.id,
         name: landingPages.name,
         path: landingPages.path,
+        description: landingPages.description,
+        isActive: landingPages.isActive,
+        createdAt: landingPages.createdAt,
       },
     })
     .from(adHeadlines)

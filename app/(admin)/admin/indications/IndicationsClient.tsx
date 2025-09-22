@@ -240,7 +240,7 @@ export default function IndicationsClient({
                 variant="outline"
                 size="sm"
                 className="text-destructive"
-                disabled={indication.headlineCount && indication.headlineCount > 0}
+                disabled={!!indication.headlineCount && indication.headlineCount > 0}
                 onClick={() => openDeleteModal(indication)}
               >
                 <Trash2 className="h-3 w-3 mr-1" />

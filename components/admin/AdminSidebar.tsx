@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   FileText,
-  MousePointerClick,
+  Target,
+  ExternalLink,
   Megaphone,
   Users,
   LogOut,
@@ -18,7 +19,8 @@ import { signOut } from '@/lib/auth-client';
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Headlines', href: '/admin/headlines', icon: FileText },
-  { name: 'Hooks', href: '/admin/hooks', icon: MousePointerClick },
+  { name: 'Indications', href: '/admin/indications', icon: Target },
+  { name: 'Landing Pages', href: '/admin/landing-pages', icon: ExternalLink },
   { name: 'Ads', href: '/admin/ads', icon: Megaphone },
   { name: 'Users', href: '/admin/users', icon: Users },
 ];

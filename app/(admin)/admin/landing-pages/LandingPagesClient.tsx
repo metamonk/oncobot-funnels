@@ -245,7 +245,7 @@ export default function LandingPagesClient({
                 variant="outline"
                 size="sm"
                 className="text-destructive"
-                disabled={page.headlineCount && page.headlineCount > 0}
+                disabled={!!page.headlineCount && page.headlineCount > 0}
                 onClick={() => openDeleteModal(page)}
               >
                 <Trash2 className="h-3 w-3 mr-1" />
