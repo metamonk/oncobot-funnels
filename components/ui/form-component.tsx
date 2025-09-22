@@ -21,9 +21,7 @@ import { isSearchModeEnabled } from '@/lib/feature-toggles';
 import { UIMessage } from '@ai-sdk/ui-utils';
 import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-// import { UserWithProStatus } from '@/hooks/use-user-data'; // Removed with chatbot functionality
 import { useSession } from '@/lib/auth-client';
-// import { checkImageModeration } from '@/app/actions'; // Removed with chatbot functionality
 import { User } from '@/lib/db/schema';
 
 // Simple type alias for now
@@ -1150,29 +1148,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
       if (imageFiles.length > 0) {
         try {
-          console.log('Checking image moderation for', imageFiles.length, 'images');
-          toast.info('Checking images for safety...');
-
           const imageDataURLs = await Promise.all(imageFiles.map((file) => fileToDataURL(file)));
-
-          // Moderation check removed with chatbot functionality
-          // const moderationResult = await checkImageModeration(imageDataURLs);
-          // console.log('Moderation result:', moderationResult);
-          const moderationResult = 'safe'; // Skip moderation for now
-
-          if (moderationResult !== 'safe') {
-            const [status, category] = moderationResult.split('\n');
-            if (status === 'unsafe') {
-              console.warn('Unsafe image detected, category:', category);
-              toast.error(`Image content violates safety guidelines (${category}). Please choose different images.`);
-              event.target.value = '';
-              return;
-            }
-          }
-
-          console.log('Images passed moderation check');
         } catch (error) {
-          console.error('Error during image moderation:', error);
+          console.error('Error processing images:', error);
           toast.error('Unable to verify image safety. Please try again.');
           event.target.value = '';
           return;
@@ -1360,28 +1338,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
       if (imageFiles.length > 0) {
         try {
-          console.log('Checking image moderation for', imageFiles.length, 'images');
-          toast.info('Checking images for safety...');
-
           const imageDataURLs = await Promise.all(imageFiles.map((file) => fileToDataURL(file)));
-
-          // Moderation check removed with chatbot functionality
-          // const moderationResult = await checkImageModeration(imageDataURLs);
-          // console.log('Moderation result:', moderationResult);
-          const moderationResult = 'safe'; // Skip moderation for now
-
-          if (moderationResult !== 'safe') {
-            const [status, category] = moderationResult.split('\n');
-            if (status === 'unsafe') {
-              console.warn('Unsafe image detected, category:', category);
-              toast.error(`Image content violates safety guidelines (${category}). Please choose different images.`);
-              return;
-            }
-          }
-
-          console.log('Images passed moderation check');
         } catch (error) {
-          console.error('Error during image moderation:', error);
+          console.error('Error processing images:', error);
           toast.error('Unable to verify image safety. Please try again.');
           return;
         }
@@ -1494,30 +1453,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
       if (filesToUpload.length > 0) {
         try {
-          console.log('Checking image moderation for', filesToUpload.length, 'pasted images');
-          toast.info('Checking pasted images for safety...');
-
           const imageDataURLs = await Promise.all(filesToUpload.map((file) => fileToDataURL(file)));
-
-          // Moderation check removed with chatbot functionality
-          // const moderationResult = await checkImageModeration(imageDataURLs);
-          // console.log('Moderation result:', moderationResult);
-          const moderationResult = 'safe'; // Skip moderation for now
-
-          if (moderationResult !== 'safe') {
-            const [status, category] = moderationResult.split('\n');
-            if (status === 'unsafe') {
-              console.warn('Unsafe pasted image detected, category:', category);
-              toast.error(
-                `Pasted image content violates safety guidelines (${category}). Please choose different images.`,
-              );
-              return;
-            }
-          }
-
-          console.log('Pasted images passed moderation check');
         } catch (error) {
-          console.error('Error during pasted image moderation:', error);
+          console.error('Error processing pasted images:', error);
           toast.error('Unable to verify pasted image safety. Please try again.');
           return;
         }
