@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
 import { landingPages } from '@/lib/db/schema';
 import { getCurrentUserWithRole } from '@/lib/auth-utils';
+import { eq } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,10 +29,21 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, path, description } = body;
+    const { name, path, description, isActive = true } = body;
 
     if (!name || !path) {
       return NextResponse.json({ error: 'Name and path are required' }, { status: 400 });
+    }
+
+    // Check if path already exists
+    const existing = await db
+      .select()
+      .from(landingPages)
+      .where(eq(landingPages.path, path))
+      .limit(1);
+
+    if (existing.length > 0) {
+      return NextResponse.json({ error: 'Path already exists' }, { status: 400 });
     }
 
     const newLandingPage = await db
@@ -40,7 +52,7 @@ export async function POST(req: NextRequest) {
         name,
         path,
         description: description || null,
-        isActive: true,
+        isActive,
       })
       .returning();
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
 import { indications } from '@/lib/db/schema';
 import { getCurrentUserWithRole } from '@/lib/auth-utils';
+import { eq } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,10 +29,21 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, slug } = body;
+    const { name, slug, isActive = true } = body;
 
     if (!name || !slug) {
       return NextResponse.json({ error: 'Name and slug are required' }, { status: 400 });
+    }
+
+    // Check if slug already exists
+    const existing = await db
+      .select()
+      .from(indications)
+      .where(eq(indications.slug, slug))
+      .limit(1);
+
+    if (existing.length > 0) {
+      return NextResponse.json({ error: 'Slug already exists' }, { status: 400 });
     }
 
     const newIndication = await db
@@ -39,7 +51,7 @@ export async function POST(req: NextRequest) {
       .values({
         name,
         slug: slug.toLowerCase().replace(/\s+/g, '-'),
-        isActive: true,
+        isActive,
       })
       .returning();
 
