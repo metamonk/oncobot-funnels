@@ -6,8 +6,6 @@ import Link from 'next/link';
 import { Plus, Globe, Lock, Copy, Check, Share2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { UserProfile } from '@/components/user-profile';
-import { ChatHistoryButton } from '@/components/chat-history-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -365,15 +363,6 @@ const Navbar = memo(
             )}
 
 
-            {/* Chat History Button */}
-            <ChatHistoryButton onClickAction={onHistoryClick} />
-
-            {/* Memoized UserProfile component */}
-            <UserProfile
-              user={user}
-              isCustomInstructionsEnabled={isCustomInstructionsEnabled}
-              setIsCustomInstructionsEnabled={setIsCustomInstructionsEnabled}
-            />
           </div>
         </div>
       </>
