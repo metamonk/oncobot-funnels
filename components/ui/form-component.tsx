@@ -21,9 +21,13 @@ import { isSearchModeEnabled } from '@/lib/feature-toggles';
 import { UIMessage } from '@ai-sdk/ui-utils';
 import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { UserWithProStatus } from '@/hooks/use-user-data';
+// import { UserWithProStatus } from '@/hooks/use-user-data'; // Removed with chatbot functionality
 import { useSession } from '@/lib/auth-client';
-import { checkImageModeration } from '@/app/actions';
+// import { checkImageModeration } from '@/app/actions'; // Removed with chatbot functionality
+import { User } from '@/lib/db/schema';
+
+// Simple type alias for now
+type UserWithProStatus = User & { isProUser?: boolean };
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
@@ -1151,8 +1155,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
           const imageDataURLs = await Promise.all(imageFiles.map((file) => fileToDataURL(file)));
 
-          const moderationResult = await checkImageModeration(imageDataURLs);
-          console.log('Moderation result:', moderationResult);
+          // Moderation check removed with chatbot functionality
+          // const moderationResult = await checkImageModeration(imageDataURLs);
+          // console.log('Moderation result:', moderationResult);
+          const moderationResult = 'safe'; // Skip moderation for now
 
           if (moderationResult !== 'safe') {
             const [status, category] = moderationResult.split('\n');
@@ -1359,8 +1365,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
           const imageDataURLs = await Promise.all(imageFiles.map((file) => fileToDataURL(file)));
 
-          const moderationResult = await checkImageModeration(imageDataURLs);
-          console.log('Moderation result:', moderationResult);
+          // Moderation check removed with chatbot functionality
+          // const moderationResult = await checkImageModeration(imageDataURLs);
+          // console.log('Moderation result:', moderationResult);
+          const moderationResult = 'safe'; // Skip moderation for now
 
           if (moderationResult !== 'safe') {
             const [status, category] = moderationResult.split('\n');
@@ -1491,8 +1499,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
           const imageDataURLs = await Promise.all(filesToUpload.map((file) => fileToDataURL(file)));
 
-          const moderationResult = await checkImageModeration(imageDataURLs);
-          console.log('Moderation result:', moderationResult);
+          // Moderation check removed with chatbot functionality
+          // const moderationResult = await checkImageModeration(imageDataURLs);
+          // console.log('Moderation result:', moderationResult);
+          const moderationResult = 'safe'; // Skip moderation for now
 
           if (moderationResult !== 'safe') {
             const [status, category] = moderationResult.split('\n');

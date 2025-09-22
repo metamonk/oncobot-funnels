@@ -1,9 +1,9 @@
-./components/navbar.tsx:10:35
-Type error: Cannot find module '@/components/chat-history-dialog' or its corresponding type declarations.
-   8 | import { Button } from '@/components/ui/button';
-   9 | import { UserProfile } from '@/components/user-profile';
-> 10 | import { ChatHistoryButton } from '@/components/chat-history-dialog';
-     |                                   ^
-  11 | import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-  12 | import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-  13 | import { cn } from '@/lib/utils';
+./components/ui/form-component.tsx:26:38
+Type error: Cannot find module '@/app/actions' or its corresponding type declarations.
+  24 | import { UserWithProStatus } from '@/hooks/use-user-data';
+  25 | import { useSession } from '@/lib/auth-client';
+> 26 | import { checkImageModeration } from '@/app/actions';
+     |                                      ^
+  27 | import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+  28 | import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+  29 | import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
