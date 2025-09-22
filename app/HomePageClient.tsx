@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { HomepageTracker } from '@/components/home/HomepageTracker';
 import { CancerTypeCardButton } from '@/components/home/CancerTypeCard';
+import { SiteMembershipButton } from '@/components/home/SiteMembershipButton';
 
 interface HomePageClientProps {
   trialCounts?: Record<string, string>;
@@ -33,21 +34,21 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
       id: 'lung',
       name: 'Lung Cancer',
       description: 'NSCLC, SCLC, and mesothelioma',
-      count: trialCounts.lung || '500+ trials', // Use dynamic count with fallback
+      count: trialCounts.lung || '500+ open trials', // Use dynamic count with fallback
       icon: Activity
     },
     {
       id: 'prostate',
       name: 'Prostate Cancer',
       description: 'Localized and metastatic',
-      count: trialCounts.prostate || '300+ trials', // Use dynamic count with fallback
+      count: trialCounts.prostate || '300+ open trials', // Use dynamic count with fallback
       icon: Target
     },
     {
       id: 'gi',
       name: 'GI Cancers',
       description: 'Colorectal, pancreatic, liver',
-      count: trialCounts.gi || '400+ trials', // Use dynamic count with fallback
+      count: trialCounts.gi || '400+ open trials', // Use dynamic count with fallback
       icon: Heart
     }
   ];
@@ -157,7 +158,7 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
                     <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                       <Icon className="h-6 w-6 text-primary" />
                     </div>
-                    <Badge variant="secondary">{indication.count}</Badge>
+                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800">{indication.count}</Badge>
                   </div>
                   <h3 className="text-xl font-semibold mb-2">{indication.name}</h3>
                   <p className="text-muted-foreground mb-4">{indication.description}</p>
@@ -179,7 +180,7 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
       <section id="sites" className="py-12 sm:py-16 lg:py-20 bg-accent/10">
         <div className="container max-w-6xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center mb-12">
-            <Badge className="mb-4 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800">
+            <Badge variant="outline" className="mb-4">
               <Building2 className="mr-2 h-3 w-3" />
               For Clinical Trial Sites
             </Badge>
@@ -195,9 +196,9 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
             {siteFeatures.map((feature) => {
               const Icon = feature.icon;
               return (
-                <Card key={feature.title} className="p-6 text-center border-green-100 dark:border-green-900/30 hover:border-green-300 dark:hover:border-green-700 transition-colors">
-                  <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
-                    <Icon className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <Card key={feature.title} className="p-6 text-center hover:shadow-lg transition-all">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <Icon className="h-6 w-6 text-primary" />
                   </div>
                   <h3 className="font-semibold mb-2">{feature.title}</h3>
                   <p className="text-sm text-muted-foreground">{feature.description}</p>
@@ -206,7 +207,7 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
             })}
           </div>
 
-          <Card className="p-8 max-w-4xl mx-auto bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30">
+          <Card className="p-8 max-w-4xl mx-auto bg-primary/5 border-primary/20">
             <div className="text-center space-y-6">
               <h3 className="text-2xl font-bold">Ready to Accelerate Your Enrollment?</h3>
               <p className="text-muted-foreground max-w-2xl mx-auto">
@@ -214,15 +215,7 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
                 15-minute protocol intake, go-live in 48 hours.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button asChild size="lg">
-                  <Link 
-                    href="/membership"
-                    onClick={() => track('site_funnel_start', { source: 'homepage' })}
-                  >
-                    View Membership Details
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Link>
-                </Button>
+                <SiteMembershipButton />
                 <Button asChild size="lg" variant="outline">
                   <Link href="/membership/sample-profiles">
                     See Sample Profiles
@@ -267,7 +260,7 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
               <Badge className="mb-4">For Patients</Badge>
               <div className="space-y-4">
                 <div className="flex gap-4">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold border border-primary/20">
                     1
                   </div>
                   <div>
@@ -278,7 +271,7 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold border border-primary/20">
                     2
                   </div>
                   <div>
@@ -289,7 +282,7 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold border border-primary/20">
                     3
                   </div>
                   <div>
@@ -304,10 +297,10 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
 
             {/* Site Flow */}
             <div>
-              <Badge className="mb-4 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800">For Sites</Badge>
+              <Badge variant="outline" className="mb-4">For Sites</Badge>
               <div className="space-y-4">
                 <div className="flex gap-4">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 flex items-center justify-center font-bold border border-green-200 dark:border-green-800">
                     1
                   </div>
                   <div>
@@ -318,7 +311,7 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 flex items-center justify-center font-bold border border-green-200 dark:border-green-800">
                     2
                   </div>
                   <div>
@@ -329,7 +322,7 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 flex items-center justify-center font-bold border border-green-200 dark:border-green-800">
                     3
                   </div>
                   <div>
@@ -411,18 +404,10 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
               </ul>
             </div>
           </div>
-          <div className="mt-12 pt-8 border-t text-center text-sm text-muted-foreground">
+        </div>
+        <div className="border-t mt-12">
+          <div className="container max-w-6xl mx-auto px-4 pt-8 text-center text-sm text-muted-foreground">
             <p>&copy; 2024 OncoBot. All rights reserved.</p>
-            <p className="mt-2">
-              <Badge variant="outline" className="mr-2">
-                <Shield className="mr-1 h-3 w-3" />
-                HIPAA Compliant
-              </Badge>
-              <Badge variant="outline">
-                <Award className="mr-1 h-3 w-3" />
-                FDA Registered
-              </Badge>
-            </p>
           </div>
         </div>
       </footer>

@@ -10,9 +10,10 @@ import { cn } from '@/lib/utils';
 
 interface MagicLinkFormProps {
   mode?: 'sign-in' | 'sign-up';
+  callbackURL?: string;
 }
 
-export function MagicLinkForm({ mode = 'sign-in' }: MagicLinkFormProps) {
+export function MagicLinkForm({ mode = 'sign-in', callbackURL = '/' }: MagicLinkFormProps) {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -28,7 +29,7 @@ export function MagicLinkForm({ mode = 'sign-in' }: MagicLinkFormProps) {
       // Send magic link
       await authClient.signIn.magicLink({
         email,
-        callbackURL: '/',
+        callbackURL,
       });
 
       setIsSuccess(true);

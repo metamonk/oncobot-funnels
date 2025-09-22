@@ -12,6 +12,8 @@ interface AuthCardProps {
   title: string;
   description: string;
   mode?: 'sign-in' | 'sign-up';
+  callbackURL?: string;
+  hideToggle?: boolean;
 }
 
 interface AuthIconProps extends React.ComponentProps<'svg'> {}
@@ -47,14 +49,14 @@ const AuthDivider = () => (
 /**
  * Authentication card with magic link and Google sign-in
  */
-export default function AuthCard({ title, description, mode = 'sign-in' }: AuthCardProps) {
+export default function AuthCard({ title, description, mode = 'sign-in', callbackURL = '/', hideToggle = false }: AuthCardProps) {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
     await signIn.social(
       {
         provider: 'google',
-        callbackURL: '/',
+        callbackURL,
       },
       {
         onRequest: () => {
@@ -71,7 +73,7 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
         <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-6">{description}</p>
 
         {/* Magic Link Form */}
-        <MagicLinkForm mode={mode} />
+        <MagicLinkForm mode={mode} callbackURL={callbackURL} />
 
         {/* Divider */}
         <div className="my-6">
@@ -117,25 +119,27 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
         </p>
 
         {/* Sign In/Up Toggle */}
-        <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800">
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            {mode === 'sign-in' ? (
-              <>
-                Don&apos;t have an account?{' '}
-                <Link href="/sign-up" className="text-black dark:text-white hover:underline">
-                  Sign up
-                </Link>
-              </>
-            ) : (
-              <>
-                Already have an account?{' '}
-                <Link href="/sign-in" className="text-black dark:text-white hover:underline">
-                  Sign in
-                </Link>
-              </>
-            )}
-          </p>
-        </div>
+        {!hideToggle && (
+          <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              {mode === 'sign-in' ? (
+                <>
+                  Don&apos;t have an account?{' '}
+                  <Link href="/sign-up" className="text-black dark:text-white hover:underline">
+                    Sign up
+                  </Link>
+                </>
+              ) : (
+                <>
+                  Already have an account?{' '}
+                  <Link href="/sign-in" className="text-black dark:text-white hover:underline">
+                    Sign in
+                  </Link>
+                </>
+              )}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

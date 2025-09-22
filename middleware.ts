@@ -4,6 +4,7 @@ import { Logger } from '@/lib/logger';
 
 const authRoutes = ['/sign-in', '/sign-up'];
 const protectedRoutes = ['/settings'];
+const adminRoutes = ['/admin'];
 const logger = new Logger('Middleware');
 
 export async function middleware(request: NextRequest) {
@@ -33,6 +34,15 @@ export async function middleware(request: NextRequest) {
   if (!sessionCookie && protectedRoutes.some((route) => pathname.startsWith(route))) {
     logger.info(`Redirecting unauthenticated user from ${pathname} to sign-in`);
     return NextResponse.redirect(new URL('/sign-in', request.url));
+  }
+
+  // Admin routes - require authentication (role check will be done in layout)
+  // But exclude /admin/login from this check
+  if (adminRoutes.some((route) => pathname.startsWith(route)) && pathname !== '/admin/login') {
+    if (!sessionCookie) {
+      logger.info(`Redirecting unauthenticated user from admin route ${pathname} to /admin/login`);
+      return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
   }
 
   return NextResponse.next();

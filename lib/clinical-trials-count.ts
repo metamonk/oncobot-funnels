@@ -18,11 +18,11 @@ const FALLBACK_COUNTS: Record<string, number> = {
   'gi': 400
 };
 
-// ClinicalTrials.gov API search terms
+// ClinicalTrials.gov API search terms - simplified to match website
 const SEARCH_TERMS: Record<string, string> = {
-  'lung': 'lung cancer OR NSCLC OR SCLC OR mesothelioma',
-  'prostate': 'prostate cancer',
-  'gi': 'colorectal cancer OR pancreatic cancer OR liver cancer OR gastrointestinal cancer'
+  'lung': 'Lung Cancer',
+  'prostate': 'Prostate Cancer',
+  'gi': 'Colorectal Cancer OR Pancreatic Cancer OR Liver Cancer'
 };
 
 /**
@@ -35,9 +35,9 @@ async function fetchTrialCount(conditionKey: string): Promise<TrialCountResult> 
 
   try {
     // ClinicalTrials.gov API v2
+    // Filter for actively recruiting trials only
     const params = new URLSearchParams({
       'query.cond': searchTerm,
-      'query.term': 'OPEN',
       'filter.overallStatus': 'RECRUITING,NOT_YET_RECRUITING,ENROLLING_BY_INVITATION',
       'countTotal': 'true',
       'pageSize': '1' // We only need the count
@@ -63,10 +63,13 @@ async function fetchTrialCount(conditionKey: string): Promise<TrialCountResult> 
     // Use actual count if reasonable, otherwise fallback
     const count = actualCount > 0 ? actualCount : fallbackCount;
 
+    // Format number with commas for thousands
+    const formattedCount = count.toLocaleString();
+
     return {
       condition: conditionKey,
       count,
-      formatted: `${count}+ trials`
+      formatted: `${formattedCount}+ open trials`
     };
   } catch (error) {
     // Return fallback on any error
@@ -74,7 +77,7 @@ async function fetchTrialCount(conditionKey: string): Promise<TrialCountResult> 
     return {
       condition: conditionKey,
       count: fallbackCount,
-      formatted: `${fallbackCount}+ trials`
+      formatted: `${fallbackCount}+ open trials`
     };
   }
 }
@@ -100,7 +103,7 @@ export const getTrialCounts = unstable_cache(
       if (result.status === 'fulfilled') {
         counts[key] = result.value.formatted;
       } else {
-        counts[key] = `${FALLBACK_COUNTS[key]}+ trials`;
+        counts[key] = `${FALLBACK_COUNTS[key]}+ open trials`;
       }
     });
 
