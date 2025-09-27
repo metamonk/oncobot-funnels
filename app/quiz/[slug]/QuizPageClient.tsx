@@ -106,7 +106,7 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
     if (!quizData.stage && cancerConfig.stageOptions.length > 0) {
       setQuizData(prev => ({ ...prev, stage: cancerConfig.stageOptions[0] }));
     }
-  }, [cancerConfig]);
+  }, [cancerConfig, quizData.stage]);
 
   // Load saved progress on mount
   useEffect(() => {
@@ -138,7 +138,8 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
         trackQuizAbandoned(indication.slug, currentStep, totalSteps);
       }
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally run once on mount
 
   const validateStep = () => {
     const newErrors: Record<string, string> = {};
@@ -348,10 +349,10 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
                   <div>
                     <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
                       <MapPin className="h-5 w-5 text-primary" />
-                      Let's Find Trials Near You
+                      Let&apos;s Find Trials Near You
                     </h2>
                     <p className="text-gray-600 text-sm">
-                      We'll match you with trials in your area
+                      We&apos;ll match you with trials in your area
                     </p>
                   </div>
 
@@ -426,7 +427,7 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
                       {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
                       <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
                         <Lock className="h-3 w-3" />
-                        We'll save your progress and send your matches here
+                        We&apos;ll save your progress and send your matches here
                       </p>
                     </div>
 
@@ -525,7 +526,7 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-gray-500 mt-1.5">
-                        If you're not sure, select "None/Unknown"
+                        If you&apos;re not sure, select &quot;None/Unknown&quot;
                       </p>
                     </div>
 
@@ -566,7 +567,7 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
                       Almost Done!
                     </h2>
                     <p className="text-gray-600 text-sm">
-                      We'll send your personalized trial matches right away
+                      We&apos;ll send your personalized trial matches right away
                     </p>
                   </div>
 

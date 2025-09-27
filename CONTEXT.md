@@ -1,15 +1,18 @@
-- we do not need a lead management system (gohighlevel is already handling it) so Phase 1 is unnecessary.
-- Let's break down Phase 2. There are some things we need, some things we don't: 
-	- need CRUD operations for marketing headlines
-	- don't need A/B testing variants tracking
-	- don't we have a mechanism already for this through google ads or analytics or plausible or posthog or gohighlevel? explain your reason for this.
-	- there are different versions of headlines (short and long) for the ads but the one thing I know we need to guarantee is that the landing pages that the user lands on after clicking an ad should say the same thing, so the headline must match the ad. we are running the ads independently through google ads manager so what do you propose we add in this system to maintain this? is the best way to manually point the ads to the different landing pages?
-	- The "hooks" are the "headlines" - the headlines should "hook" the user so make sure our system reflects this. review all associated code that was produced before since this may not have been clear.
-	- Indications should be managed as well. what is the best way to do this considering our whole system so far?
-	- we don't need ad campaign manager, we do however need to have a single source of truth however, when it comes to managing the creatives for our system so for example, if we add a hook and we switch it 'on' for an indication, we should also have the ad produced dynamically in the admin page, placeholder image for the media is fine for now.
-	- do we not already have Phase 3: Analytics & Optimization completed?
-	- we don't need Email Campaign Management for now.
-	- we don't need the Quiz Builder
-	- we should however, review the Compliance & Documentation
-	- does this change what we need for the database?
-	- what is the plan overall?
+62:27  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+./app/[slug]/_components/ValueProposition.tsx
+16:35  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+./app/quiz/[slug]/QuizPageClient.tsx
+109:6  Warning: React Hook useEffect has a missing dependency: 'quizData.stage'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+141:6  Warning: React Hook useEffect has missing dependencies: 'currentStep', 'indication.slug', 'quizData.email', 'totalSteps', 'trackQuizAbandoned', and 'trackQuizStart'. Either include them or remove the dependency array.  react-hooks/exhaustive-deps
+351:26  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+354:25  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+429:27  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+528:31  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+528:52  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+528:65  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+569:25  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+./app/thank-you/page.tsx
+291:13  Error: Do not use an `<a>` element to navigate to `/contact/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+./components/interactive-stock-chart.tsx
+589:33  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+662:35  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element

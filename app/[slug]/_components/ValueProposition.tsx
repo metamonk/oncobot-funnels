@@ -13,7 +13,7 @@ export function ValueProposition({ points }: ValuePropositionProps) {
             Why Join a Clinical Trial?
           </h2>
           <p className="text-lg text-gray-500 max-w-3xl mx-auto">
-            Get access to tomorrow's treatments today, with comprehensive care at no cost
+            Get access to tomorrow&apos;s treatments today, with comprehensive care at no cost
           </p>
         </div>
 

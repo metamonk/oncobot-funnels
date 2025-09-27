@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 
 import { useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -288,13 +289,13 @@ function ThankYouContent() {
         <div className="mt-8 text-center">
           <p className="text-sm text-muted-foreground mb-3">Need immediate assistance?</p>
           <div className="flex items-center justify-center gap-4">
-            <a
+            <Link
               href="/contact"
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-accent transition-colors"
             >
               <MessageSquare className="h-4 w-4" />
               Contact Support
-            </a>
+            </Link>
           </div>
         </div>
       </div>
