@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUserWithRole();
@@ -15,10 +15,11 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { id } = await params;
     const headline = await db
       .select()
       .from(adHeadlines)
-      .where(eq(adHeadlines.id, params.id))
+      .where(eq(adHeadlines.id, id))
       .limit(1);
 
     if (!headline.length) {
@@ -34,9 +35,10 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUserWithRole();
 
     if (!user || user.role !== 'admin') {
@@ -79,7 +81,7 @@ export async function PATCH(
     const updated = await db
       .update(adHeadlines)
       .set(updateData)
-      .where(eq(adHeadlines.id, params.id))
+      .where(eq(adHeadlines.id, id))
       .returning();
 
     if (!updated.length) {
@@ -95,9 +97,10 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUserWithRole();
 
     if (!user || user.role !== 'admin') {
@@ -106,7 +109,7 @@ export async function DELETE(
 
     const deleted = await db
       .delete(adHeadlines)
-      .where(eq(adHeadlines.id, params.id))
+      .where(eq(adHeadlines.id, id))
       .returning();
 
     if (!deleted.length) {
