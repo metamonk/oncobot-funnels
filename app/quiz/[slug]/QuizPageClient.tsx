@@ -101,12 +101,8 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
   const effectiveCancerType = indication.slug === 'other' ? (quizData.cancerType || 'other') : indication.slug;
   const cancerConfig = getCancerConfig(effectiveCancerType);
 
-  // Set default stage if not set
-  useEffect(() => {
-    if (!quizData.stage && cancerConfig.stageOptions.length > 0) {
-      setQuizData(prev => ({ ...prev, stage: cancerConfig.stageOptions[0] }));
-    }
-  }, [cancerConfig, quizData.stage]);
+  // Note: We intentionally do not auto-set a default stage
+  // The user must consciously select their cancer stage for accurate matching
 
   // Load saved progress on mount
   useEffect(() => {
@@ -159,7 +155,7 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
       }
     } else if (currentStep === 2) {
       // Step 2: Medical Information (for both 'other' and non-'other' indications)
-      if (!quizData.stage) {
+      if (!quizData.stage || quizData.stage === '') {
         newErrors.stage = 'Please select your cancer stage';
       }
       // Biomarkers is optional, so no validation needed
@@ -513,6 +509,9 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
                           ))}
                         </SelectContent>
                       </Select>
+                      {errors.stage && (
+                        <p className="text-red-500 text-sm mt-1">{errors.stage}</p>
+                      )}
                     </div>
 
                     <div>
