@@ -145,6 +145,7 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
     const newErrors: Record<string, string> = {};
 
     if (currentStep === 1) {
+      // Step 1: Location and Email
       if (!quizData.zipCode || !/^\d{5}$/.test(quizData.zipCode)) {
         newErrors.zipCode = 'Please enter a valid 5-digit ZIP code';
       }
@@ -156,8 +157,19 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
       if (!quizData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(quizData.email)) {
         newErrors.email = 'Please enter a valid email address';
       }
-    } else if ((indication.slug === 'other' && currentStep === 3) || (indication.slug !== 'other' && currentStep === 2)) {
-      // Contact info step
+    } else if (currentStep === 2) {
+      // Step 2: Medical Information (for both 'other' and non-'other' indications)
+      if (!quizData.stage) {
+        newErrors.stage = 'Please select your cancer stage';
+      }
+      // Biomarkers is optional, so no validation needed
+    } else if (indication.slug === 'other' && currentStep === 3) {
+      // Step 3 for 'other': Additional questions (if any)
+      // This step might have additional questions, but for now we'll let it pass
+      // Add validation here if there are specific fields for Step 3
+    } else if ((indication.slug !== 'other' && currentStep === 3) ||
+               (indication.slug === 'other' && currentStep === 4)) {
+      // Final step: Contact info (Step 3 for non-'other', Step 4 for 'other')
       if (!quizData.fullName || quizData.fullName.trim().length < 2) {
         newErrors.fullName = 'Please enter your full name';
       }
