@@ -284,7 +284,7 @@ export default function LandingPagesClient({
           <div className="space-y-4 py-4">
             {/* Name */}
             <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
+              <Label htmlFor="name" className="mb-2">Name *</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -296,7 +296,7 @@ export default function LandingPagesClient({
 
             {/* Path */}
             <div className="space-y-2">
-              <Label htmlFor="path">Path *</Label>
+              <Label htmlFor="path" className="mb-2">Path *</Label>
               <Input
                 id="path"
                 value={formData.path}
@@ -311,7 +311,7 @@ export default function LandingPagesClient({
 
             {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description" className="mb-2">Description</Label>
               <Textarea
                 id="description"
                 value={formData.description}

@@ -193,7 +193,7 @@ function ContactPageContent() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Name *</Label>
+                  <Label htmlFor="name" className="mb-2">Name *</Label>
                   <Input
                     id="name"
                     value={formData.name}
@@ -204,7 +204,7 @@ function ContactPageContent() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email" className="mb-2">Email *</Label>
                   <Input
                     id="email"
                     type="email"
@@ -217,7 +217,7 @@ function ContactPageContent() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone (Optional)</Label>
+                <Label htmlFor="phone" className="mb-2">Phone (Optional)</Label>
                 <Input
                   id="phone"
                   type="tel"
@@ -228,7 +228,7 @@ function ContactPageContent() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="subject">Subject *</Label>
+                <Label htmlFor="subject" className="mb-2">Subject *</Label>
                 <Select value={formData.subject} onValueChange={(value) => handleChange('subject', value)}>
                   <SelectTrigger id="subject">
                     <SelectValue placeholder="Select a topic..." />
@@ -244,7 +244,7 @@ function ContactPageContent() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="message">Message *</Label>
+                <Label htmlFor="message" className="mb-2">Message *</Label>
                 <Textarea
                   id="message"
                   value={formData.message}

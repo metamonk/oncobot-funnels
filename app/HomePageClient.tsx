@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -22,36 +24,100 @@ import {
 import { HomepageTracker } from '@/components/home/HomepageTracker';
 import { CancerTypeCardButton } from '@/components/home/CancerTypeCard';
 import { SiteMembershipButton } from '@/components/home/SiteMembershipButton';
+import type { Indication } from '@/lib/db/schema';
 
 interface HomePageClientProps {
   trialCounts?: Record<string, string>;
+  featuredIndications?: Pick<Indication, 'id' | 'name' | 'slug' | 'heroHeadline' | 'heroSubheadline'>[];
 }
 
-export default function HomePageClient({ trialCounts = {} }: HomePageClientProps) {
+export default function HomePageClient({
+  trialCounts = {},
+  featuredIndications = []
+}: HomePageClientProps) {
 
-  const patientIndications = [
-    {
-      id: 'lung',
-      name: 'Lung Cancer',
-      description: 'NSCLC, SCLC, and mesothelioma',
-      count: trialCounts.lung || '500+ open trials', // Use dynamic count with fallback
-      icon: Activity
-    },
-    {
-      id: 'prostate',
-      name: 'Prostate Cancer',
-      description: 'Localized and metastatic',
-      count: trialCounts.prostate || '300+ open trials', // Use dynamic count with fallback
-      icon: Target
-    },
-    {
-      id: 'gi',
-      name: 'GI Cancers',
-      description: 'Colorectal, pancreatic, liver',
-      count: trialCounts.gi || '400+ open trials', // Use dynamic count with fallback
-      icon: Heart
-    }
-  ];
+  // Map featured indications to display format, fallback to defaults if none from DB
+  const patientIndications = featuredIndications.length > 0
+    ? featuredIndications.map(indication => {
+        // Map indication slug to icon
+        const getIcon = () => {
+          switch (indication.slug) {
+            case 'lung-cancer':
+              return Activity;
+            case 'prostate-cancer':
+              return Target;
+            case 'gi-cancer':
+            case 'colorectal-cancer':
+              return Heart;
+            default:
+              return Activity;
+          }
+        };
+
+        // Get description based on indication
+        const getDescription = () => {
+          switch (indication.slug) {
+            case 'lung-cancer':
+              return 'NSCLC, SCLC, and mesothelioma';
+            case 'prostate-cancer':
+              return 'Localized and metastatic';
+            case 'gi-cancer':
+              return 'Colorectal, pancreatic, liver';
+            case 'colorectal-cancer':
+              return 'Stage I-IV colorectal cancer';
+            case 'breast-cancer':
+              return 'All subtypes and stages';
+            default:
+              return 'Multiple treatment options available';
+          }
+        };
+
+        // Get trial count for the indication
+        const getTrialCount = () => {
+          const slug = indication.slug.replace('-cancer', '').replace('-', '_');
+          return trialCounts[slug] || '300+ open trials';
+        };
+
+        return {
+          id: indication.slug,
+          name: indication.name,
+          description: getDescription(),
+          count: getTrialCount(),
+          icon: getIcon(),
+          heroHeadline: indication.heroHeadline,
+          heroSubheadline: indication.heroSubheadline
+        };
+      })
+    : [
+        // Fallback defaults if no featured indications in database
+        {
+          id: 'lung-cancer',
+          name: 'Lung Cancer',
+          description: 'NSCLC, SCLC, and mesothelioma',
+          count: trialCounts.lung || '500+ open trials',
+          icon: Activity,
+          heroHeadline: null,
+          heroSubheadline: null
+        },
+        {
+          id: 'prostate-cancer',
+          name: 'Prostate Cancer',
+          description: 'Localized and metastatic',
+          count: trialCounts.prostate || '300+ open trials',
+          icon: Target,
+          heroHeadline: null,
+          heroSubheadline: null
+        },
+        {
+          id: 'gi-cancer',
+          name: 'GI Cancers',
+          description: 'Colorectal, pancreatic, liver',
+          count: trialCounts.gi || '400+ open trials',
+          icon: Heart,
+          heroHeadline: null,
+          heroSubheadline: null
+        }
+      ];
 
   const siteFeatures = [
     {
@@ -170,7 +236,7 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
 
           <div className="mt-8 text-center">
             <p className="text-sm text-muted-foreground">
-              More cancer types? <Link href="/eligibility/other" className="text-primary hover:underline">Check eligibility for other cancers</Link>
+              More cancer types? <Link href="/other" className="text-primary hover:underline">Check eligibility for other cancers</Link>
             </p>
           </div>
         </div>
@@ -350,7 +416,7 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild size="lg" className="text-lg px-8">
-                <Link href="/eligibility/lung">
+                <Link href="/lung-cancer">
                   Start Patient Matching
                   <Search className="ml-2 h-5 w-5" />
                 </Link>
@@ -376,9 +442,9 @@ export default function HomePageClient({ trialCounts = {} }: HomePageClientProps
             <div>
               <h3 className="font-semibold mb-4">For Patients</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="/eligibility/lung" className="hover:text-foreground">Lung Cancer Trials</Link></li>
-                <li><Link href="/eligibility/prostate" className="hover:text-foreground">Prostate Cancer Trials</Link></li>
-                <li><Link href="/eligibility/gi" className="hover:text-foreground">GI Cancer Trials</Link></li>
+                <li><Link href="/lung-cancer" className="hover:text-foreground">Lung Cancer Trials</Link></li>
+                <li><Link href="/prostate-cancer" className="hover:text-foreground">Prostate Cancer Trials</Link></li>
+                <li><Link href="/gi-cancer" className="hover:text-foreground">GI Cancer Trials</Link></li>
               </ul>
             </div>
             <div>

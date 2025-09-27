@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, varchar, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, varchar, integer, json } from 'drizzle-orm/pg-core';
 import { generateId } from 'ai';
 import { InferSelectModel } from 'drizzle-orm';
 
@@ -76,6 +76,20 @@ export const indications = pgTable('indications', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   isActive: boolean('isActive').notNull().default(true),
+  isFeatured: boolean('isFeatured').notNull().default(false),
+  heroHeadline: text('heroHeadline'),
+  heroSubheadline: text('heroSubheadline'),
+
+  // Supporting text rotation (for hero section)
+  supportingText: json('supportingText').$type<string[]>(),
+
+  // Value propositions
+  valueProps: json('valueProps').$type<string[]>(),
+
+  // CTA configuration
+  ctaPrimaryText: text('ctaPrimaryText'),
+  ctaSecondaryText: text('ctaSecondaryText'),
+
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 });
 
@@ -83,6 +97,8 @@ export const landingPages = pgTable('landing_pages', {
   id: text('id').primaryKey().$defaultFn(() => generateId()),
   name: text('name').notNull(),
   path: text('path').notNull(),
+  slug: varchar('slug', { length: 100 }).unique(),
+  indicationId: text('indicationId').references(() => indications.id, { onDelete: 'set null' }),
   description: text('description'),
   isActive: boolean('isActive').notNull().default(true),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
@@ -111,6 +127,79 @@ export const adHeadlines = pgTable('ad_headlines', {
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });
 
+// Ad campaigns table (Performance Max structure)
+export const adCampaigns = pgTable('ad_campaigns', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  name: varchar('name', { length: 100 }).notNull(),
+  indicationId: text('indicationId').references(() => indications.id, { onDelete: 'set null' }),
+  status: varchar('status', { length: 20 }).notNull().default('draft'),
+  utmCampaign: varchar('utmCampaign', { length: 100 }),
+
+  // Performance Max campaign settings
+  campaignType: varchar('campaignType', { length: 50 }).notNull().default('performance_max'),
+  budget: integer('budget'), // Daily budget in cents
+  targetRoas: integer('targetRoas'), // Target ROAS percentage (e.g., 400 = 400%)
+
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+// Asset Groups table (replaces individual ads)
+export const assetGroups = pgTable('asset_groups', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  campaignId: text('campaignId').notNull().references(() => adCampaigns.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+
+  // Asset group theme and targeting
+  theme: varchar('theme', { length: 100 }), // e.g., 'Eligibility', 'Benefits', 'Urgency'
+  audienceSignal: json('audienceSignal').$type<{
+    keywords?: string[];
+    demographics?: {
+      ageRange?: string;
+      gender?: string;
+      location?: string[];
+    };
+    interests?: string[];
+  }>(),
+
+  // Final URL (can have multiple in real Performance Max, simplified to one)
+  landingPageId: text('landingPageId').references(() => landingPages.id, { onDelete: 'set null' }),
+  finalUrl: text('finalUrl'),
+
+  isActive: boolean('isActive').notNull().default(true),
+
+  // Performance metrics
+  impressions: integer('impressions').notNull().default(0),
+  clicks: integer('clicks').notNull().default(0),
+  conversions: integer('conversions').notNull().default(0),
+  cost: integer('cost').notNull().default(0), // In cents
+
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+// Asset Group Assets table (links assets to groups)
+export const assetGroupAssets = pgTable('asset_group_assets', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  assetGroupId: text('assetGroupId').notNull().references(() => assetGroups.id, { onDelete: 'cascade' }),
+
+  // Asset type and reference
+  assetType: varchar('assetType', { length: 50 }).notNull(), // 'headline', 'long_headline', 'description', 'image', 'logo', 'video'
+  assetId: text('assetId'), // References appropriate table based on type
+
+  // For text assets, we can store directly
+  textContent: text('textContent'),
+
+  // Asset performance
+  performanceRating: varchar('performanceRating', { length: 20 }), // 'learning', 'low', 'good', 'best'
+  impressions: integer('impressions').notNull().default(0),
+
+  isActive: boolean('isActive').notNull().default(true),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+});
+
+// Note: ads table has been removed in favor of assetGroups and assetGroupAssets
+
 export type User = InferSelectModel<typeof user>;
 export type Session = InferSelectModel<typeof session>;
 export type Account = InferSelectModel<typeof account>;
@@ -119,4 +208,7 @@ export type MembershipBooking = InferSelectModel<typeof membershipBookings>;
 export type Indication = InferSelectModel<typeof indications>;
 export type LandingPage = InferSelectModel<typeof landingPages>;
 export type AdHeadline = InferSelectModel<typeof adHeadlines>;
+export type AdCampaign = InferSelectModel<typeof adCampaigns>;
+export type AssetGroup = InferSelectModel<typeof assetGroups>;
+export type AssetGroupAsset = InferSelectModel<typeof assetGroupAssets>;
 

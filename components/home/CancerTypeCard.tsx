@@ -14,7 +14,7 @@ export function CancerTypeCardButton({ indicationId }: CancerTypeCardButtonProps
 
   return (
     <Link
-      href={`/eligibility/${indicationId}`}
+      href={`/${indicationId}`}
       onClick={() => track('patient_funnel_start', { indication: indicationId })}
     >
       <Button className="w-full">

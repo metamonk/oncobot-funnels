@@ -128,7 +128,7 @@ async function main() {
   console.log('   - First Name: Patient');
   console.log('   - Last Name: Lung');
   console.log('\n✅ If names appear correctly, the fix is working!');
-  console.log('\n🌐 Access the form at: http://localhost:3001/eligibility/lung/quiz');
+  console.log('\n🌐 Access the form at: http://localhost:3001/quiz/lung-cancer');
   console.log('   Navigate to Step 3 to see the Full Name field');
 }
 

@@ -443,7 +443,7 @@ export default function HeadlinesClient({
           <div className="grid gap-4 py-4">
             {/* Indication */}
             <div className="space-y-2">
-              <Label htmlFor="indication">Indication *</Label>
+              <Label htmlFor="indication" className="mb-2">Indication *</Label>
               <Select
                 value={formData.indicationId}
                 onValueChange={(value) => setFormData({ ...formData, indicationId: value })}
@@ -470,7 +470,7 @@ export default function HeadlinesClient({
             {/* Headline */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <Label htmlFor="headline">Headline *</Label>
+                <Label htmlFor="headline" className="mb-2">Headline *</Label>
                 <span className={`text-xs ${formData.headline.length > 30 ? 'text-destructive' : 'text-muted-foreground'}`}>
                   {formData.headline.length}/30
                 </span>
@@ -487,7 +487,7 @@ export default function HeadlinesClient({
             {/* Long Headline */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <Label htmlFor="longHeadline">Long Headline *</Label>
+                <Label htmlFor="longHeadline" className="mb-2">Long Headline *</Label>
                 <span className={`text-xs ${formData.longHeadline.length > 90 ? 'text-destructive' : 'text-muted-foreground'}`}>
                   {formData.longHeadline.length}/90
                 </span>
@@ -505,7 +505,7 @@ export default function HeadlinesClient({
             {/* Description */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <Label htmlFor="description">Description *</Label>
+                <Label htmlFor="description" className="mb-2">Description *</Label>
                 <span className={`text-xs ${formData.description.length > 90 ? 'text-destructive' : 'text-muted-foreground'}`}>
                   {formData.description.length}/90
                 </span>
@@ -522,7 +522,7 @@ export default function HeadlinesClient({
 
             {/* Landing Page */}
             <div className="space-y-2">
-              <Label htmlFor="landingPage">Landing Page *</Label>
+              <Label htmlFor="landingPage" className="mb-2">Landing Page *</Label>
               <Select
                 value={formData.landingPageId}
                 onValueChange={(value) => setFormData({ ...formData, landingPageId: value })}
@@ -542,7 +542,7 @@ export default function HeadlinesClient({
 
             {/* Category */}
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category" className="mb-2">Category</Label>
               <Select
                 value={formData.category}
                 onValueChange={(value) => setFormData({ ...formData, category: value })}

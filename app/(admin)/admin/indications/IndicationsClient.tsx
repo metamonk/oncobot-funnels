@@ -279,7 +279,7 @@ export default function IndicationsClient({
           <div className="space-y-4 py-4">
             {/* Name */}
             <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
+              <Label htmlFor="name" className="mb-2">Name *</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -297,7 +297,7 @@ export default function IndicationsClient({
 
             {/* Slug */}
             <div className="space-y-2">
-              <Label htmlFor="slug">Slug *</Label>
+              <Label htmlFor="slug" className="mb-2">Slug *</Label>
               <Input
                 id="slug"
                 value={formData.slug}

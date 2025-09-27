@@ -1,78 +1,91 @@
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Plus, TrendingUp, DollarSign, Target } from 'lucide-react';
-import Link from 'next/link';
+import { db } from '@/lib/db/drizzle';
+import { adCampaigns, assetGroups, assetGroupAssets, adHeadlines, indications, landingPages } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
+import AdsClient from './AdsClient';
 
-export default function AdsPage() {
+async function getCampaigns() {
+  const campaignResults = await db
+    .select()
+    .from(adCampaigns)
+    .leftJoin(indications, eq(adCampaigns.indicationId, indications.id))
+    .orderBy(adCampaigns.createdAt);
+
+  // Transform and fetch asset groups for each campaign
+  const campaignsWithAssetGroups = await Promise.all(
+    campaignResults.map(async (row) => {
+      const campaign = {
+        ...row.ad_campaigns,
+        indication: row.indications || null,
+      };
+
+      // Fetch asset groups for this campaign
+      const assetGroupResults = await db
+        .select()
+        .from(assetGroups)
+        .where(eq(assetGroups.campaignId, campaign.id));
+
+      // Fetch assets for each asset group
+      const assetGroupsWithAssets = await Promise.all(
+        assetGroupResults.map(async (assetGroup) => {
+          const assets = await db
+            .select()
+            .from(assetGroupAssets)
+            .where(eq(assetGroupAssets.assetGroupId, assetGroup.id))
+            .leftJoin(adHeadlines, eq(assetGroupAssets.assetId, adHeadlines.id));
+
+          const processedAssets = assets.map(asset => ({
+            id: asset.asset_group_assets.id,
+            assetType: asset.asset_group_assets.assetType,
+            textContent: asset.asset_group_assets.textContent,
+            assetId: asset.asset_group_assets.assetId,
+            headline: asset.ad_headlines || undefined,
+            performanceRating: asset.asset_group_assets.performanceRating,
+            impressions: asset.asset_group_assets.impressions,
+          }));
+
+          return {
+            ...assetGroup,
+            assets: processedAssets,
+          };
+        })
+      );
+
+      return {
+        ...campaign,
+        assetGroups: assetGroupsWithAssets,
+      };
+    })
+  );
+
+  return campaignsWithAssetGroups;
+}
+
+async function getStats() {
+  const allCampaigns = await db.select().from(adCampaigns);
+  const allAssetGroups = await db.select().from(assetGroups);
+
+  return {
+    totalCampaigns: allCampaigns.length,
+    activeCampaigns: allCampaigns.filter(c => c.status === 'active').length,
+    totalAssetGroups: allAssetGroups.length,
+    activeAssetGroups: allAssetGroups.filter(ag => ag.isActive).length,
+  };
+}
+
+export default async function AdsPage() {
+  const campaigns = await getCampaigns();
+  const stats = await getStats();
+  const allIndications = await db.select().from(indications).orderBy(indications.name);
+  const allLandingPages = await db.select().from(landingPages).orderBy(landingPages.name);
+  const allHeadlines = await db.select().from(adHeadlines).orderBy(adHeadlines.headline);
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Ad Campaigns</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage your advertising campaigns and creatives
-          </p>
-        </div>
-        <Link href="/admin/ads/new">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            New Campaign
-          </Button>
-        </Link>
-      </div>
-
-      {/* Campaign Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Active Campaigns</p>
-              <p className="text-2xl font-bold">0</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-              <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Spend</p>
-              <p className="text-2xl font-bold">$0</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-              <Target className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Conversions</p>
-              <p className="text-2xl font-bold">0</p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Campaigns list */}
-      <Card className="p-6">
-        <div className="text-center py-12">
-          <h3 className="text-lg font-semibold mb-2">No campaigns yet</h3>
-          <p className="text-muted-foreground mb-4">
-            Create your first ad campaign to start driving traffic
-          </p>
-          <Link href="/admin/ads/new">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Campaign
-            </Button>
-          </Link>
-        </div>
-      </Card>
-    </div>
+    <AdsClient
+      initialCampaigns={campaigns}
+      indications={allIndications}
+      landingPages={allLandingPages}
+      headlines={allHeadlines}
+      stats={stats}
+    />
   );
 }

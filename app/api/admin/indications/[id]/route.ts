@@ -6,9 +6,10 @@ import { eq } from 'drizzle-orm';
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUserWithRole();
 
     if (!user || user.role !== 'admin') {
@@ -26,7 +27,7 @@ export async function PATCH(
         .where(eq(indications.slug, slug))
         .limit(1);
 
-      if (existing.length > 0 && existing[0].id !== params.id) {
+      if (existing.length > 0 && existing[0].id !== id) {
         return NextResponse.json({ error: 'Slug already exists' }, { status: 400 });
       }
     }
@@ -39,7 +40,7 @@ export async function PATCH(
     const updated = await db
       .update(indications)
       .set(updateData)
-      .where(eq(indications.id, params.id))
+      .where(eq(indications.id, id))
       .returning();
 
     if (!updated.length) {
@@ -55,9 +56,10 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUserWithRole();
 
     if (!user || user.role !== 'admin') {
@@ -68,7 +70,7 @@ export async function DELETE(
     const headlines = await db
       .select()
       .from(adHeadlines)
-      .where(eq(adHeadlines.indicationId, params.id))
+      .where(eq(adHeadlines.indicationId, id))
       .limit(1);
 
     if (headlines.length > 0) {
@@ -80,7 +82,7 @@ export async function DELETE(
 
     const deleted = await db
       .delete(indications)
-      .where(eq(indications.id, params.id))
+      .where(eq(indications.id, id))
       .returning();
 
     if (!deleted.length) {

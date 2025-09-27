@@ -6,9 +6,10 @@ import { eq } from 'drizzle-orm';
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUserWithRole();
 
     if (!user || user.role !== 'admin') {
@@ -26,7 +27,7 @@ export async function PATCH(
         .where(eq(landingPages.path, path))
         .limit(1);
 
-      if (existing.length > 0 && existing[0].id !== params.id) {
+      if (existing.length > 0 && existing[0].id !== id) {
         return NextResponse.json({ error: 'Path already exists' }, { status: 400 });
       }
     }
@@ -40,7 +41,7 @@ export async function PATCH(
     const updated = await db
       .update(landingPages)
       .set(updateData)
-      .where(eq(landingPages.id, params.id))
+      .where(eq(landingPages.id, id))
       .returning();
 
     if (!updated.length) {
@@ -56,9 +57,10 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUserWithRole();
 
     if (!user || user.role !== 'admin') {
@@ -69,7 +71,7 @@ export async function DELETE(
     const headlines = await db
       .select()
       .from(adHeadlines)
-      .where(eq(adHeadlines.landingPageId, params.id))
+      .where(eq(adHeadlines.landingPageId, id))
       .limit(1);
 
     if (headlines.length > 0) {
@@ -81,7 +83,7 @@ export async function DELETE(
 
     const deleted = await db
       .delete(landingPages)
-      .where(eq(landingPages.id, params.id))
+      .where(eq(landingPages.id, id))
       .returning();
 
     if (!deleted.length) {

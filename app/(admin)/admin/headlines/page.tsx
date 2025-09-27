@@ -4,41 +4,19 @@ import { eq } from 'drizzle-orm';
 import HeadlinesClient from './HeadlinesClient';
 
 async function getHeadlines() {
-  const headlines = await db
-    .select({
-      id: adHeadlines.id,
-      headline: adHeadlines.headline,
-      longHeadline: adHeadlines.longHeadline,
-      description: adHeadlines.description,
-      isActive: adHeadlines.isActive,
-      category: adHeadlines.category,
-      clicks: adHeadlines.clicks,
-      conversions: adHeadlines.conversions,
-      impressions: adHeadlines.impressions,
-      indicationId: adHeadlines.indicationId,
-      landingPageId: adHeadlines.landingPageId,
-      createdAt: adHeadlines.createdAt,
-      updatedAt: adHeadlines.updatedAt,
-      indication: {
-        id: indications.id,
-        name: indications.name,
-        slug: indications.slug,
-        isActive: indications.isActive,
-        createdAt: indications.createdAt,
-      },
-      landingPage: {
-        id: landingPages.id,
-        name: landingPages.name,
-        path: landingPages.path,
-        description: landingPages.description,
-        isActive: landingPages.isActive,
-        createdAt: landingPages.createdAt,
-      },
-    })
+  const results = await db
+    .select()
     .from(adHeadlines)
     .leftJoin(indications, eq(adHeadlines.indicationId, indications.id))
     .leftJoin(landingPages, eq(adHeadlines.landingPageId, landingPages.id))
     .orderBy(adHeadlines.createdAt);
+
+  // Transform the results to match the expected interface
+  const headlines = results.map(row => ({
+    ...row.ad_headlines,
+    indication: row.indications || null,
+    landingPage: row.landing_pages || null,
+  }));
 
   return headlines;
 }

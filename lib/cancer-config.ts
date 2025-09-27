@@ -18,149 +18,184 @@ export interface CancerTypeConfig {
 // Common cancer types ordered by prevalence in clinical trials
 export const commonCancerTypes = [
   // Top 3 (have dedicated pages)
-  { label: 'Lung Cancer', value: 'lung' },
-  { label: 'Prostate Cancer', value: 'prostate' },
-  { label: 'GI/Colorectal Cancer', value: 'gi' },
+  { label: 'Lung Cancer', value: 'lung-cancer' },
+  { label: 'Prostate Cancer', value: 'prostate-cancer' },
+  { label: 'GI/Colorectal Cancer', value: 'gi-cancer' },
 
   // Other common cancers in clinical trials
-  { label: 'Breast Cancer', value: 'breast' },
+  { label: 'Breast Cancer', value: 'breast-cancer' },
   { label: 'Melanoma', value: 'melanoma' },
-  { label: 'Kidney Cancer', value: 'kidney' },
-  { label: 'Bladder Cancer', value: 'bladder' },
-  { label: 'Liver Cancer', value: 'liver' },
-  { label: 'Pancreatic Cancer', value: 'pancreatic' },
-  { label: 'Ovarian Cancer', value: 'ovarian' },
+  { label: 'Kidney Cancer', value: 'kidney-cancer' },
+  { label: 'Bladder Cancer', value: 'bladder-cancer' },
+  { label: 'Liver Cancer', value: 'liver-cancer' },
+  { label: 'Pancreatic Cancer', value: 'pancreatic-cancer' },
+  { label: 'Ovarian Cancer', value: 'ovarian-cancer' },
   { label: 'Lymphoma', value: 'lymphoma' },
   { label: 'Leukemia', value: 'leukemia' },
-  { label: 'Brain Cancer', value: 'brain' },
-  { label: 'Head and Neck Cancer', value: 'head_neck' },
-  { label: 'Multiple Myeloma', value: 'myeloma' },
-  { label: 'Thyroid Cancer', value: 'thyroid' },
-  { label: 'Cervical Cancer', value: 'cervical' },
-  { label: 'Stomach Cancer', value: 'stomach' },
-  { label: 'Esophageal Cancer', value: 'esophageal' },
+  { label: 'Brain Cancer', value: 'brain-cancer' },
+  { label: 'Head and Neck Cancer', value: 'head-neck-cancer' },
+  { label: 'Multiple Myeloma', value: 'multiple-myeloma' },
+  { label: 'Thyroid Cancer', value: 'thyroid-cancer' },
+  { label: 'Cervical Cancer', value: 'cervical-cancer' },
+  { label: 'Stomach Cancer', value: 'stomach-cancer' },
+  { label: 'Esophageal Cancer', value: 'esophageal-cancer' },
   { label: 'Sarcoma', value: 'sarcoma' },
-  { label: 'Other - Not Listed', value: 'other_unlisted' },
+  { label: 'Other - Not Listed', value: 'other' },
 ];
 
 // Comprehensive cancer configuration
 export const cancerConfig: Record<string, CancerTypeConfig> = {
-  lung: {
+  'lung-cancer': {
     name: 'Lung Cancer',
-    value: 'lung',
+    value: 'lung-cancer',
     stageOptions: ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'EGFR', 'ALK', 'ROS1', 'KRAS', 'PD-L1 positive', 'BRAF', 'MET', 'RET', 'HER2'],
     trialCounts: { nationwide: 347, regional: 82, nearby: 23 }
   },
-  prostate: {
+  'prostate-cancer': {
     name: 'Prostate Cancer',
-    value: 'prostate',
+    value: 'prostate-cancer',
     stageOptions: ['Localized', 'Regional', 'Metastatic', 'Castration-Resistant', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'BRCA1/2', 'ATM', 'MSI-High', 'PTEN', 'AR-V7', 'PSMA positive'],
     trialCounts: { nationwide: 218, regional: 56, nearby: 14 }
   },
-  gi: {
+  'gi-cancer': {
     name: 'GI/Colorectal Cancer',
-    value: 'gi',
+    value: 'gi-cancer',
     stageOptions: ['Early Stage', 'Locally Advanced', 'Metastatic', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'MSI-High', 'HER2', 'KRAS', 'BRAF', 'NRAS', 'PIK3CA'],
     trialCounts: { nationwide: 189, regional: 41, nearby: 9 }
   },
-  breast: {
+  'colorectal-cancer': {
+    name: 'Colorectal Cancer',
+    value: 'colorectal-cancer',
+    stageOptions: ['Early Stage', 'Locally Advanced', 'Metastatic', 'Not sure'],
+    biomarkerOptions: ['None/Unknown', 'MSI-High', 'HER2', 'KRAS', 'BRAF', 'NRAS', 'PIK3CA'],
+    trialCounts: { nationwide: 189, regional: 41, nearby: 9 }
+  },
+  'breast-cancer': {
     name: 'Breast Cancer',
-    value: 'breast',
+    value: 'breast-cancer',
     stageOptions: ['Stage 0 (DCIS)', 'Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'ER+', 'PR+', 'HER2+', 'Triple Negative', 'BRCA1/2', 'PIK3CA'],
     trialCounts: { nationwide: 412, regional: 95, nearby: 28 }
   },
-  melanoma: {
+  'melanoma': {
     name: 'Melanoma',
     value: 'melanoma',
     stageOptions: ['Stage 0', 'Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'BRAF V600', 'NRAS', 'c-KIT', 'NF1', 'Triple Wild-Type'],
     trialCounts: { nationwide: 156, regional: 38, nearby: 11 }
   },
-  kidney: {
+  'kidney-cancer': {
     name: 'Kidney Cancer',
-    value: 'kidney',
+    value: 'kidney-cancer',
     stageOptions: ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'VHL', 'MET', 'FH', 'SDHB', 'BAP1'],
     trialCounts: { nationwide: 124, regional: 31, nearby: 8 }
   },
-  bladder: {
+  'bladder-cancer': {
     name: 'Bladder Cancer',
-    value: 'bladder',
+    value: 'bladder-cancer',
     stageOptions: ['Non-Muscle Invasive', 'Muscle Invasive', 'Metastatic', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'FGFR3', 'PD-L1 positive', 'ERBB2', 'TMB-High'],
     trialCounts: { nationwide: 98, regional: 24, nearby: 6 }
   },
-  liver: {
+  'liver-cancer': {
     name: 'Liver Cancer',
-    value: 'liver',
+    value: 'liver-cancer',
     stageOptions: ['Stage A', 'Stage B', 'Stage C', 'Stage D', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'HBV positive', 'HCV positive', 'AFP elevated'],
     trialCounts: { nationwide: 87, regional: 21, nearby: 5 }
   },
-  pancreatic: {
+  'pancreatic-cancer': {
     name: 'Pancreatic Cancer',
-    value: 'pancreatic',
+    value: 'pancreatic-cancer',
     stageOptions: ['Resectable', 'Borderline Resectable', 'Locally Advanced', 'Metastatic', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'BRCA1/2', 'KRAS', 'PALB2', 'MSI-High'],
     trialCounts: { nationwide: 143, regional: 34, nearby: 9 }
   },
-  ovarian: {
+  'ovarian-cancer': {
     name: 'Ovarian Cancer',
-    value: 'ovarian',
+    value: 'ovarian-cancer',
     stageOptions: ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'BRCA1/2', 'HRD positive', 'Platinum sensitive', 'Platinum resistant'],
     trialCounts: { nationwide: 108, regional: 26, nearby: 7 }
   },
-  lymphoma: {
+  'lymphoma': {
     name: 'Lymphoma',
     value: 'lymphoma',
     stageOptions: ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'CD20+', 'CD30+', 'BCL2+', 'MYC+'],
     trialCounts: { nationwide: 234, regional: 55, nearby: 15 }
   },
-  leukemia: {
+  'leukemia': {
     name: 'Leukemia',
     value: 'leukemia',
     stageOptions: ['Chronic Phase', 'Accelerated Phase', 'Blast Phase', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'Philadelphia+', 'FLT3+', 'NPM1+', 'IDH1/2+'],
     trialCounts: { nationwide: 198, regional: 47, nearby: 12 }
   },
-  brain: {
+  'brain-cancer': {
     name: 'Brain Cancer',
-    value: 'brain',
+    value: 'brain-cancer',
     stageOptions: ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'IDH mutant', 'MGMT methylated', '1p/19q co-deleted', 'BRAF V600'],
     trialCounts: { nationwide: 112, regional: 27, nearby: 7 }
   },
-  head_neck: {
+  'head-neck-cancer': {
     name: 'Head and Neck Cancer',
-    value: 'head_neck',
+    value: 'head-neck-cancer',
     stageOptions: ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'HPV positive', 'p16 positive', 'PD-L1 positive'],
     trialCounts: { nationwide: 76, regional: 18, nearby: 5 }
   },
-  myeloma: {
+  'multiple-myeloma': {
     name: 'Multiple Myeloma',
-    value: 'myeloma',
+    value: 'multiple-myeloma',
     stageOptions: ['Smoldering', 'Stage 1', 'Stage 2', 'Stage 3', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 't(11;14)', 't(4;14)', 'del(17p)', '1q gain'],
     trialCounts: { nationwide: 167, regional: 40, nearby: 10 }
+  },
+  'thyroid-cancer': {
+    name: 'Thyroid Cancer',
+    value: 'thyroid-cancer',
+    stageOptions: ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Not sure'],
+    biomarkerOptions: ['None/Unknown', 'BRAF V600E', 'RET/PTC', 'RAS', 'PAX8/PPARG'],
+    trialCounts: { nationwide: 65, regional: 15, nearby: 4 }
+  },
+  'cervical-cancer': {
+    name: 'Cervical Cancer',
+    value: 'cervical-cancer',
+    stageOptions: ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Not sure'],
+    biomarkerOptions: ['None/Unknown', 'HPV positive', 'PD-L1 positive', 'PIK3CA'],
+    trialCounts: { nationwide: 78, regional: 18, nearby: 5 }
+  },
+  'stomach-cancer': {
+    name: 'Stomach Cancer',
+    value: 'stomach-cancer',
+    stageOptions: ['Early Stage', 'Locally Advanced', 'Metastatic', 'Not sure'],
+    biomarkerOptions: ['None/Unknown', 'HER2+', 'MSI-High', 'PD-L1 positive', 'FGFR2'],
+    trialCounts: { nationwide: 92, regional: 22, nearby: 6 }
+  },
+  'esophageal-cancer': {
+    name: 'Esophageal Cancer',
+    value: 'esophageal-cancer',
+    stageOptions: ['Early Stage', 'Locally Advanced', 'Metastatic', 'Not sure'],
+    biomarkerOptions: ['None/Unknown', 'HER2+', 'MSI-High', 'PD-L1 positive'],
+    trialCounts: { nationwide: 84, regional: 20, nearby: 5 }
+  },
+  'sarcoma': {
+    name: 'Sarcoma',
+    value: 'sarcoma',
+    stageOptions: ['Localized', 'Locally Advanced', 'Metastatic', 'Not sure'],
+    biomarkerOptions: ['None/Unknown', 'MDM2', 'CDK4', 'NTRK fusion', 'BRAF'],
+    trialCounts: { nationwide: 112, regional: 27, nearby: 7 }
   },
   // Default configuration for other/unknown cancer types
   other: {
     name: 'Other Cancer',
     value: 'other',
-    stageOptions: ['Early Stage', 'Locally Advanced', 'Metastatic', 'Not sure'],
-    biomarkerOptions: ['None/Unknown', 'MSI-High', 'TMB-High', 'PD-L1 positive', 'HER2+', 'BRCA1/2', 'Other targetable mutation'],
-    trialCounts: { nationwide: 95, regional: 22, nearby: 6 }
-  },
-  other_unlisted: {
-    name: 'Other Cancer',
-    value: 'other_unlisted',
     stageOptions: ['Early Stage', 'Locally Advanced', 'Metastatic', 'Not sure'],
     biomarkerOptions: ['None/Unknown', 'MSI-High', 'TMB-High', 'PD-L1 positive', 'HER2+', 'BRCA1/2', 'Other targetable mutation'],
     trialCounts: { nationwide: 95, regional: 22, nearby: 6 }
@@ -174,15 +209,15 @@ export function getCancerConfig(cancerType: string): CancerTypeConfig {
 
 // Treatment history options (common across all cancer types)
 export const treatmentOptions = [
-  'No prior treatment',
-  'Chemotherapy',
-  'Immunotherapy',
-  'Targeted therapy',
-  'Radiation therapy',
-  'Surgery only',
-  'Multiple treatments',
-  'Clinical trial',
-  'Other treatment'
+  { label: 'No prior treatment', value: 'no_prior_treatment' },
+  { label: 'Chemotherapy', value: 'chemotherapy' },
+  { label: 'Immunotherapy', value: 'immunotherapy' },
+  { label: 'Targeted therapy', value: 'targeted_therapy' },
+  { label: 'Radiation therapy', value: 'radiation_therapy' },
+  { label: 'Surgery only', value: 'surgery_only' },
+  { label: 'Multiple treatments', value: 'multiple_treatments' },
+  { label: 'Clinical trial', value: 'clinical_trial' },
+  { label: 'Other treatment', value: 'other_treatment' }
 ];
 
 // Helper to adjust trial counts based on ZIP code
