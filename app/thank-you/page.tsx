@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
 import { motion } from 'framer-motion';
-import Link from 'next/link';
 import { verifyQuizCompletion, clearQuizCompletion } from '@/lib/tracking/conversion-tracker';
 
 function ThankYouContent() {

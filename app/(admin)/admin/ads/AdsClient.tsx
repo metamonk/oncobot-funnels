@@ -544,7 +544,7 @@ export default function AdsClient({
                                 name: assetGroup.name,
                                 theme: assetGroup.theme || '',
                                 landingPageId: assetGroup.landingPageId || '',
-                                selectedHeadlines: assetGroup.assets?.filter(a => a.assetType === 'headline').map(a => a.assetId).filter(Boolean) || [],
+                                selectedHeadlines: assetGroup.assets?.filter(a => a.assetType === 'headline').map(a => a.assetId).filter((id): id is string => id !== null && id !== undefined) || [],
                                 keywords: assetGroup.audienceSignal?.keywords?.join(', ') || '',
                                 ageRange: assetGroup.audienceSignal?.demographics?.ageRange || '',
                                 gender: assetGroup.audienceSignal?.demographics?.gender || '',
