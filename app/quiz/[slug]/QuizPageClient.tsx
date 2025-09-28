@@ -656,31 +656,13 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
                           )}
                         />
                         <Label htmlFor="consent" className="text-sm text-gray-600 font-normal leading-relaxed cursor-pointer">
-                          I consent to be contacted about clinical trial opportunities and understand that my information will be kept confidential
+                          By submitting, you agree to our Privacy Policy and consent to be contacted
                         </Label>
                       </div>
                       {errors.consent && <p className="text-sm text-red-500 mt-1 ml-6">{errors.consent}</p>}
                     </div>
                   </div>
 
-                  {/* Matching preview */}
-                  <div className="bg-primary/5 rounded-lg p-5 mt-6">
-                    <p className="text-sm font-semibold text-gray-700 mb-3">Based on your information, we found:</p>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-primary">{cancerConfig.trialCounts.nearby}</p>
-                        <p className="text-xs text-gray-600 mt-1">Nearby</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-primary">{cancerConfig.trialCounts.regional}</p>
-                        <p className="text-xs text-gray-600 mt-1">Regional</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-primary">{cancerConfig.trialCounts.nationwide}</p>
-                        <p className="text-xs text-gray-600 mt-1">Nationwide</p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
             </motion.div>
