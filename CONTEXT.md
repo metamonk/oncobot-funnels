@@ -1,14 +1,39 @@
-  28 | import { verifyQuizCompletion, clearQuizCompletion } from '@/lib/tracking/conversion-tracker';
-  29 |
-  30 | function ThankYouContent() {
-the name `Link` is defined multiple times
-./app/thank-you/page.tsx:27:8
-Ecmascript file had an error
-  25 | import { useUnifiedAnalytics } from '@/hooks/use-unified-analytics';
-  26 | import { motion } from 'framer-motion';
-> 27 | import Link from 'next/link';
-     |        ^^^^
-  28 | import { verifyQuizCompletion, clearQuizCompletion } from '@/lib/tracking/conversion-tracker';
-  29 |
-  30 | function ThankYouContent() {
-the name `Link` is defined multiple times
+[ERROR] [Contact/Form] Contact form submission error Error [ZodError]: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "name"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "subject"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "message"
+    ],
+    "message": "Required"
+  }
+]
+    at get error (.next/server/chunks/1531f_zod_v3_external_62acceaf.js:1:14024)
+    at er.parse (.next/server/chunks/1531f_zod_v3_external_62acceaf.js:1:15213)
+    at C (.next/server/chunks/91ce0_next_dist_esm_build_templates_app-route_f8302cca.js:1:1276)
+    at async c (.next/server/chunks/91ce0_next_dist_esm_build_templates_app-route_f8302cca.js:184:4419)
+    at async s (.next/server/chunks/91ce0_next_dist_esm_build_templates_app-route_f8302cca.js:184:5451)
+    at async F (.next/server/chunks/91ce0_next_dist_esm_build_templates_app-route_f8302cca.js:184:6584) {
+  issues: [Array],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)]
+}

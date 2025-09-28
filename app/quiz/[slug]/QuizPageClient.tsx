@@ -246,8 +246,8 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
         }
       };
 
-      // Submit to API (using the contact endpoint for now)
-      const response = await fetch('/api/contact', {
+      // Submit to dedicated quiz API endpoint
+      const response = await fetch('/api/quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData)

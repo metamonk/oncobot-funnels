@@ -97,7 +97,37 @@ export class VercelAnalyticsProvider implements AnalyticsProvider {
   }
 
   private formatProperties(event: AnalyticsEvent): Record<string, any> {
-    const properties: Record<string, any> = { ...event.properties };
+    const properties: Record<string, any> = {};
+
+    // Flatten nested properties for Vercel Analytics compatibility
+    const flattenProperties = (obj: any, prefix = ''): void => {
+      Object.keys(obj).forEach(key => {
+        const value = obj[key];
+        const newKey = prefix ? `${prefix}_${key}` : key;
+
+        if (value === null || value === undefined) {
+          // Skip null/undefined values
+          return;
+        } else if (typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+          // Recursively flatten nested objects
+          flattenProperties(value, newKey);
+        } else if (Array.isArray(value)) {
+          // Convert arrays to comma-separated strings
+          properties[newKey] = value.join(',');
+        } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+          // Keep primitive values as-is
+          properties[newKey] = value;
+        } else if (value instanceof Date) {
+          // Convert dates to ISO strings
+          properties[newKey] = value.toISOString();
+        }
+      });
+    };
+
+    // Flatten the event properties
+    if (event.properties) {
+      flattenProperties(event.properties);
+    }
 
     // Add category if present
     if (event.category) {

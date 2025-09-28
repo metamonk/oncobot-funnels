@@ -8,13 +8,34 @@ const logger = new Logger('Contact/Form');
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY || '');
 
-// Validation schema for contact form
+// Validation schema for standard contact form (from /contact page)
 const contactFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Valid email is required'),
   phone: z.string().optional(),
   subject: z.string().min(1, 'Subject is required'),
   message: z.string().min(1, 'Message is required')
+});
+
+// Validation schema for indication contact form (from /[slug] pages)
+const indicationContactSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Valid email is required'),
+  phone: z.string().optional(),
+  cancerType: z.string().optional(),
+  stage: z.string().optional(),
+  previousTreatments: z.string().optional(),
+  additionalInfo: z.string().optional(),
+  indicationId: z.string().optional(),
+  landingPageSlug: z.string().optional(),
+  headlineId: z.string().optional(),
+  utmParams: z.object({
+    utm_source: z.string().optional(),
+    utm_medium: z.string().optional(),
+    utm_campaign: z.string().optional(),
+    utm_term: z.string().optional(),
+    utm_content: z.string().optional()
+  }).optional()
 });
 
 // GoHighLevel V2 configuration
@@ -73,8 +94,46 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate input
-    const validatedData = contactFormSchema.parse(body);
+    // Log the incoming request body for debugging
+    logger.info('Contact form submission received', {
+      hasName: 'name' in body,
+      hasEmail: 'email' in body,
+      hasSubject: 'subject' in body,
+      hasMessage: 'message' in body,
+      hasCancerType: 'cancerType' in body,
+      hasIndicationId: 'indicationId' in body,
+      fields: Object.keys(body)
+    });
+
+    // Determine which form type this is and validate accordingly
+    let validatedData: any;
+    let isIndicationForm = false;
+
+    // Check if this is an indication form (has cancerType or indicationId)
+    if ('cancerType' in body || 'indicationId' in body) {
+      // This is from the indication contact form
+      isIndicationForm = true;
+      const indicationData = indicationContactSchema.parse(body);
+
+      // Transform to standard format for processing
+      validatedData = {
+        name: indicationData.name,
+        email: indicationData.email,
+        phone: indicationData.phone,
+        subject: 'trial-questions', // Default subject for indication forms
+        message: `Cancer Type: ${indicationData.cancerType || 'Not specified'}
+Stage: ${indicationData.stage || 'Not specified'}
+Previous Treatments: ${indicationData.previousTreatments || 'None'}
+Additional Info: ${indicationData.additionalInfo || 'None'}
+
+Source: ${indicationData.landingPageSlug || 'Unknown landing page'}`,
+        // Store additional data for later use
+        _indicationData: indicationData
+      };
+    } else {
+      // This is from the standard contact form
+      validatedData = contactFormSchema.parse(body);
+    }
 
     // Parse name for CRM
     const nameParts = validatedData.name.split(' ');
@@ -231,7 +290,14 @@ This is an automated response. A member of our team will follow up with you pers
           customFields: [
             { key: 'contact_subject', value: subjectCategory },
             { key: 'contact_message', value: validatedData.message },
-            { key: 'contact_priority', value: priority }
+            { key: 'contact_priority', value: priority },
+            // Add indication-specific fields if this is from an indication form
+            ...(isIndicationForm && validatedData._indicationData ? [
+              { key: 'cancer_type', value: validatedData._indicationData.cancerType || '' },
+              { key: 'stage', value: validatedData._indicationData.stage || '' },
+              { key: 'previous_treatments', value: validatedData._indicationData.previousTreatments || '' },
+              { key: 'indication_slug', value: validatedData._indicationData.landingPageSlug || '' }
+            ] : [])
           ],
           source: 'Contact Form'
         })
@@ -688,10 +754,11 @@ ${validatedData.message}`,
     logger.error('Contact form submission error', error);
 
     if (error instanceof z.ZodError) {
+      logger.error('Validation errors:', error.errors);
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid form data',
+          error: 'Invalid form data. Please check all required fields are filled.',
           details: error.errors
         },
         { status: 400 }
