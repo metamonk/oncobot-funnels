@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { Resend } from 'resend';
 import { Logger } from '@/lib/logger';
-import { trackConversion } from '@/lib/tracking/conversion-tracker';
 
 const logger = new Logger('Quiz/Submission');
 
@@ -101,10 +100,10 @@ export async function POST(request: NextRequest) {
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    // Track conversion
+    // Conversion tracking happens on the client side (in QuizPageClient.tsx)
+    // Server-side just logs the gclid for debugging
     if (validatedData.gclid) {
-      await trackConversion(validatedData.gclid, 'quiz_submission');
-      logger.info('Conversion tracked', { gclid: validatedData.gclid });
+      logger.info('Quiz submission with gclid', { gclid: validatedData.gclid });
     }
 
     // Send notification email
