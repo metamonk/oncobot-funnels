@@ -663,6 +663,21 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
                     </div>
                   </div>
 
+                  {/* Privacy & Trust Card */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-6">
+                    <div className="flex items-start space-x-3">
+                      <Shield className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-green-900 mb-1">
+                          Your Privacy is Protected
+                        </p>
+                        <p className="text-sm text-green-700">
+                          We&apos;ll match you with relevant clinical trials and have a coordinator contact you within 24-48 hours. Your information is HIPAA-protected and never shared without your consent.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               )}
             </motion.div>
