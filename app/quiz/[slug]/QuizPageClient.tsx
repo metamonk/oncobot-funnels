@@ -173,7 +173,7 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
         newErrors.phone = 'Please enter a valid phone number';
       }
       if (!quizData.consent) {
-        newErrors.consent = 'Please consent to be contacted';
+        newErrors.consent = 'Please agree to share your information with trial coordinators';
       }
     }
 
@@ -644,37 +644,35 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
                       </Select>
                     </div>
 
-                    <div className="pt-2">
-                      <div className="flex items-start space-x-2.5">
+                    {/* Combined Consent & Privacy Section */}
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-5 mt-4">
+                      <div className="flex items-start space-x-3 mb-3">
+                        <Shield className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-green-900 mb-1">
+                            Your Privacy is Protected
+                          </p>
+                          <p className="text-sm text-green-700">
+                            Your information is HIPAA-protected. We&apos;ll match you with relevant trials and share your information with qualified clinical trial coordinators who will contact you within 24-48 hours.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start space-x-2.5 pl-8">
                         <Checkbox
                           id="consent"
                           checked={quizData.consent}
                           onCheckedChange={(checked) => setQuizData({ ...quizData, consent: !!checked })}
                           className={cn(
                             "mt-0.5",
-                            errors.consent ? 'border-red-500' : 'border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary'
+                            errors.consent ? 'border-red-500' : 'border-green-600 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600'
                           )}
                         />
-                        <Label htmlFor="consent" className="text-sm text-gray-600 font-normal leading-relaxed cursor-pointer">
-                          By submitting, you agree to our Privacy Policy and consent to be contacted
+                        <Label htmlFor="consent" className="text-sm text-green-800 font-normal leading-relaxed cursor-pointer">
+                          I consent to share my information with clinical trial coordinators and to be contacted about matching trials. I agree to the Privacy Policy.
                         </Label>
                       </div>
-                      {errors.consent && <p className="text-sm text-red-500 mt-1 ml-6">{errors.consent}</p>}
-                    </div>
-                  </div>
-
-                  {/* Privacy & Trust Card */}
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-6">
-                    <div className="flex items-start space-x-3">
-                      <Shield className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-green-900 mb-1">
-                          Your Privacy is Protected
-                        </p>
-                        <p className="text-sm text-green-700">
-                          We&apos;ll match you with relevant clinical trials and have a coordinator contact you within 24-48 hours. Your information is HIPAA-protected and never shared without your consent.
-                        </p>
-                      </div>
+                      {errors.consent && <p className="text-sm text-red-600 mt-2 pl-8 ml-6">{errors.consent}</p>}
                     </div>
                   </div>
 
