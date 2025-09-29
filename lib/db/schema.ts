@@ -200,6 +200,57 @@ export const assetGroupAssets = pgTable('asset_group_assets', {
 
 // Note: ads table has been removed in favor of assetGroups and assetGroupAssets
 
+// Quiz submissions table - minimal storage for local analytics and automation
+export const quizSubmissions = pgTable('quiz_submissions', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+
+  // Contact identification
+  email: text('email').notNull(), // Indexed for quick lookups
+  fullName: text('fullName').notNull(),
+  phone: text('phone'),
+
+  // Core quiz data
+  cancerType: text('cancerType').notNull(),
+  indication: text('indication'), // lung, breast, prostate, etc.
+  indicationName: text('indicationName'), // Human-readable name
+  stage: text('stage').notNull(),
+  zipCode: text('zipCode').notNull(),
+
+  // Additional medical information
+  biomarkers: text('biomarkers'), // Store as text, parse as needed
+  priorTherapy: text('priorTherapy'),
+  forWhom: text('forWhom'), // self, relative, friend, caregiver
+
+  // Consent and preferences
+  hasConsent: boolean('hasConsent').notNull().default(true),
+  preferredTime: text('preferredTime'),
+
+  // CRM sync tracking
+  ghlContactId: text('ghlContactId'), // GoHighLevel contact ID
+  ghlOpportunityId: text('ghlOpportunityId'), // GoHighLevel opportunity ID
+  syncedToCrm: boolean('syncedToCrm').notNull().default(false),
+  syncError: text('syncError'), // Store any sync error messages
+  syncedAt: timestamp('syncedAt'),
+
+  // Tracking metadata
+  sessionId: text('sessionId'),
+  landingPageId: text('landingPageId'),
+  quizVersion: integer('quizVersion').notNull().default(1),
+
+  // UTM parameters for attribution
+  utmSource: text('utmSource'),
+  utmMedium: text('utmMedium'),
+  utmCampaign: text('utmCampaign'),
+  utmTerm: text('utmTerm'),
+  utmContent: text('utmContent'),
+  gclid: text('gclid'), // Google Click ID for conversion tracking
+
+  // Timestamps
+  completedAt: timestamp('completedAt').notNull().defaultNow(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
 export type User = InferSelectModel<typeof user>;
 export type Session = InferSelectModel<typeof session>;
 export type Account = InferSelectModel<typeof account>;
@@ -211,4 +262,5 @@ export type AdHeadline = InferSelectModel<typeof adHeadlines>;
 export type AdCampaign = InferSelectModel<typeof adCampaigns>;
 export type AssetGroup = InferSelectModel<typeof assetGroups>;
 export type AssetGroupAsset = InferSelectModel<typeof assetGroupAssets>;
+export type QuizSubmission = InferSelectModel<typeof quizSubmissions>;
 

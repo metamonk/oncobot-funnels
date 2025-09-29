@@ -85,7 +85,6 @@ submission_preferred_time // Contact preference
 treatment_status         // "Experienced" or "Naive"
 biomarker_status        // "Positive", "Negative", "Unknown"
 stage_category          // "Early", "Locally Advanced", "Advanced"
-priority_score          // "0-100" calculated score
 
 // Marketing Attribution Snapshot
 utm_source              // Campaign source
@@ -96,31 +95,6 @@ utm_term                // Search keyword
 ```
 
 **Note**: Opportunities do NOT support tags in GoHighLevel API v2
-
-## Priority Score Algorithm
-
-The priority score (0-100) helps identify high-value leads:
-
-```javascript
-Base Score: 50 points
-
-Stage Bonus:
-- Stage IV:  +20 points (urgent need)
-- Stage III: +15 points (actively treating)
-- Stage II:  +10 points (early intervention)
-- Stage I:   +5 points  (preventive)
-
-Biomarker Bonus:
-- Has biomarkers: +15 points (better trial matching)
-
-Treatment History:
-- Prior therapy: +10 points (experienced patients)
-
-Engagement:
-- For relative/caregiver: +5 points (often more engaged)
-
-Final Score: 0-100 (capped)
-```
 
 ## Why Duplicate Data in Both Contacts and Opportunities?
 
@@ -192,7 +166,6 @@ If migrating from tags-only to custom fields:
 
 ### Key Metrics to Track:
 - Submission to opportunity conversion rate
-- Priority score distribution
 - Biomarker positive rate
 - Stage distribution over time
 - UTM attribution effectiveness
@@ -200,7 +173,6 @@ If migrating from tags-only to custom fields:
 ### Regular Maintenance:
 - Verify custom field keys match GoHighLevel configuration
 - Monitor API error rates for field mismatches
-- Review priority score algorithm quarterly
 - Archive old opportunities after trial completion
 
 ## Conclusion

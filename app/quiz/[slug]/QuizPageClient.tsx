@@ -25,6 +25,7 @@ import {
 } from '@/lib/quiz-persistence';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { fireQuizConversionEvents } from '@/lib/tracking/conversion-tracker';
 import type { Indication, LandingPage } from '@/lib/db/schema';
 
 interface QuizPageClientProps {
@@ -256,6 +257,19 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
       if (!response.ok) {
         throw new Error('Failed to submit quiz');
       }
+
+      // Fire conversion events for Google Ads, GA4, Meta, etc.
+      await fireQuizConversionEvents({
+        email: submitData.email,
+        phone: submitData.phone,
+        fullName: submitData.fullName,
+        zipCode: submitData.zipCode,
+        indication: submitData.indication,
+        cancerType: submitData.cancerType,
+        stage: submitData.stage,
+        biomarkers: submitData.biomarkers,
+        priorTherapy: submitData.priorTherapy,
+      });
 
       // Track completion
       trackQuizComplete(indication.slug, quizData);
