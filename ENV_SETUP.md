@@ -45,10 +45,19 @@ XAI_API_KEY=           # xAI Grok API key
 
 #### Conversion Tracking
 ```bash
-NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID=  # Google Ads conversion tracking
-NEXT_PUBLIC_GOOGLE_ANALYTICS_ID=       # Google Analytics ID
-NEXT_PUBLIC_FACEBOOK_PIXEL_ID=         # Facebook Pixel for retargeting
+# Google Ads - IMPORTANT: Include both account ID and conversion label
+NEXT_PUBLIC_GOOGLE_ADS_ID=AW-XXXXXXXXXX                    # Google Ads account ID
+NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID=AW-XXXXXXXXXX/YYYYYY  # Full conversion ID with label
+
+# Google Analytics
+NEXT_PUBLIC_GOOGLE_ANALYTICS_ID=G-XXXXXXXXXX               # GA4 measurement ID
+
+# Meta/Facebook
+NEXT_PUBLIC_FACEBOOK_PIXEL_ID=XXXXXXXXXXXXXXX              # Facebook Pixel ID
+META_ACCESS_TOKEN=                                         # Meta Conversions API token
 ```
+
+**Note**: For Google Ads enhanced conversions setup, see [docs/GOOGLE_ADS_SETUP.md](./docs/GOOGLE_ADS_SETUP.md)
 
 #### Application URLs
 ```bash

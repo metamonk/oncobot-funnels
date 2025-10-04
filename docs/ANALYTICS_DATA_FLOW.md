@@ -11,11 +11,13 @@ Comprehensive mapping of the entire analytics stack showing how data flows from 
 - **Implementation**: gtag.js loaded in layout.tsx
 - **Key Events**: Page views, custom events, enhanced conversions
 
-### 2. **Google Ads Conversion Tracking**
-- **Status**: ✅ Fixed - Was missing, now integrated
-- **Purpose**: Track ad conversions, ROAS, campaign performance
-- **Implementation**: gtag conversion events
-- **Key Events**: Quiz submissions, lead captures
+### 2. **Google Ads Conversion Tracking with Enhanced Conversions**
+- **Status**: ✅ Fully Configured with Enhanced Conversions
+- **Purpose**: Track ad conversions, ROAS, campaign performance with enhanced matching
+- **Implementation**: gtag conversion events with user-provided data
+- **Key Events**: Quiz submissions with email, phone, name, address data
+- **Enhancement**: User data hashed and sent for 70-90% match rate (vs 40-60% without)
+- **Documentation**: See [GOOGLE_ADS_SETUP.md](./GOOGLE_ADS_SETUP.md) for complete setup guide
 
 ### 3. **Plausible Analytics**
 - **Status**: ✅ Configured and active

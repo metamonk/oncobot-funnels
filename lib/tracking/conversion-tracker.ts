@@ -42,18 +42,64 @@ export async function fireQuizConversionEvents(data: ConversionData) {
 
   try {
     // ============================================================
-    // 1. GOOGLE ADS CONVERSION
-    // Direct gtag implementation for maximum control
+    // 1. GOOGLE ADS CONVERSION WITH ENHANCED CONVERSIONS
+    // Implements Google Ads enhanced conversions as per:
+    // https://support.google.com/google-ads/answer/13262500
     // ============================================================
     if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', 'conversion', {
-        'send_to': process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID || process.env.NEXT_PUBLIC_GOOGLE_ADS_ID,
+      const gtag = (window as any).gtag;
+
+      // Step 1: Set enhanced conversion data (user-provided data)
+      // This is critical for Google Ads to properly attribute conversions
+      const enhancedConversionData: any = {};
+
+      if (data.email) {
+        enhancedConversionData.email = data.email;
+      }
+
+      if (data.phone) {
+        // Remove all non-numeric characters for Google
+        enhancedConversionData.phone_number = data.phone.replace(/\D/g, '');
+      }
+
+      if (data.fullName) {
+        const nameParts = data.fullName.split(' ');
+        enhancedConversionData.first_name = nameParts[0];
+        if (nameParts.length > 1) {
+          enhancedConversionData.last_name = nameParts.slice(1).join(' ');
+        }
+      }
+
+      if (data.zipCode) {
+        enhancedConversionData.address = {
+          postal_code: data.zipCode,
+          country: 'US' // Assuming US-based trials
+        };
+      }
+
+      // Step 2: Set the enhanced conversion data globally
+      // This must be done BEFORE the conversion event
+      gtag('set', 'user_data', enhancedConversionData);
+
+      // Step 3: Fire the conversion event
+      // Format: AW-CONVERSION_ID/CONVERSION_LABEL
+      const conversionId = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID;
+
+      gtag('event', 'conversion', {
+        'send_to': conversionId,
         'value': conversionValue,
         'currency': 'USD',
         'transaction_id': transactionId,
       });
 
-      console.log('[Google Ads] Conversion fired', { transactionId });
+      console.log('[Google Ads] Enhanced conversion fired', {
+        transactionId,
+        hasEmail: !!data.email,
+        hasPhone: !!data.phone,
+        hasName: !!data.fullName,
+        hasZip: !!data.zipCode,
+        conversionId
+      });
     }
 
     // ============================================================

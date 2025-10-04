@@ -25,7 +25,11 @@ export default function GoogleAds() {
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', '${googleAdsId}');
+
+            // Configure Google Ads with enhanced conversions enabled
+            gtag('config', '${googleAdsId}', {
+              'allow_enhanced_conversions': true
+            });
           `,
         }}
       />
