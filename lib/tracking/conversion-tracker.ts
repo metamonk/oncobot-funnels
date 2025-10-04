@@ -40,6 +40,12 @@ export async function fireQuizConversionEvents(data: ConversionData) {
   const conversionValue = 100; // $100 per lead
   const transactionId = Date.now().toString(); // Dedupe across platforms
 
+  console.log('[Conversion Tracker] Starting conversion tracking...', {
+    hasData: !!data,
+    hasEmail: !!data.email,
+    hasPhone: !!data.phone,
+  });
+
   try {
     // ============================================================
     // 1. GOOGLE ADS CONVERSION WITH ENHANCED CONVERSIONS
@@ -85,21 +91,30 @@ export async function fireQuizConversionEvents(data: ConversionData) {
       // Format: AW-CONVERSION_ID/CONVERSION_LABEL
       const conversionId = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID;
 
-      gtag('event', 'conversion', {
-        'send_to': conversionId,
-        'value': conversionValue,
-        'currency': 'USD',
-        'transaction_id': transactionId,
-      });
+      if (!conversionId) {
+        console.error('[Google Ads] ❌ CONVERSION ID NOT SET!');
+        console.error('NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID is not configured.');
+        console.error('Set this in Vercel environment variables and redeploy.');
+      } else {
+        gtag('event', 'conversion', {
+          'send_to': conversionId,
+          'value': conversionValue,
+          'currency': 'USD',
+          'transaction_id': transactionId,
+        });
 
-      console.log('[Google Ads] Enhanced conversion fired', {
-        transactionId,
-        hasEmail: !!data.email,
-        hasPhone: !!data.phone,
-        hasName: !!data.fullName,
-        hasZip: !!data.zipCode,
-        conversionId
-      });
+        console.log('[Google Ads] ✅ Enhanced conversion fired', {
+          transactionId,
+          hasEmail: !!data.email,
+          hasPhone: !!data.phone,
+          hasName: !!data.fullName,
+          hasZip: !!data.zipCode,
+          conversionId
+        });
+      }
+    } else {
+      console.error('[Google Ads] ❌ gtag not loaded!');
+      console.error('window.gtag is not available. Check if Google Ads script loaded.');
     }
 
     // ============================================================
@@ -178,9 +193,11 @@ export async function fireQuizConversionEvents(data: ConversionData) {
       }));
     }
 
+    console.log('[Conversion Tracker] ✅ All conversion events completed');
     return true;
   } catch (error) {
-    console.error('Error firing conversion events:', error);
+    console.error('[Conversion Tracker] ❌ Error firing conversion events:', error);
+    console.error('Error details:', error);
     // Don't throw - we still want navigation to continue
     return false;
   }
