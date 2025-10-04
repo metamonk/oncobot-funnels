@@ -40,9 +40,11 @@ This meant conversions were not being properly tracked because:
 - **Attribution model**: `Data-driven` (or `Last click` if data-driven not available)
 
 **Enhanced Conversions Settings:**
-- ✅ **Enable enhanced conversions for leads** (CRITICAL!)
+- ✅ **CHECK THE BOX: "Turn on enhanced conversions for leads"** (CRITICAL - MUST BE CHECKED!)
 - Method: **Google tag (recommended)**
 - Data collection: **Automatic** + **Manual (in-page code)**
+
+**⚠️ CRITICAL**: You MUST check the "Turn on enhanced conversions for leads" checkbox in the Google Ads interface. The code we implemented provides the user data, but Google Ads won't use it unless this setting is enabled!
 
 ### Step 3: Get Your Conversion IDs
 
@@ -56,7 +58,31 @@ Where:
 - `AW-XXXXXXXXXX` = Your Google Ads Account ID
 - `YYYYYYYYYYYY` = The specific conversion label
 
-### Step 4: Add to Environment Variables
+### Step 4: **ENABLE Enhanced Conversions in Google Ads Interface** 🚨
+
+**THIS IS THE CRITICAL STEP THAT'S OFTEN MISSED!**
+
+1. **Go to your conversion action** in Google Ads
+2. **Click the conversion name** to edit settings
+3. **Scroll to "Enhanced conversions for leads" section**
+4. **CHECK THE BOX** that says "Turn on enhanced conversions for leads"
+5. **Click "Save"**
+
+Without this checkbox enabled:
+- ❌ The user data we send from code will be ignored
+- ❌ Conversions will still use GCLID only (lower match rate)
+- ❌ You'll still see the warning about implementing in-page code
+- ❌ Match rates will remain at 40-60% instead of 70-90%
+
+With this checkbox enabled:
+- ✅ Google Ads will use the user data we send (email, phone, name, address)
+- ✅ Match rates improve to 70-90%
+- ✅ Better offline conversion tracking
+- ✅ Warning disappears
+
+**Screenshot reference**: The checkbox you showed is exactly what needs to be checked!
+
+### Step 5: Add to Environment Variables
 
 Update your `.env.local` file:
 
