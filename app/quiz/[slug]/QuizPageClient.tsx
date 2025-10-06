@@ -57,6 +57,12 @@ interface QuizData {
 }
 
 export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageClientProps) {
+  // DEPLOYMENT VERIFICATION - This should appear in console immediately when component loads
+  console.log('🔍 QuizPageClient LOADED - Deployment 710bab6', {
+    indication: indication.slug,
+    timestamp: new Date().toISOString()
+  });
+
   const router = useRouter();
   const {
     trackQuizStart,
@@ -745,7 +751,10 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
               </Button>
             ) : (
               <Button
-                onClick={handleSubmit}
+                onClick={() => {
+                  console.log('🖱️ SUBMIT BUTTON CLICKED - Event handler fired');
+                  handleSubmit();
+                }}
                 disabled={isSubmitting}
                 className="gap-2 bg-primary hover:bg-primary/90 text-white"
               >
