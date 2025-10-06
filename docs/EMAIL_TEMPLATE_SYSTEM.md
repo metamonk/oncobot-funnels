@@ -4,6 +4,8 @@
 
 Reusable React Email template system for GoHighLevel workflow automation. All emails share consistent branding, are type-safe, and can be exported as static HTML for copy-paste into GoHighLevel.
 
+**✨ Latest Update:** Email templates now include GoHighLevel-specific optimizations for better email client compatibility. See [EMAIL_GHL_OPTIMIZATIONS.md](EMAIL_GHL_OPTIMIZATIONS.md) for details.
+
 ---
 
 ## Quick Start
@@ -534,10 +536,54 @@ pnpm lint
 
 ---
 
+## Email Client Compatibility
+
+### ✅ Fully Supported Email Clients
+
+Our templates include **GoHighLevel-specific optimizations** for maximum compatibility:
+
+- **Outlook 2007-2019** (Windows Desktop) - MSO conditional comments applied
+- **Outlook 365** (Windows, Mac) - Office document settings optimized
+- **Gmail** (Web, iOS, Android) - Mobile responsiveness tested
+- **Apple Mail** (macOS, iOS) - Text sizing and reformatting prevented
+- **Yahoo Mail** - Table rendering optimized
+- **Outlook.com** (Web) - All MSO fixes compatible
+
+### 🔧 Optimizations Applied
+
+Our templates include these GoHighLevel best practices:
+
+1. **MSO Namespaces** - Outlook compatibility namespaces in HTML tag
+2. **Global Email Resets** - Consistent rendering across all clients
+3. **Outlook-Specific Styles** - Conditional comments for Outlook-only fixes
+4. **Office Document Settings** - PNG support and DPI configuration
+5. **Mobile Media Queries** - Responsive design for mobile devices
+6. **Button Rendering Fixes** - MSO spacing for proper Outlook button alignment
+
+**For complete technical details**, see [EMAIL_GHL_OPTIMIZATIONS.md](EMAIL_GHL_OPTIMIZATIONS.md)
+
+### 📧 Testing Recommendations
+
+Before deploying to production:
+
+- ✅ Test in Outlook Desktop (2016+)
+- ✅ Test in Gmail Web and Mobile
+- ✅ Test in Apple Mail (macOS and iOS)
+- ✅ Verify dark mode compatibility
+- ✅ Check spam scores with [Mailtrap](https://mailtrap.io/)
+
+**Testing Tools:**
+- [Litmus](https://litmus.com/) - Preview across 90+ email clients
+- [Email on Acid](https://www.emailonacid.com/) - Automated testing
+- [GoHighLevel Preview](https://app.gohighlevel.com/) - Native preview
+
+---
+
 ## Support
 
 **Questions?**
 - Review this documentation first
+- Check [EMAIL_GHL_OPTIMIZATIONS.md](EMAIL_GHL_OPTIMIZATIONS.md) for technical details
 - Check exports/emails/ for HTML output
 - Run `pnpm email:dev` to preview templates
 - Contact dev team with specific issues
