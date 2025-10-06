@@ -80,63 +80,70 @@ export const EmailLayout = ({
       <Preview>{preview}</Preview>
       <Body style={styles.main}>
         <Container style={styles.container}>
-          <Section style={styles.box}>
-            {/* Logo Header */}
-            {showLogo && (
-              <div style={styles.logoContainer}>
-                {/* OncoBot Logo - 3x3 grid pattern */}
-                <table style={styles.logoTable} cellPadding="0" cellSpacing="0">
-                  <tbody>
-                    <tr>
-                      <td style={styles.logoCell}></td>
-                      <td style={styles.logoCellFilled}></td>
-                      <td style={styles.logoCell}></td>
-                    </tr>
-                    <tr>
-                      <td style={styles.logoCellFilled}></td>
-                      <td style={styles.logoCell}></td>
-                      <td style={styles.logoCellFilled}></td>
-                    </tr>
-                    <tr>
-                      <td style={styles.logoCell}></td>
-                      <td style={styles.logoCellFilled}></td>
-                      <td style={styles.logoCell}></td>
-                    </tr>
-                  </tbody>
-                </table>
-                <Heading style={styles.logoText}>OncoBot</Heading>
-              </div>
-            )}
+          {/* Apply padding via td wrapper for better email client support */}
+          <table align="center" width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
+            <tbody>
+              <tr>
+                <td style={styles.box}>
+                  {/* Logo Header */}
+                  {showLogo && (
+                    <div style={styles.logoContainer}>
+                      {/* OncoBot Logo - 3x3 grid pattern */}
+                      <table style={styles.logoTable} cellPadding="0" cellSpacing="0">
+                        <tbody>
+                          <tr>
+                            <td style={styles.logoCell}></td>
+                            <td style={styles.logoCellFilled}></td>
+                            <td style={styles.logoCell}></td>
+                          </tr>
+                          <tr>
+                            <td style={styles.logoCellFilled}></td>
+                            <td style={styles.logoCell}></td>
+                            <td style={styles.logoCellFilled}></td>
+                          </tr>
+                          <tr>
+                            <td style={styles.logoCell}></td>
+                            <td style={styles.logoCellFilled}></td>
+                            <td style={styles.logoCell}></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <Heading style={styles.logoText}>OncoBot</Heading>
+                    </div>
+                  )}
 
-            <Hr style={styles.divider} />
+                  <Hr style={styles.divider} />
 
-            {/* Main Content */}
-            {children}
+                  {/* Main Content */}
+                  {children}
 
-            {/* Footer */}
-            <Hr style={styles.divider} />
-            {footer ? (
-              footer
-            ) : (
-              <>
-                <Text style={styles.footer}>
-                  OncoBot Clinical Trials
-                  <br />
-                  Helping patients find clinical trial opportunities
-                </Text>
-                <Text style={styles.footer}>
-                  Questions? Reply to this email or contact us at{' '}
-                  <a href="mailto:support@onco.bot" style={styles.link}>
-                    support@onco.bot
-                  </a>
-                </Text>
-                <Text style={styles.footerSmall}>
-                  This email was sent to {'{{contact.email}}'} because you completed a
-                  clinical trial eligibility quiz on our website.
-                </Text>
-              </>
-            )}
-          </Section>
+                  {/* Footer */}
+                  <Hr style={styles.divider} />
+                  {footer ? (
+                    footer
+                  ) : (
+                    <>
+                      <Text style={styles.footer}>
+                        OncoBot Clinical Trials
+                        <br />
+                        Helping patients find clinical trial opportunities
+                      </Text>
+                      <Text style={styles.footer}>
+                        Questions? Reply to this email or contact us at{' '}
+                        <a href="mailto:support@onco.bot" style={styles.link}>
+                          support@onco.bot
+                        </a>
+                      </Text>
+                      <Text style={styles.footerSmall}>
+                        This email was sent to {'{{contact.email}}'} because you completed a
+                        clinical trial eligibility quiz on our website.
+                      </Text>
+                    </>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </Container>
       </Body>
     </Html>
