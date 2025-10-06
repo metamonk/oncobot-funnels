@@ -70,7 +70,7 @@ Here's what happens next:
 📅 Preferred contact time you selected: {{custom_field.preferred_contact_time}}
 
 Questions while you wait?
-Reply to this email or contact support@onco.bot or call us at (555) 123-4567
+Reply to this email or call us at (555) 123-4567
 
 Thank you for taking this important step,
 The OncoBot Team
