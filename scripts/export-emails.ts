@@ -17,6 +17,7 @@ import React from 'react';
 
 // Import all email templates
 import ConfirmationEmail from '../lib/email/templates/workflows/1-confirmation';
+import InternalNotificationEmail from '../lib/email/templates/workflows/2-internal-notification';
 
 /**
  * Template registry
@@ -30,14 +31,13 @@ const templates = [
     stage: 'Stage 1.1',
     description: 'Sent immediately after quiz submission',
   },
-  // Add more templates as they're created:
-  // {
-  //   id: '2-internal-notification',
-  //   name: 'Internal Team Notification',
-  //   component: InternalNotificationEmail,
-  //   stage: 'Stage 1.2',
-  //   description: 'Alert team of new lead',
-  // },
+  {
+    id: '2-internal-notification',
+    name: 'Internal Team Notification',
+    component: InternalNotificationEmail,
+    stage: 'Stage 1.2',
+    description: 'Alert team of new lead',
+  },
 ];
 
 /**
