@@ -18,6 +18,7 @@ import React from 'react';
 // Import all email templates
 import ConfirmationEmail from '../lib/email/templates/workflows/1-confirmation';
 import InternalNotificationEmail from '../lib/email/templates/workflows/2-internal-notification';
+import PatientResultsEmail from '../lib/email/templates/workflows/3-patient-results';
 
 /**
  * Template registry
@@ -37,6 +38,13 @@ const templates = [
     component: InternalNotificationEmail,
     stage: 'Stage 1.2',
     description: 'Alert team of new lead',
+  },
+  {
+    id: '3-patient-results',
+    name: 'Patient Results Email',
+    component: PatientResultsEmail,
+    stage: 'Stage 2.1',
+    description: 'Personalized trial matches',
   },
 ];
 
