@@ -35,7 +35,8 @@ export const EmailSection = ({
   align = 'left',
   spacing = 'md',
 }: EmailSectionProps) => {
-  const variantStyles = {
+  // Table styles (for background, border, margin)
+  const tableVariantStyles = {
     default: {
       backgroundColor: 'transparent',
       border: 'none',
@@ -46,12 +47,23 @@ export const EmailSection = ({
       border: `1px solid ${EMAIL_COLORS.border}`,
       borderRadius: EMAIL_RADIUS.lg,
       boxShadow: EMAIL_SHADOWS.sm,
-      padding: EMAIL_SPACING.lg,
     },
     highlight: {
       backgroundColor: EMAIL_COLORS.primaryLight + '15', // 15% opacity
       border: `1px solid ${EMAIL_COLORS.primary}40`, // 40% opacity
       borderRadius: EMAIL_RADIUS.md,
+    },
+  };
+
+  // TD styles (for padding - this is where padding actually works in emails)
+  const tdPaddingStyles = {
+    default: {
+      padding: 0,
+    },
+    card: {
+      padding: EMAIL_SPACING.lg,
+    },
+    highlight: {
       padding: EMAIL_SPACING.md,
       paddingLeft: EMAIL_SPACING.lg,
       paddingRight: EMAIL_SPACING.lg,
@@ -64,13 +76,28 @@ export const EmailSection = ({
     lg: { margin: `${EMAIL_SPACING.lg} 0` },
   };
 
-  const sectionStyle = {
+  const tableStyle = {
     textAlign: align,
-    ...variantStyles[variant],
+    ...tableVariantStyles[variant],
     ...spacingStyles[spacing],
   };
 
-  return <Section style={sectionStyle}>{children}</Section>;
+  const tdStyle = {
+    ...tdPaddingStyles[variant],
+  };
+
+  // Use native table structure for better email client compatibility
+  return (
+    <table align="center" width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" style={tableStyle}>
+      <tbody>
+        <tr>
+          <td style={tdStyle}>
+            {children}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  );
 };
 
 EmailSection.PreviewProps = {
