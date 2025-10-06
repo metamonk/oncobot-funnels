@@ -225,11 +225,18 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
   };
 
   const handleSubmit = async () => {
-    if (!validateStep()) return;
+    console.log('🚀 QUIZ SUBMIT STARTED - handleSubmit called');
 
+    if (!validateStep()) {
+      console.log('❌ Validation failed, returning early');
+      return;
+    }
+
+    console.log('✅ Validation passed, setting submitting state');
     setIsSubmitting(true);
     trackLeadFormStart(indication.slug);
 
+    console.log('📝 Preparing submission data...');
     try {
       // Prepare the data for submission
       const submitData = {
@@ -246,6 +253,8 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
           utm_content: utmParams.utm_content,
         }
       };
+
+      console.log('📤 Submitting to API endpoint /api/quiz...');
 
       // Submit to dedicated quiz API endpoint
       const response = await fetch('/api/quiz', {
