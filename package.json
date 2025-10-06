@@ -12,7 +12,9 @@
     "test:integration": "tsx scripts/test-clinical-trials-tool.ts",
     "test:scoring": "tsx scripts/test-clinical-trials-scoring.ts",
     "benchmark:clinical-trials": "tsx scripts/benchmark-clinical-trials.ts",
-    "seed:admin": "tsx lib/db/seed-admin.ts"
+    "seed:admin": "tsx lib/db/seed-admin.ts",
+    "email:export": "tsx scripts/export-emails.ts",
+    "email:dev": "email dev --dir lib/email/templates"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",
