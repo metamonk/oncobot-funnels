@@ -57,12 +57,6 @@ interface QuizData {
 }
 
 export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageClientProps) {
-  // DEPLOYMENT VERIFICATION - Use console.error to show in production (console.log is stripped)
-  console.error('🔍 QuizPageClient LOADED - Deployment f72bc44', {
-    indication: indication.slug,
-    timestamp: new Date().toISOString()
-  });
-
   const router = useRouter();
   const {
     trackQuizStart,
@@ -231,18 +225,13 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
   };
 
   const handleSubmit = async () => {
-    console.error('🚀 QUIZ SUBMIT STARTED - handleSubmit called');
-
     if (!validateStep()) {
-      console.error('❌ Validation failed, returning early');
       return;
     }
 
-    console.error('✅ Validation passed, setting submitting state');
     setIsSubmitting(true);
     trackLeadFormStart(indication.slug);
 
-    console.error('📝 Preparing submission data...');
     try {
       // Prepare the data for submission
       const submitData = {
@@ -260,8 +249,6 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
         }
       };
 
-      console.error('📤 Submitting to API endpoint /api/quiz...');
-
       // Submit to dedicated quiz API endpoint
       const response = await fetch('/api/quiz', {
         method: 'POST',
@@ -272,8 +259,6 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
       if (!response.ok) {
         throw new Error('Failed to submit quiz');
       }
-
-      console.error('🎯 Quiz API response successful - about to fire conversions...');
 
       // Fire conversion events for Google Ads, GA4, Meta, etc.
       try {
@@ -288,19 +273,14 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
           biomarkers: submitData.biomarkers,
           priorTherapy: submitData.priorTherapy,
         });
-        console.error('✅ Conversion function returned successfully');
       } catch (conversionError) {
         console.error('❌ Error in fireQuizConversionEvents:', conversionError);
         // Don't throw - continue with submission
       }
 
-      console.error('📊 About to fire analytics tracking...');
-
       // Track completion
       trackQuizComplete(indication.slug, quizData);
       trackLeadFormSubmit(submitData);
-
-      console.error('🚀 Redirecting to thank-you page...');
 
       // Clear saved progress
       clearQuizProgress();
@@ -751,10 +731,7 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
               </Button>
             ) : (
               <Button
-                onClick={() => {
-                  console.error('🖱️ SUBMIT BUTTON CLICKED - Event handler fired');
-                  handleSubmit();
-                }}
+                onClick={handleSubmit}
                 disabled={isSubmitting}
                 className="gap-2 bg-primary hover:bg-primary/90 text-white"
               >

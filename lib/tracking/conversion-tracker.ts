@@ -40,13 +40,6 @@ export async function fireQuizConversionEvents(data: ConversionData) {
   const conversionValue = 100; // $100 per lead
   const transactionId = Date.now().toString(); // Dedupe across platforms
 
-  // Use console.error so it shows in production (console.log is stripped by Next.js)
-  console.error('[Conversion Tracker] Starting conversion tracking...', {
-    hasData: !!data,
-    hasEmail: !!data.email,
-    hasPhone: !!data.phone,
-  });
-
   try {
     // ============================================================
     // 1. GOOGLE ADS CONVERSION WITH ENHANCED CONVERSIONS
@@ -102,16 +95,6 @@ export async function fireQuizConversionEvents(data: ConversionData) {
           'value': conversionValue,
           'currency': 'USD',
           'transaction_id': transactionId,
-        });
-
-        // Use console.error so it shows in production (console.log is stripped)
-        console.error('[Google Ads] ✅ Enhanced conversion fired', {
-          transactionId,
-          hasEmail: !!data.email,
-          hasPhone: !!data.phone,
-          hasName: !!data.fullName,
-          hasZip: !!data.zipCode,
-          conversionId
         });
       }
     } else {
@@ -195,7 +178,6 @@ export async function fireQuizConversionEvents(data: ConversionData) {
       }));
     }
 
-    console.error('[Conversion Tracker] ✅ All conversion events completed');
     return true;
   } catch (error) {
     console.error('[Conversion Tracker] ❌ Error firing conversion events:', error);
