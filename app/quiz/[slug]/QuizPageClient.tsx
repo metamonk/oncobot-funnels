@@ -258,22 +258,34 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
         throw new Error('Failed to submit quiz');
       }
 
+      console.log('🎯 Quiz API response successful - about to fire conversions...');
+
       // Fire conversion events for Google Ads, GA4, Meta, etc.
-      await fireQuizConversionEvents({
-        email: submitData.email,
-        phone: submitData.phone,
-        fullName: submitData.fullName,
-        zipCode: submitData.zipCode,
-        indication: submitData.indication,
-        cancerType: submitData.cancerType,
-        stage: submitData.stage,
-        biomarkers: submitData.biomarkers,
-        priorTherapy: submitData.priorTherapy,
-      });
+      try {
+        await fireQuizConversionEvents({
+          email: submitData.email,
+          phone: submitData.phone,
+          fullName: submitData.fullName,
+          zipCode: submitData.zipCode,
+          indication: submitData.indication,
+          cancerType: submitData.cancerType,
+          stage: submitData.stage,
+          biomarkers: submitData.biomarkers,
+          priorTherapy: submitData.priorTherapy,
+        });
+        console.log('✅ Conversion function returned successfully');
+      } catch (conversionError) {
+        console.error('❌ Error in fireQuizConversionEvents:', conversionError);
+        // Don't throw - continue with submission
+      }
+
+      console.log('📊 About to fire analytics tracking...');
 
       // Track completion
       trackQuizComplete(indication.slug, quizData);
       trackLeadFormSubmit(submitData);
+
+      console.log('🚀 Redirecting to thank-you page...');
 
       // Clear saved progress
       clearQuizProgress();
