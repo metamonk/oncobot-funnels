@@ -35,13 +35,19 @@ Google/Meta Ads → Landing Page → Quiz → Thank You Page
 
 ## 🚀 COMPLETE AUTOMATION WORKFLOW
 
-### STAGE 1: Immediate Response (Within 60 Seconds)
+### STAGE 1: Immediate Response (Instant - GoHighLevel Workflow)
 
-**Trigger:** Opportunity Created (from quiz submission)
+**Trigger:** Opportunity Created (from quiz submission via `/api/quiz` endpoint)
+
+**Architecture Note:**
+- Quiz submission API creates contact + opportunity in GoHighLevel
+- This workflow triggers immediately when opportunity is created
+- All patient-facing communication handled by GoHighLevel (no code-based emails)
+- Internal notification sent to support@onco.bot
 
 #### Actions:
 
-**1.1 - Send Patient Confirmation Email**
+**1.1 - Send Patient Confirmation Email (GoHighLevel)**
 ```
 To: {{contact.email}}
 From: OncoBot Clinical Trials <support@onco.bot>
@@ -78,9 +84,13 @@ P.S. Check your spam folder to make sure our emails reach you!
 Hi {{contact.first_name}}! We received your clinical trial quiz. A coordinator will review and call you within 24hrs at {{contact.phone}}. Questions? Reply here or call (555) 123-4567 - OncoBot
 ```
 
-**1.3 - Send Internal Team Notification**
+**1.3 - Internal Team Notification (Already Sent by API)**
+
+**Note:** The `/api/quiz` endpoint already sends an internal notification email to support@onco.bot when the quiz is submitted. This is handled in code and includes all lead details.
+
+**Optional GoHighLevel Enhancement:** You can add a secondary notification via GoHighLevel workflow for redundancy or send to additional team members:
 ```
-To: support@onco.bot (or specific coordinator email)
+To: [Additional coordinators if needed]
 Subject: 🚨 NEW LEAD: {{contact.full_name}} - {{custom_field.cancer_type}}
 
 Lead Details:
