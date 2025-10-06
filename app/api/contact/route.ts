@@ -149,8 +149,8 @@ Source: ${indicationData.landingPageSlug || 'Unknown landing page'}`,
     // 1. Send email notification via Resend
     if (process.env.RESEND_API_KEY) {
       const emailPromise = resend.emails.send({
-        from: process.env.EMAIL_FROM || 'OncoBot Contact <noreply@oncobot.com>',
-        to: [process.env.CONTACT_EMAIL_TO || 'support@oncobot.com'],
+        from: process.env.EMAIL_FROM || 'OncoBot Contact <noreply@onco.bot>',
+        to: [process.env.CONTACT_EMAIL_TO || 'support@onco.bot'],
         replyTo: validatedData.email,
         subject: `[${priority.toUpperCase()}] Contact Form: ${subjectCategory}`,
         html: `
@@ -203,7 +203,7 @@ Submitted at: ${new Date().toISOString()}
     // 2. Send auto-response to user
     if (process.env.RESEND_API_KEY) {
       const autoResponsePromise = resend.emails.send({
-        from: process.env.EMAIL_FROM || 'OncoBot Support <support@oncobot.com>',
+        from: process.env.EMAIL_FROM || 'OncoBot Support <noreply@onco.bot>',
         to: [validatedData.email],
         subject: 'We received your message - OncoBot Clinical Trials',
         html: `
@@ -403,10 +403,10 @@ ${validatedData.message}`;
                         contactId: existingContactId,
                         html: htmlMessage,  // Email type uses 'html' field, not 'message'
                         subject: `Contact Form: ${subjectCategory}`,
-                        emailMessageId: `contact-form-${Date.now()}-${existingContactId}@oncobot.com`,
+                        emailMessageId: `contact-form-${Date.now()}-${existingContactId}@onco.bot`,
                         direction: 'inbound',
                         emailTo: validatedData.email,
-                        emailFrom: process.env.EMAIL_FROM || 'noreply@oncobot.com'
+                        emailFrom: process.env.EMAIL_FROM || 'noreply@onco.bot'
                       })
                     });
 
@@ -599,10 +599,10 @@ ${validatedData.message}`;
                     contactId: contactId,
                     html: htmlMessage,  // Email type uses 'html' field, not 'message'
                     subject: `Contact Form: ${subjectCategory}`,
-                    emailMessageId: `contact-form-${Date.now()}-${contactId}@oncobot.com`,
+                    emailMessageId: `contact-form-${Date.now()}-${contactId}@onco.bot`,
                     direction: 'inbound',
                     emailTo: validatedData.email,
-                    emailFrom: process.env.EMAIL_FROM || 'noreply@oncobot.com'
+                    emailFrom: process.env.EMAIL_FROM || 'noreply@onco.bot'
                   })
                 });
 
@@ -733,7 +733,7 @@ ${validatedData.message}`,
       return NextResponse.json(
         {
           success: false,
-          error: 'Failed to send message. Please try again or email us directly at support@oncobot.com.'
+          error: 'Failed to send message. Please try again or email us directly at support@onco.bot.'
         },
         { status: 500 }
       );

@@ -232,7 +232,7 @@ function ThankYouPageContent() {
             <div className="flex flex-wrap justify-center gap-6">
               <Badge variant="secondary" className="px-4 py-2">
                 <Mail className="mr-2 h-4 w-4" />
-                support@oncobot.com
+                support@onco.bot
               </Badge>
               <Badge variant="secondary" className="px-4 py-2">
                 <Shield className="mr-2 h-4 w-4" />

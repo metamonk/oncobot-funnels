@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { Resend } from 'resend';
 import { Logger } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { quizSubmissions } from '@/lib/db/schema';
 
 const logger = new Logger('Quiz/Submission');
-
-// Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY || '');
 
 // Quiz submission schema - matches what the quiz actually sends
 const quizSubmissionSchema = z.object({
@@ -113,51 +109,9 @@ export async function POST(request: NextRequest) {
       logger.info('Quiz submission with gclid', { gclid: validatedData.gclid });
     }
 
-    // Send notification email
-    const emailPromise = resend.emails.send({
-      from: 'OncoBot Quiz <quiz@notifications.oncobot.io>',
-      to: ['support@onco.bot'],
-      subject: `New Quiz Submission: ${validatedData.fullName}`,
-      html: `
-        <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #333; border-bottom: 2px solid #6B46C1; padding-bottom: 10px;">New Quiz Submission</h2>
-
-          <div style="background: #f7f7f7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #6B46C1; margin-top: 0;">Contact Information</h3>
-            <p><strong>Name:</strong> ${validatedData.fullName}</p>
-            <p><strong>Email:</strong> <a href="mailto:${validatedData.email}">${validatedData.email}</a></p>
-            <p><strong>Phone:</strong> ${validatedData.phone || 'Not provided'}</p>
-            <p><strong>ZIP Code:</strong> ${validatedData.zipCode}</p>
-            ${validatedData.preferredTime ? `<p><strong>Preferred Contact Time:</strong> ${validatedData.preferredTime}</p>` : ''}
-          </div>
-
-          <div style="background: #f7f7f7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #6B46C1; margin-top: 0;">Medical Information</h3>
-            <p><strong>Cancer Type:</strong> ${validatedData.indicationName || validatedData.cancerType}</p>
-            <p><strong>For:</strong> ${validatedData.forWhom || 'Not specified'}</p>
-            <p><strong>Stage:</strong> ${validatedData.stage}</p>
-            <p><strong>Biomarkers:</strong> ${validatedData.biomarkers || 'Not specified'}</p>
-            <p><strong>Prior Therapy:</strong> ${validatedData.priorTherapy || 'Not specified'}</p>
-          </div>
-
-          ${validatedData.utmParams?.utm_source ? `
-          <div style="background: #f7f7f7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #6B46C1; margin-top: 0;">Source Information</h3>
-            <p><strong>UTM Source:</strong> ${validatedData.utmParams.utm_source}</p>
-            <p><strong>UTM Medium:</strong> ${validatedData.utmParams.utm_medium || 'N/A'}</p>
-            <p><strong>UTM Campaign:</strong> ${validatedData.utmParams.utm_campaign || 'N/A'}</p>
-          </div>
-          ` : ''}
-
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 14px;">
-            <p>This quiz submission was received at ${new Date().toLocaleString()}</p>
-          </div>
-        </div>
-      `
-    }).catch((emailError) => {
-      logger.error('Failed to send notification email', emailError);
-      // Don't fail the request if email fails
-    });
+    // Internal notification email now handled by GoHighLevel workflow
+    // See docs/GHL_AUTOMATION_BLUEPRINT.md Stage 1.3
+    // GoHighLevel will send notification to info@onco.bot when opportunity is created
 
     // Initialize variables for tracking CRM sync
     let contactId: string | undefined;
