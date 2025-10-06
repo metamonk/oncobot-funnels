@@ -19,6 +19,9 @@ import React from 'react';
 import ConfirmationEmail from '../lib/email/templates/workflows/1-confirmation';
 import InternalNotificationEmail from '../lib/email/templates/workflows/2-internal-notification';
 import PatientResultsEmail from '../lib/email/templates/workflows/3-patient-results';
+import FollowUp1WeekEmail from '../lib/email/templates/workflows/4-followup-1week';
+import FollowUp1MonthEmail from '../lib/email/templates/workflows/5-followup-1month';
+import LongTermNurtureEmail from '../lib/email/templates/workflows/6-longterm-nurture';
 
 /**
  * Template registry
@@ -45,6 +48,27 @@ const templates = [
     component: PatientResultsEmail,
     stage: 'Stage 2.1',
     description: 'Personalized trial matches',
+  },
+  {
+    id: '4-followup-1week',
+    name: '1 Week Follow-up Email',
+    component: FollowUp1WeekEmail,
+    stage: 'Stage 3.1',
+    description: 'Check-in 7 days after results',
+  },
+  {
+    id: '5-followup-1month',
+    name: '1 Month Follow-up Email',
+    component: FollowUp1MonthEmail,
+    stage: 'Stage 4',
+    description: 'Final direct outreach after 30 days',
+  },
+  {
+    id: '6-longterm-nurture',
+    name: 'Long-term Nurture Email',
+    component: LongTermNurtureEmail,
+    stage: 'Stage 5',
+    description: 'Quarterly educational content',
   },
 ];
 
