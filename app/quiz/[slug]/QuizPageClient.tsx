@@ -57,8 +57,8 @@ interface QuizData {
 }
 
 export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageClientProps) {
-  // DEPLOYMENT VERIFICATION - This should appear in console immediately when component loads
-  console.log('🔍 QuizPageClient LOADED - Deployment 710bab6', {
+  // DEPLOYMENT VERIFICATION - Use console.error to show in production (console.log is stripped)
+  console.error('🔍 QuizPageClient LOADED - Deployment f72bc44', {
     indication: indication.slug,
     timestamp: new Date().toISOString()
   });
@@ -231,18 +231,18 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
   };
 
   const handleSubmit = async () => {
-    console.log('🚀 QUIZ SUBMIT STARTED - handleSubmit called');
+    console.error('🚀 QUIZ SUBMIT STARTED - handleSubmit called');
 
     if (!validateStep()) {
-      console.log('❌ Validation failed, returning early');
+      console.error('❌ Validation failed, returning early');
       return;
     }
 
-    console.log('✅ Validation passed, setting submitting state');
+    console.error('✅ Validation passed, setting submitting state');
     setIsSubmitting(true);
     trackLeadFormStart(indication.slug);
 
-    console.log('📝 Preparing submission data...');
+    console.error('📝 Preparing submission data...');
     try {
       // Prepare the data for submission
       const submitData = {
@@ -260,7 +260,7 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
         }
       };
 
-      console.log('📤 Submitting to API endpoint /api/quiz...');
+      console.error('📤 Submitting to API endpoint /api/quiz...');
 
       // Submit to dedicated quiz API endpoint
       const response = await fetch('/api/quiz', {
@@ -273,7 +273,7 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
         throw new Error('Failed to submit quiz');
       }
 
-      console.log('🎯 Quiz API response successful - about to fire conversions...');
+      console.error('🎯 Quiz API response successful - about to fire conversions...');
 
       // Fire conversion events for Google Ads, GA4, Meta, etc.
       try {
@@ -288,19 +288,19 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
           biomarkers: submitData.biomarkers,
           priorTherapy: submitData.priorTherapy,
         });
-        console.log('✅ Conversion function returned successfully');
+        console.error('✅ Conversion function returned successfully');
       } catch (conversionError) {
         console.error('❌ Error in fireQuizConversionEvents:', conversionError);
         // Don't throw - continue with submission
       }
 
-      console.log('📊 About to fire analytics tracking...');
+      console.error('📊 About to fire analytics tracking...');
 
       // Track completion
       trackQuizComplete(indication.slug, quizData);
       trackLeadFormSubmit(submitData);
 
-      console.log('🚀 Redirecting to thank-you page...');
+      console.error('🚀 Redirecting to thank-you page...');
 
       // Clear saved progress
       clearQuizProgress();
@@ -752,7 +752,7 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
             ) : (
               <Button
                 onClick={() => {
-                  console.log('🖱️ SUBMIT BUTTON CLICKED - Event handler fired');
+                  console.error('🖱️ SUBMIT BUTTON CLICKED - Event handler fired');
                   handleSubmit();
                 }}
                 disabled={isSubmitting}
