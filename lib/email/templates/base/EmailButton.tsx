@@ -75,7 +75,7 @@ export const EmailButton = ({
   };
 
   return (
-    <table align="center" width="100%" border="0" cellPadding="0" cellSpacing="0" role="presentation" style={{ textAlign: 'center', margin: '30px 0' }}>
+    <table align="center" width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" style={{ textAlign: 'center', margin: '30px 0' }}>
       <tbody>
         <tr>
           <td>
