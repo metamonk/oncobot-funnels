@@ -53,10 +53,49 @@ export const EmailLayout = ({
   showLogo = true,
 }: EmailLayoutProps) => {
   return (
-    <Html>
+    <Html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
       <Head>
+        {/* MSO-specific meta tags for Outlook compatibility */}
+        <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+        <meta httpEquiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="x-apple-disable-message-reformatting" />
         <meta name="color-scheme" content="light" />
         <meta name="supported-color-schemes" content="light" />
+
+        {/* Global email styles for better email client compatibility */}
+        <style type="text/css" dangerouslySetInnerHTML={{__html: `
+          #outlook a { padding: 0; }
+          body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+          table, td { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+          img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+          p { display: block; margin: 13px 0; }
+        `}} />
+
+        {/* MSO-specific Office settings */}
+        {`<!--[if mso]>
+        <xml>
+        <o:OfficeDocumentSettings>
+          <o:AllowPNG/>
+          <o:PixelsPerInch>96</o:PixelsPerInch>
+        </o:OfficeDocumentSettings>
+        </xml>
+        <![endif]-->`}
+
+        {/* MSO Outlook group fix for versions <= 11 */}
+        {`<!--[if lte mso 11]>
+        <style type="text/css">
+          .mj-outlook-group-fix { width:100% !important; }
+        </style>
+        <![endif]-->`}
+
+        {/* Responsive media queries */}
+        <style type="text/css" dangerouslySetInnerHTML={{__html: `
+          @media only screen and (max-width:480px) {
+            table.mj-full-width-mobile { width: 100% !important; }
+            td.mj-full-width-mobile { width: auto !important; }
+          }
+        `}} />
       </Head>
       <Preview>{preview}</Preview>
       <Body style={styles.main}>
