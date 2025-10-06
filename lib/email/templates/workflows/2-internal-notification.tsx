@@ -151,7 +151,7 @@ export const InternalNotificationEmail = () => {
       {/* CTA */}
       <Section style={styles.buttonContainer}>
         <EmailButton
-          href="https://app.gohighlevel.com/v2/location/LOCATION_ID/opportunities/{{opportunity.id}}"
+          href="https://app.gerund.ai/v2/location/7qrG3oKzkJyRQ5GDihMI/opportunities/{{opportunity.id}}"
           variant="primary"
           size="lg"
         >
