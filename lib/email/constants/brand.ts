@@ -96,5 +96,5 @@ export const EMAIL_LOGO = {
 export const EMAIL_LAYOUT = {
   maxWidth: '600px',
   containerPadding: '20px 0 48px',
-  contentPadding: '0 48px',
+  contentPadding: '0 30px', // 30px horizontal padding for better mobile experience
 } as const;
