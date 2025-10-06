@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     // Send notification email
     const emailPromise = resend.emails.send({
       from: 'OncoBot Quiz <quiz@notifications.oncobot.io>',
-      to: ['support@oncobot.io'],
+      to: ['support@onco.bot'],
       subject: `New Quiz Submission: ${validatedData.fullName}`,
       html: `
         <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
