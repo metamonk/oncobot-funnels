@@ -53,6 +53,8 @@ export const EmailSection = ({
       border: `1px solid ${EMAIL_COLORS.primary}40`, // 40% opacity
       borderRadius: EMAIL_RADIUS.md,
       padding: EMAIL_SPACING.md,
+      paddingLeft: EMAIL_SPACING.lg,
+      paddingRight: EMAIL_SPACING.lg,
     },
   };
 
