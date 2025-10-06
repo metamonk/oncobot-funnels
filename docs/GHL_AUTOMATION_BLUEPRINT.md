@@ -21,7 +21,7 @@ Google/Meta Ads → Landing Page → Quiz → Thank You Page
 **Lead Profile:**
 - Cancer patients or caregivers seeking clinical trials
 - Completed medical eligibility quiz
-- Provided: Name, email, phone, medical history, location
+- Provided: Name, email, medical history, location
 - High-intent, time-sensitive leads
 - Need: Quick response, compassionate communication, clear next steps
 
@@ -51,7 +51,7 @@ Google/Meta Ads → Landing Page → Quiz → Thank You Page
 ```
 To: {{contact.email}}
 From: OncoBot Clinical Trials <info@onco.bot>
-Subject: Your Clinical Trial Eligibility Quiz Results
+Subject: We Received Your Clinical Trial Quiz
 
 Body:
 ---
@@ -63,14 +63,12 @@ Here's what happens next:
 
 ✅ Our clinical trial coordinator will review your information within 24 hours
 ✅ We'll match you with relevant {{custom_field.cancer_type}} clinical trials near {{custom_field.zip_code}}
-✅ You'll receive a personalized email with your trial matches
-✅ A coordinator will call you at {{contact.phone}} to discuss your options
+✅ You'll receive a personalized email with your trial options
 
 ⏱️ Expected contact time: Within 24-48 hours
-📅 Preferred contact time you selected: {{custom_field.preferred_contact_time}}
 
 Questions while you wait?
-Reply to this email or call us at (555) 123-4567
+Reply to this email and we'll get back to you promptly
 
 Thank you for taking this important step,
 The OncoBot Team
@@ -79,12 +77,7 @@ P.S. Check your spam folder to make sure our emails reach you!
 ---
 ```
 
-**1.2 - Send Patient Confirmation SMS**
-```
-Hi {{contact.first_name}}! We received your clinical trial quiz. A coordinator will review and call you within 24hrs at {{contact.phone}}. Questions? Reply here or call (555) 123-4567 - OncoBot
-```
-
-**1.3 - Send Internal Team Notification (GoHighLevel)**
+**1.2 - Send Internal Team Notification (GoHighLevel)**
 
 **REQUIRED:** Internal notification to alert team of new lead
 ```
@@ -94,15 +87,13 @@ Subject: 🚨 NEW LEAD: {{contact.full_name}} - {{custom_field.cancer_type}}
 
 Lead Details:
 - Name: {{contact.full_name}}
-- Phone: {{contact.phone}}
 - Email: {{contact.email}}
 - Cancer Type: {{custom_field.cancer_type}}
 - Stage: {{custom_field.stage}}
 - Location: {{custom_field.zip_code}}
-- Preferred Contact Time: {{custom_field.preferred_contact_time}}
 
 Quick Actions:
-[View in CRM] [Call Now] [Send Email]
+[View in CRM] [Send Email]
 
 Submitted: {{workflow.timestamp}}
 UTM Source: {{custom_field.utm_source}}
@@ -111,18 +102,18 @@ UTM Campaign: {{custom_field.utm_campaign}}
 
 **Note:** This replaces the code-based notification that was previously sent. All internal notifications now flow through GoHighLevel for unified management.
 
-**1.4 - Create Task for Coordinator**
+**1.3 - Create Task for Coordinator**
 ```
 Task: Review and Contact {{contact.full_name}}
 Due: 24 hours from now
 Assigned to: [Round-robin or specific coordinator]
 Priority: High
-Description: Review quiz responses and call patient to discuss trial options
+Description: Review quiz responses and email patient to discuss trial options
 ```
 
-**1.5 - Add Tag: "new-lead-auto-notified"**
+**1.4 - Add Tag: "new-lead-auto-notified"**
 
-**1.6 - Update Opportunity Stage: "New Lead - Awaiting Coordinator Review"**
+**1.5 - Update Opportunity Stage: "New Lead - Awaiting Coordinator Review"**
 
 ---
 
@@ -162,7 +153,7 @@ Clinical trials are research studies that test new treatments, drugs, or medical
 "Is it safe?" - All trials have strict safety protocols and oversight.
 "Can I leave anytime?" - Yes, participation is always voluntary.
 
-Our coordinator will call you soon to discuss specific trials that match your profile.
+Our coordinator will email you soon to discuss specific trials that match your profile.
 
 Questions? Just reply to this email.
 
@@ -176,7 +167,7 @@ P.S. Here's a helpful guide: [Link to clinical trials FAQ page]
 
 ---
 
-### STAGE 3: Check-In SMS (Day 2 - If No Contact Yet)
+### STAGE 3: Testimonial/Social Proof (Day 2 - If No Contact Yet)
 
 **Trigger:** 48 hours after opportunity created + Opportunity stage = "New Lead"
 
@@ -184,32 +175,7 @@ P.S. Here's a helpful guide: [Link to clinical trials FAQ page]
 
 #### Actions:
 
-**3.1 - Send Check-In SMS**
-```
-Hi {{contact.first_name}}, this is {{user.name}} from OncoBot. I'm reviewing your {{custom_field.cancer_type}} trial matches. Can I call you today at {{custom_field.preferred_contact_time}}? Reply YES or suggest a better time. Thanks!
-```
-
-**3.2 - Create Urgent Task for Manager**
-```
-Task: URGENT - Follow up on {{contact.full_name}} (48hrs no contact)
-Assigned to: [Manager/Supervisor]
-Priority: Urgent
-Description: This lead has been waiting 48 hours with no coordinator contact. Please ensure follow-up happens today.
-```
-
-**3.3 - Add Tag: "day2-sms-sent"**
-
----
-
-### STAGE 4: Testimonial/Social Proof (Day 3 - If No Contact Yet)
-
-**Trigger:** 72 hours after opportunity created + Opportunity stage = "New Lead"
-
-**Condition:** Only if coordinator hasn't contacted yet
-
-#### Actions:
-
-**4.1 - Send Testimonial Email**
+**3.1 - Send Testimonial Email**
 ```
 Subject: Real Stories: How Clinical Trials Helped Others
 
@@ -230,25 +196,33 @@ These are real patients who took the same first step you did - completing an eli
 
 Our team is still working on matching you with the best trials. We'll be in touch very soon.
 
-In the meantime, if you have any questions or would like to speak with us sooner, just reply to this email or call (555) 123-4567.
+In the meantime, if you have any questions or would like to speak with us sooner, just reply to this email.
 
 With hope and care,
 The OncoBot Team
 ```
 
-**4.2 - Add Tag: "day3-testimonial-sent"**
+**3.2 - Create Urgent Task for Manager**
+```
+Task: URGENT - Follow up on {{contact.full_name}} (48hrs no contact)
+Assigned to: [Manager/Supervisor]
+Priority: Urgent
+Description: This lead has been waiting 48 hours with no coordinator contact. Please ensure follow-up happens today.
+```
+
+**3.3 - Add Tag: "day2-testimonial-sent"**
 
 ---
 
-### STAGE 5: Final Outreach (Day 5 - If No Contact Yet)
+### STAGE 4: Final Outreach (Day 4 - If No Contact Yet)
 
-**Trigger:** 5 days after opportunity created + Opportunity stage = "New Lead"
+**Trigger:** 4 days after opportunity created + Opportunity stage = "New Lead"
 
 **Condition:** Only if coordinator hasn't contacted yet
 
 #### Actions:
 
-**5.1 - Send Final Email**
+**4.1 - Send Final Email**
 ```
 Subject: We're Here to Help - Checking In
 
@@ -259,9 +233,8 @@ I noticed we haven't connected yet, and I wanted to make sure you're still inter
 I understand this might not be the right time, or you may have questions before moving forward. That's completely okay.
 
 If you'd like to continue:
-→ Reply to this email
-→ Call us at (555) 123-4567
-→ Book a call here: [Calendly link]
+→ Reply to this email with any questions
+→ Book a consultation: [Calendly link]
 
 If now isn't the right time:
 → No problem! You can reach out whenever you're ready
@@ -273,65 +246,72 @@ Take care,
 {{user.name}}
 OncoBot Clinical Trials
 info@onco.bot
-(555) 123-4567
 ```
 
-**5.2 - Send Final SMS**
-```
-{{contact.first_name}}, wanted to check in one more time. Still interested in clinical trial options for {{custom_field.cancer_type}}? Reply YES to connect or STOP to pause. - {{user.name}}, OncoBot
-```
-
-**5.3 - If NO RESPONSE:**
+**4.2 - If NO RESPONSE:**
    - Move opportunity to stage: "Cold Lead - No Response"
-   - Add tag: "cold-no-response-5days"
+   - Add tag: "cold-no-response-4days"
    - Stop active sequence
 
-**5.4 - If POSITIVE RESPONSE:**
+**4.3 - If POSITIVE RESPONSE:**
    - Move opportunity to stage: "Engaged - Awaiting Contact"
-   - Create task: "Call {{contact.full_name}} ASAP"
-   - Add tag: "re-engaged-day5"
+   - Create task: "Contact {{contact.full_name}} ASAP"
+   - Add tag: "re-engaged-day4"
 
 ---
 
-### STAGE 6: Engagement-Based Triggers
+### STAGE 5: Engagement-Based Triggers
 
 **These run in parallel with the time-based sequence:**
 
-#### Trigger 6A: Email Opened 3+ Times
+#### Trigger 5A: Email Opened 3+ Times
 
 **Actions:**
-1. **Notify coordinator via SMS:**
+1. **Notify coordinator via email:**
    ```
-   HOT LEAD 🔥: {{contact.full_name}} opened your email 3 times. Call ASAP! [View in CRM]
+   Subject: HOT LEAD 🔥: {{contact.full_name}} - High Email Engagement
+
+   {{contact.full_name}} has opened your email 3 times!
+   This indicates strong interest - contact them ASAP!
+
+   [View in CRM]
    ```
 2. **Move opportunity to:** "Engaged - High Intent"
 3. **Add tag:** "high-engagement-email"
 4. **Priority:** Urgent
 
-#### Trigger 6B: Link Clicked
+#### Trigger 5B: Link Clicked
 
 **Actions:**
 1. **Notify coordinator immediately:**
    ```
-   {{contact.full_name}} clicked [Link Name] - Call now while they're interested!
+   Subject: URGENT: {{contact.full_name}} clicked link
+
+   {{contact.full_name}} clicked [Link Name] - Contact now while they're interested!
+
+   [View in CRM] [Email Patient]
    ```
 2. **Move opportunity to:** "Engaged - Clicked Link"
 3. **Add tag:** "clicked-[link-name]"
-4. **Create task:** "Call {{contact.full_name}} within 1 hour"
+4. **Create task:** "Email {{contact.full_name}} within 1 hour"
 
-#### Trigger 6C: Patient Replies to Email/SMS
+#### Trigger 5C: Patient Replies to Email
 
 **Actions:**
-1. **STOP all other automated emails/SMS**
+1. **STOP all other automated emails**
 2. **Notify coordinator immediately:**
    ```
-   🚨 REPLY RECEIVED from {{contact.full_name}}: "{{last_message}}"
+   Subject: 🚨 REPLY RECEIVED from {{contact.full_name}}
+
+   Patient message: "{{last_message}}"
+
+   [View in CRM] [Reply to Patient]
    ```
 3. **Move opportunity to:** "Contacted - Patient Replied"
 4. **Add tag:** "patient-initiated-contact"
 5. **Create task:** "Respond to {{contact.full_name}} within 30 minutes"
 
-#### Trigger 6D: Appointment Booked
+#### Trigger 5D: Appointment Booked
 
 **Actions:**
 1. **STOP all sequences**
@@ -345,7 +325,7 @@ info@onco.bot
 
    📅 Date: {{appointment.date}}
    ⏰ Time: {{appointment.time}}
-   📞 Call number: (555) 123-4567
+   💬 Type: Email consultation
    👤 With: {{user.name}}
 
    What to prepare:
@@ -359,18 +339,14 @@ info@onco.bot
    See you soon!
    The OncoBot Team
    ```
-3. **Send appointment confirmation SMS:**
-   ```
-   Confirmed! Your trial consultation is {{appointment.date}} at {{appointment.time}} with {{user.name}}. We'll call {{contact.phone}}. Questions? Reply here. - OncoBot
-   ```
-4. **Move opportunity to:** "Appointment Scheduled"
-5. **Add tag:** "appointment-booked"
+3. **Move opportunity to:** "Appointment Scheduled"
+4. **Add tag:** "appointment-booked"
 
 ---
 
-### STAGE 7: Appointment Reminders
+### STAGE 6: Appointment Reminders
 
-#### Trigger 7A: 24 Hours Before Appointment
+#### Trigger 6A: 24 Hours Before Appointment
 
 **Actions:**
 1. **Send reminder email:**
@@ -383,7 +359,8 @@ info@onco.bot
 
    📅 Tomorrow, {{appointment.date}}
    ⏰ {{appointment.time}}
-   📞 We'll call: {{contact.phone}}
+   💬 Via email consultation
+   👤 With: {{user.name}}
 
    What we'll discuss:
    ✓ Trial options that match your profile
@@ -397,29 +374,40 @@ info@onco.bot
    {{user.name}}
    ```
 
-2. **Send reminder SMS:**
-   ```
-   Reminder: Tomorrow at {{appointment.time}} we'll call {{contact.phone}} for your clinical trial consultation. Questions? Reply here. - {{user.name}}
-   ```
-
-#### Trigger 7B: 1 Hour Before Appointment
+#### Trigger 6B: 1 Hour Before Appointment
 
 **Actions:**
-1. **Send SMS reminder:**
+1. **Send email reminder:**
    ```
-   {{contact.first_name}}, your consultation is in 1 hour! We'll call {{contact.phone}} at {{appointment.time}}. See you soon! - {{user.name}}
+   Subject: Your consultation starts in 1 hour
+
+   Hi {{contact.first_name}},
+
+   Your clinical trial consultation is in 1 hour at {{appointment.time}}.
+
+   {{user.name}} will contact you via email at {{contact.email}}.
+
+   Please check your inbox and be ready to respond.
+
+   See you soon!
+   The OncoBot Team
    ```
 
 2. **Notify coordinator:**
    ```
-   Reminder: Call {{contact.full_name}} in 1 hour for consultation
+   Subject: Reminder: Contact {{contact.full_name}} in 1 hour
+
+   Consultation scheduled for {{appointment.time}} with {{contact.full_name}}
+   Email: {{contact.email}}
+
+   [View in CRM]
    ```
 
 ---
 
-### STAGE 8: Post-Appointment Follow-Up
+### STAGE 7: Post-Appointment Follow-Up
 
-#### Trigger 8A: Appointment Completed (Manual update by coordinator)
+#### Trigger 7A: Appointment Completed (Manual update by coordinator)
 
 **Actions:**
 1. **If qualified → Send trial matching email:**
@@ -428,7 +416,7 @@ info@onco.bot
 
    Hi {{contact.first_name}},
 
-   It was great speaking with you today! Based on our conversation, I've identified [X] clinical trials that may be a good fit:
+   It was great connecting with you today! Based on our conversation, I've identified [X] clinical trials that may be a good fit:
 
    🔬 Trial 1: [Trial Name]
    - Location: [Facility, City]
@@ -444,7 +432,7 @@ info@onco.bot
 
    I've attached detailed information about each trial. Please review and let me know if you'd like to move forward with any of them.
 
-   My direct line: (555) 123-4567
+   Contact me:
    Email: {{user.email}}
 
    Next steps:
@@ -459,9 +447,9 @@ info@onco.bot
    ```
 
 2. **Move opportunity to:** "Qualified - Trial Matching"
-3. **Add tag:** "post-call-trials-sent"
+3. **Add tag:** "post-consultation-trials-sent"
 
-#### Trigger 8B: No Decision After Appointment (48 hours)
+#### Trigger 7B: No Decision After Appointment (48 hours)
 
 **Actions:**
 1. **Send follow-up email:**
@@ -474,7 +462,7 @@ info@onco.bot
 
    I'm here to answer any questions or concerns you might have.
 
-   Would you like to schedule another call to discuss further?
+   Would you like to schedule another consultation to discuss further?
 
    Best,
    {{user.name}}
@@ -484,7 +472,7 @@ info@onco.bot
 
 ---
 
-### STAGE 9: Long-Term Nurture (For Cold Leads)
+### STAGE 8: Long-Term Nurture (For Cold Leads)
 
 **Trigger:** Opportunity moved to "Cold Lead - No Response"
 
@@ -517,7 +505,7 @@ The OncoBot Team
 
 ### Internal Team Alerts
 
-**High Priority (SMS + Email):**
+**High Priority (Email + Task):**
 - New opportunity created
 - Patient replied to message
 - Email opened 3+ times
@@ -563,8 +551,8 @@ The OncoBot Team
 **Engagement Tags:**
 - `new-lead-auto-notified`
 - `day1-education-sent`
-- `day2-sms-sent`
-- `day3-testimonial-sent`
+- `day2-testimonial-sent`
+- `day4-final-outreach-sent`
 - `high-engagement-email`
 - `clicked-[link-name]`
 - `patient-initiated-contact`
@@ -591,15 +579,8 @@ The OncoBot Team
 - ✅ Include coordinator's name and photo
 - ✅ Short paragraphs (2-3 sentences max)
 
-### SMS Guidelines:
-- ✅ Always identify yourself: "This is [Name] from OncoBot"
-- ✅ Include opt-out: "Reply STOP to opt out"
-- ✅ Keep under 160 characters when possible
-- ✅ Conversational, not salesy
-
 ### Timing:
 - ✅ Send emails between 9am-5pm (patient's timezone)
-- ✅ Send SMS between 10am-7pm only
 - ✅ No weekend automated messages (unless patient initiated)
 
 ### Personalization:
@@ -620,7 +601,7 @@ The OncoBot Team
 **Engagement:**
 - Email open rate (target: >40%)
 - Email click rate (target: >10%)
-- SMS response rate (target: >15%)
+- Email response rate (target: >15%)
 
 **Speed:**
 - Average time to first contact (target: <24 hours)
@@ -643,15 +624,14 @@ The OncoBot Team
 
 ### Phase 2: Core Automation (Week 2)
 - [ ] Build Stage 1: Immediate response workflow
-- [ ] Build Stage 6: Engagement triggers
+- [ ] Build Stage 5: Engagement triggers
 - [ ] Test email deliverability
-- [ ] Test SMS delivery
 
 ### Phase 3: Nurture Sequences (Week 3)
-- [ ] Build Stages 2-5: Time-based nurture
-- [ ] Build Stage 7: Appointment reminders
-- [ ] Build Stage 8: Post-appointment follow-up
-- [ ] Build Stage 9: Long-term nurture
+- [ ] Build Stages 2-4: Time-based nurture
+- [ ] Build Stage 6: Appointment reminders
+- [ ] Build Stage 7: Post-appointment follow-up
+- [ ] Build Stage 8: Long-term nurture
 
 ### Phase 4: Optimization (Ongoing)
 - [ ] A/B test email subject lines
@@ -663,7 +643,7 @@ The OncoBot Team
 
 ## 🎯 READY-TO-IMPORT WORKFLOW SUMMARY
 
-**Workflow Name:** "Quiz Lead → Enrolled Patient"
+**Workflow Name:** "Quiz Lead → Enrolled Patient (Email-Only)"
 
 **Triggers:**
 1. Opportunity created (source: quiz)
@@ -675,10 +655,10 @@ The OncoBot Team
 7. 24hrs before appointment
 8. 1hr before appointment
 
-**Total Automated Actions:** 30+
+**Total Automated Actions:** 25+ (email-only)
 
 **Expected Outcome:**
-- 95%+ of leads contacted within 24 hours
+- 95%+ of leads contacted within 24 hours (via email)
 - 40%+ email open rates
 - 30%+ appointment booking rate
 - 15%+ enrollment rate

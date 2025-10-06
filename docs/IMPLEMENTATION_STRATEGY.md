@@ -12,7 +12,6 @@
 **All patient-facing automation handled via GoHighLevel workflows:**
 - ✅ Immediate confirmation emails
 - ✅ Follow-up sequences
-- ✅ SMS notifications
 - ✅ Engagement triggers
 - ✅ Appointment reminders
 
@@ -79,7 +78,6 @@ Opportunity Created in GoHighLevel
 │ ────────────────────────────────────── │
 │ • Internal notification (GHL)        │ ← To info@onco.bot
 │ • Patient confirmation email (GHL)    │
-│ • Patient confirmation SMS (GHL)      │
 │ • Create coordinator task (GHL)       │
 │ • Assign to team member (GHL)         │
 └────────────────────────────────────────┘
@@ -121,14 +119,13 @@ Opportunity Created in GoHighLevel
 - [ ] **Add Actions:**
   1. Send internal notification email to info@onco.bot (template in blueprint)
   2. Send patient confirmation email (template in blueprint)
-  3. Send patient confirmation SMS (template in blueprint)
-  4. Create task for coordinator ("Review and Contact")
-  5. Assign to team member (round-robin or specific person)
+  3. Create task for coordinator ("Review and Contact")
+  4. Assign to team member (round-robin or specific person)
 
 - [ ] **Test:**
   - Submit test quiz
   - Verify internal notification arrives at info@onco.bot
-  - Verify patient receives confirmation email + SMS
+  - Verify patient receives confirmation email
   - Verify coordinator receives task
 
 **Time Estimate:** 2-3 hours
@@ -146,9 +143,8 @@ Opportunity Created in GoHighLevel
 
 - [ ] **Add Time-Based Actions:**
   1. Day 1: Educational email (if opportunity stage = "New Lead")
-  2. Day 2: Check-in SMS (if opportunity stage = "New Lead")
-  3. Day 3: Testimonial email (if opportunity stage = "New Lead")
-  4. Day 5: Final outreach (if opportunity stage = "New Lead")
+  2. Day 2: Testimonial email (if opportunity stage = "New Lead")
+  3. Day 4: Final outreach (if opportunity stage = "New Lead")
 
 - [ ] **Create Workflow: "Quiz - Engagement Triggers"**
   - **Trigger 1:** Email opened 3+ times → Notify coordinator
@@ -156,8 +152,8 @@ Opportunity Created in GoHighLevel
   - **Trigger 3:** Patient replies → Stop sequences
   - **Trigger 4:** Appointment booked → Send reminders
 
-**Time Estimate:** 5-7 hours
-**Templates:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stages 2-6
+**Time Estimate:** 4-5 hours
+**Templates:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stages 2-5
 
 ---
 
@@ -168,7 +164,7 @@ Opportunity Created in GoHighLevel
 - [ ] **Create Workflow: "Quiz - Appointments"**
   - Appointment confirmation email
   - 24-hour reminder email
-  - 1-hour reminder SMS
+  - 1-hour reminder email
   - Post-appointment follow-up
 
 - [ ] **Create Workflow: "Quiz - Long-Term Nurture"**
@@ -176,8 +172,8 @@ Opportunity Created in GoHighLevel
   - Quarterly check-ins
   - New trial opportunity announcements
 
-**Time Estimate:** 4-5 hours
-**Templates:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stages 7-9
+**Time Estimate:** 3-4 hours
+**Templates:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stages 6-8
 
 ---
 
@@ -193,7 +189,7 @@ Opportunity Created in GoHighLevel
 **Engagement:**
 - Email open rate (target: >40%)
 - Email click rate (target: >10%)
-- SMS response rate (target: >15%)
+- Email response rate (target: >15%)
 
 **Speed:**
 - Average time to first contact (target: <24 hours)
@@ -278,20 +274,19 @@ Opportunity Created in GoHighLevel
 2. **GoHighLevel workflow triggers:**
    - ✅ Internal notification email sent to info@onco.bot (within 10 seconds)
    - ✅ Patient confirmation email sent (within 10 seconds)
-   - ✅ Patient confirmation SMS sent (within 10 seconds)
    - ✅ Coordinator task created
    - ✅ Team member assigned
 
 3. **Nurture sequences:**
    - ✅ Day 1 email sends if no contact
-   - ✅ Day 2 SMS sends if no contact
+   - ✅ Day 2 email sends if no contact
    - ✅ Sequences stop when patient replies
    - ✅ Engagement triggers fire correctly
 
 4. **Analytics:**
    - ✅ Email open rates tracking
    - ✅ Link click rates tracking
-   - ✅ SMS delivery rates tracking
+   - ✅ Email response rates tracking
    - ✅ Conversion funnel visible in dashboard
 
 ---

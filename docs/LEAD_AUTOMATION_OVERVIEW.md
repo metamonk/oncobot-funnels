@@ -153,19 +153,6 @@ User Submits Quiz
 
 ---
 
-### Missing: SMS Notifications
-
-**Current Gap:** No text message confirmations or updates
-
-**What could be added:**
-- Immediate SMS confirmation
-- Appointment reminders
-- Trial coordinator contact notifications
-- Updates on trial matching
-
-**Recommendation:** Integrate Twilio or use GoHighLevel SMS
-
----
 
 ### Missing: Trial Matching Results Email
 
@@ -239,9 +226,9 @@ Trigger: Opportunity Created
 - ✅ No code changes needed (marketing team can modify)
 - ✅ Visual workflow builder (no technical knowledge required)
 - ✅ Built-in email templates (easy to A/B test)
-- ✅ SMS integration included (unified communication)
 - ✅ Easy A/B testing and optimization
 - ✅ Unified analytics dashboard
+- ✅ Email-only approach (no phone/SMS required)
 
 **Architecture:**
 ```
@@ -251,12 +238,12 @@ Quiz API → Create Contact + Opportunity in GoHighLevel
                        ↓
         Patient Confirmation Email Sent (GoHighLevel)
                        ↓
-        Follow-up Sequences Begin (GoHighLevel)
+        Follow-up Email Sequences Begin (GoHighLevel)
 ```
 
 **Trade-offs:**
 - ⚠️ Slight delay (2-10 seconds) vs instant code-based email
-- ⚠️ Requires GoHighLevel Pro plan for advanced workflows
+- ⚠️ Requires GoHighLevel plan with automation workflows
 - ⚠️ Learning curve for workflow builder (1-2 hours)
 
 **Setup Time:** 2-4 hours for complete automation
@@ -291,21 +278,19 @@ Quiz API → Create Contact + Opportunity in GoHighLevel
 1. **Set up GoHighLevel immediate response workflow** ✅
    - Trigger: Opportunity Created (from quiz)
    - Action 1: Send patient confirmation email
-   - Action 2: Send patient SMS confirmation
-   - Action 3: Create coordinator task
-   - Action 4: Assign to team member
-   - **Effort:** 2-3 hours (no code changes)
+   - Action 2: Create coordinator task
+   - Action 3: Assign to team member
+   - **Effort:** 1-2 hours (no code changes)
    - **Instructions:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stage 1
 
 ### Phase 2: Short-term (Next 2 Weeks)
 
 2. **Build time-based nurture sequence** 📧
    - Day 1: Educational content (if no contact)
-   - Day 2: Check-in SMS (if no contact)
-   - Day 3: Testimonials email (if no contact)
-   - Day 5: Final outreach (if no contact)
-   - **Effort:** 3-4 hours (in GoHighLevel)
-   - **Instructions:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stages 2-5
+   - Day 2: Testimonials email (if no contact)
+   - Day 4: Final outreach (if no contact)
+   - **Effort:** 2-3 hours (in GoHighLevel)
+   - **Instructions:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stages 2-4
 
 3. **Set up engagement-based triggers** 🔥
    - Email opened 3+ times → Notify coordinator
@@ -313,24 +298,24 @@ Quiz API → Create Contact + Opportunity in GoHighLevel
    - Patient replies → Stop sequences
    - Appointment booked → Send reminders
    - **Effort:** 2-3 hours (in GoHighLevel)
-   - **Instructions:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stage 6
+   - **Instructions:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stage 5
 
 ### Phase 3: Medium-term (Month 2)
 
 4. **Set up appointment workflows** 📅
    - Appointment confirmation emails
-   - 24-hour reminder
-   - 1-hour reminder SMS
+   - 24-hour reminder email
+   - 1-hour reminder email
    - Post-appointment follow-up
    - **Effort:** 2-3 hours (in GoHighLevel)
-   - **Instructions:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stages 7-8
+   - **Instructions:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stages 6-7
 
 5. **Build long-term nurture campaign** 🌱
    - Monthly educational emails for cold leads
    - Quarterly check-ins
    - New trial opportunities
-   - **Effort:** 2 hours (in GoHighLevel)
-   - **Instructions:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stage 9
+   - **Effort:** 1-2 hours (in GoHighLevel)
+   - **Instructions:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stage 8
 
 ### Phase 4: Future Enhancements (Month 3+)
 
@@ -369,10 +354,9 @@ Quiz API → Create Contact + Opportunity in GoHighLevel
 | Feature | Impact | Effort | Platform | Priority |
 |---------|--------|--------|----------|----------|
 | Internal notification email | High | Low (1h) | GoHighLevel | 🔴 Critical |
-| Patient confirmation email | High | Low (2h) | GoHighLevel | 🔴 Critical |
-| Patient confirmation SMS | High | Low (1h) | GoHighLevel | 🔴 Critical |
-| Follow-up email sequence | High | Medium (4h) | GoHighLevel | 🟠 High |
-| Engagement triggers | High | Low (3h) | GoHighLevel | 🟠 High |
+| Patient confirmation email | High | Low (1h) | GoHighLevel | 🔴 Critical |
+| Follow-up email sequence | High | Medium (3h) | GoHighLevel | 🟠 High |
+| Engagement triggers | High | Low (2h) | GoHighLevel | 🟠 High |
 | Appointment reminders | Medium | Low (2h) | GoHighLevel | 🟡 Medium |
 | Trial matching results | High | High (2 weeks) | Code-based | 🟢 Low |
 | Patient portal | Medium | High (3 weeks) | Code-based | 🟢 Low |

@@ -119,8 +119,8 @@ This directory contains comprehensive documentation for the clinical trial patie
 
 | Email Address | Purpose | Platform | Used For |
 |---------------|---------|----------|----------|
-| **info@onco.bot** | Workflow/automation notifications | GoHighLevel | Internal team notifications, workflow FROM address |
-| **support@onco.bot** | Customer support requests | Contact form (code) | User-facing support links, contact form replies |
+| **info@onco.bot** | Workflow/automation notifications | GoHighLevel | Internal team notifications, workflow FROM address (email-only) |
+| **support@onco.bot** | Customer support requests | Contact form (code) | User-facing support links, contact form replies (email-only) |
 | **noreply@trials.onco.bot** | Transactional email FROM | EMAIL_FROM env var | Contact form, booking confirmations, auth emails |
 
 **Why this separation?**
@@ -172,13 +172,13 @@ This directory contains comprehensive documentation for the clinical trial patie
 - [ ] Verify internal notification reaches info@onco.bot
 
 ### 🟠 High Priority (Week 2):
-- [ ] Build Stages 2-5 (time-based nurture sequences)
-- [ ] Build Stage 6 (engagement triggers)
+- [ ] Build Stages 2-4 (time-based nurture sequences)
+- [ ] Build Stage 5 (engagement triggers)
 - [ ] Set up pipeline stages and tags
 
 ### 🟡 Medium Priority (Month 2):
-- [ ] Build Stages 7-8 (appointment workflows)
-- [ ] Build Stage 9 (long-term nurture)
+- [ ] Build Stages 6-7 (appointment workflows)
+- [ ] Build Stage 8 (long-term nurture)
 - [ ] A/B test email subject lines
 
 ---

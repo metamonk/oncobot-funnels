@@ -241,14 +241,13 @@ Body:
 Lead Details:
 - Name: {{contact.full_name}}
 - Email: {{contact.email}}
-- Phone: {{contact.phone}}
 - Cancer Type: {{custom_field.cancer_type}}
 - Stage: {{custom_field.stage}}
 - Location: {{custom_field.zip_code}}
 - Preferred Contact Time: {{custom_field.preferred_contact_time}}
 
 Quick Actions:
-[View in CRM] [Call Now] [Send Email]
+[View in CRM] [Send Email]
 
 Submitted: {{workflow.timestamp}}
 UTM Source: {{custom_field.utm_source}}
@@ -314,8 +313,7 @@ Quiz Submission
                     │ Actions:                    │
                     │ 1. Email → info@onco.bot    │ (INTERNAL)
                     │ 2. Email → patient          │ (CONFIRMATION)
-                    │ 3. SMS → patient            │ (CONFIRMATION)
-                    │ 4. Create coordinator task  │
+                    │ 3. Create coordinator task  │
                     └─────────────────────────────┘
 ```
 
@@ -332,7 +330,6 @@ Quiz Submission
    - ✅ GoHighLevel workflow fires
    - ✅ Internal notification arrives at info@onco.bot
    - ✅ Patient confirmation arrives at patient email
-   - ✅ Patient SMS arrives
 
 2. **Submit contact form:**
    - ✅ Internal notification arrives at support@onco.bot
