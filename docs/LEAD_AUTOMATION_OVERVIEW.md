@@ -30,27 +30,7 @@ User Submits Quiz
 
 ## ✅ What's Currently Automated
 
-### 1. Internal Notification Email (Immediate)
-
-**Recipient:** `support@onco.bot`
-
-**When:** Immediately after quiz submission
-
-**Service:** Resend (transactional email)
-
-**Email Contains:**
-- Contact information (name, email, phone, ZIP code)
-- Medical information (cancer type, stage, biomarkers, prior therapy)
-- Source tracking (UTM parameters, campaign data)
-- Timestamp of submission
-
-**Code Location:** `/app/api/quiz/route.ts` (lines 117-160)
-
-**Purpose:** Alert your team that a new lead came in
-
----
-
-### 2. Database Storage (Immediate)
+### 1. Database Storage (Immediate)
 
 **Where:** PostgreSQL database via Drizzle ORM
 
@@ -70,7 +50,7 @@ User Submits Quiz
 
 ---
 
-### 3. GoHighLevel CRM Sync (Immediate)
+### 2. GoHighLevel CRM Sync (Immediate)
 
 **What Happens:**
 
@@ -114,7 +94,7 @@ User Submits Quiz
 
 ---
 
-### 4. Conversion Tracking (Immediate)
+### 3. Conversion Tracking (Immediate)
 
 **Platforms:**
 - ✅ Google Ads (enhanced conversions)
@@ -129,7 +109,20 @@ User Submits Quiz
 
 ---
 
-## ❌ What's NOT Currently Automated
+## ❌ What's NOT Currently Automated (GoHighLevel Setup Required)
+
+### Missing: Internal Team Notification
+
+**Current Gap:** No internal notification email sent to team
+
+**What needs to be set up:**
+- GoHighLevel workflow to send notification to info@onco.bot when opportunity is created
+- **Previously:** Code-based email to support@onco.bot (REMOVED in latest update)
+- **Now:** Must be configured in GoHighLevel workflow
+
+**Recommendation:** Set up GoHighLevel workflow (see GHL_AUTOMATION_BLUEPRINT.md Stage 1.3)
+
+---
 
 ### Missing: Patient-Facing Email
 
@@ -141,7 +134,7 @@ User Submits Quiz
 - Trial matching results (if any)
 - Contact information for questions
 
-**Recommendation:** Implement via GoHighLevel workflow (pure CRM approach)
+**Recommendation:** Implement via GoHighLevel workflow (see GHL_AUTOMATION_BLUEPRINT.md Stage 1.1)
 
 ---
 
@@ -156,7 +149,7 @@ User Submits Quiz
 - **Day 7:** Survey or follow-up
 - **Day 14:** Re-engagement if no response
 
-**Recommendation:** Build nurture sequence in GoHighLevel or via code
+**Recommendation:** Build nurture sequence in GoHighLevel (see GHL_AUTOMATION_BLUEPRINT.md Stages 2-5)
 
 ---
 
@@ -365,19 +358,20 @@ Quiz API → Create Contact + Opportunity in GoHighLevel
 
 | Feature | Status | Platform |
 |---------|--------|----------|
-| Internal notification email | ✅ Active | Resend |
 | Database storage | ✅ Active | PostgreSQL |
 | CRM contact sync | ✅ Active | GoHighLevel |
 | CRM opportunity creation | ✅ Active | GoHighLevel |
 | Conversion tracking | ✅ Active | Google Ads, GA4, Meta |
+| Contact form auto-response | ✅ Active | Resend (code-based) |
 
-### Missing Features ❌ (GoHighLevel Implementation)
+### Missing Features ❌ (GoHighLevel Setup Required)
 
 | Feature | Impact | Effort | Platform | Priority |
 |---------|--------|--------|----------|----------|
+| Internal notification email | High | Low (1h) | GoHighLevel | 🔴 Critical |
 | Patient confirmation email | High | Low (2h) | GoHighLevel | 🔴 Critical |
+| Patient confirmation SMS | High | Low (1h) | GoHighLevel | 🔴 Critical |
 | Follow-up email sequence | High | Medium (4h) | GoHighLevel | 🟠 High |
-| SMS notifications | Medium | Low (2h) | GoHighLevel | 🟡 Medium |
 | Engagement triggers | High | Low (3h) | GoHighLevel | 🟠 High |
 | Appointment reminders | Medium | Low (2h) | GoHighLevel | 🟡 Medium |
 | Trial matching results | High | High (2 weeks) | Code-based | 🟢 Low |
@@ -387,20 +381,7 @@ Quiz API → Create Contact + Opportunity in GoHighLevel
 
 ## 🔍 Verification: How to Check Current Automations
 
-### 1. Check Internal Email Notifications
-
-**Where:** Your email inbox (`support@onco.bot`)
-
-**Subject:** `New Quiz Submission: [Patient Name]`
-
-**If not receiving:**
-- Check spam folder
-- Verify `RESEND_API_KEY` in Vercel environment variables
-- Check Resend dashboard for delivery status
-
----
-
-### 2. Check GoHighLevel CRM Sync
+### 1. Check GoHighLevel CRM Sync
 
 **Navigate to:**
 ```
@@ -425,7 +406,7 @@ GoHighLevel → Opportunities → Filter by "Quiz"
 
 ---
 
-### 3. Check Database Storage
+### 2. Check Database Storage
 
 **Option A: Drizzle Studio (Local)**
 ```bash

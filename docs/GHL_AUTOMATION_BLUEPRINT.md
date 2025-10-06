@@ -43,14 +43,14 @@ Google/Meta Ads → Landing Page → Quiz → Thank You Page
 - Quiz submission API creates contact + opportunity in GoHighLevel
 - This workflow triggers immediately when opportunity is created
 - All patient-facing communication handled by GoHighLevel (no code-based emails)
-- Internal notification sent to support@onco.bot
+- Internal notification sent to info@onco.bot (via GoHighLevel workflow)
 
 #### Actions:
 
 **1.1 - Send Patient Confirmation Email (GoHighLevel)**
 ```
 To: {{contact.email}}
-From: OncoBot Clinical Trials <support@onco.bot>
+From: OncoBot Clinical Trials <info@onco.bot>
 Subject: Your Clinical Trial Eligibility Quiz Results
 
 Body:
@@ -70,7 +70,7 @@ Here's what happens next:
 📅 Preferred contact time you selected: {{custom_field.preferred_contact_time}}
 
 Questions while you wait?
-Reply to this email or call us at (555) 123-4567
+Reply to this email or contact support@onco.bot or call us at (555) 123-4567
 
 Thank you for taking this important step,
 The OncoBot Team
@@ -84,13 +84,12 @@ P.S. Check your spam folder to make sure our emails reach you!
 Hi {{contact.first_name}}! We received your clinical trial quiz. A coordinator will review and call you within 24hrs at {{contact.phone}}. Questions? Reply here or call (555) 123-4567 - OncoBot
 ```
 
-**1.3 - Internal Team Notification (Already Sent by API)**
+**1.3 - Send Internal Team Notification (GoHighLevel)**
 
-**Note:** The `/api/quiz` endpoint already sends an internal notification email to support@onco.bot when the quiz is submitted. This is handled in code and includes all lead details.
-
-**Optional GoHighLevel Enhancement:** You can add a secondary notification via GoHighLevel workflow for redundancy or send to additional team members:
+**REQUIRED:** Internal notification to alert team of new lead
 ```
-To: [Additional coordinators if needed]
+To: info@onco.bot
+From: OncoBot Workflows <info@onco.bot>
 Subject: 🚨 NEW LEAD: {{contact.full_name}} - {{custom_field.cancer_type}}
 
 Lead Details:
@@ -105,9 +104,12 @@ Lead Details:
 Quick Actions:
 [View in CRM] [Call Now] [Send Email]
 
+Submitted: {{workflow.timestamp}}
 UTM Source: {{custom_field.utm_source}}
 UTM Campaign: {{custom_field.utm_campaign}}
 ```
+
+**Note:** This replaces the code-based notification that was previously sent. All internal notifications now flow through GoHighLevel for unified management.
 
 **1.4 - Create Task for Coordinator**
 ```
@@ -270,7 +272,7 @@ Either way, I want you to know we're here to support you.
 Take care,
 {{user.name}}
 OncoBot Clinical Trials
-support@onco.bot
+info@onco.bot
 (555) 123-4567
 ```
 

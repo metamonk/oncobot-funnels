@@ -56,12 +56,10 @@ POST /api/quiz
        ↓
 ┌──────────────────────────────────────┐
 │ 1. Validate quiz data                │
-│ 2. Send internal notification email  │ ← To support@onco.bot
-│    (code-based, immediate)           │
-│ 3. Create/update GHL contact         │
-│ 4. Create GHL opportunity            │
-│ 5. Save to PostgreSQL database       │
-│ 6. Return success                    │
+│ 2. Create/update GHL contact         │
+│ 3. Create GHL opportunity            │
+│ 4. Save to PostgreSQL database       │
+│ 5. Return success                    │
 └──────────────────────────────────────┘
        ↓
 [Client receives success]
@@ -79,10 +77,11 @@ Opportunity Created in GoHighLevel
 ┌────────────────────────────────────────┐
 │ STAGE 1: Immediate Response           │
 │ ────────────────────────────────────── │
-│ • Patient confirmation email (GHL)    │ ← NEW
-│ • Patient confirmation SMS (GHL)      │ ← NEW
-│ • Create coordinator task (GHL)       │ ← NEW
-│ • Assign to team member (GHL)         │ ← NEW
+│ • Internal notification (GHL)        │ ← To info@onco.bot
+│ • Patient confirmation email (GHL)    │
+│ • Patient confirmation SMS (GHL)      │
+│ • Create coordinator task (GHL)       │
+│ • Assign to team member (GHL)         │
 └────────────────────────────────────────┘
        ↓
 ┌────────────────────────────────────────┐
@@ -102,11 +101,11 @@ Opportunity Created in GoHighLevel
 ### ✅ Already Complete
 
 - [x] Google Ads enhanced conversions working
-- [x] Internal notification email to support@onco.bot
 - [x] GoHighLevel contact/opportunity sync
 - [x] Database storage (PostgreSQL)
 - [x] Conversion tracking (Google Ads, GA4, Meta)
 - [x] Clean production console (no debug logs)
+- [x] Removed code-based internal notification (pure GoHighLevel approach)
 
 ### 🔴 Phase 1: Critical (This Week)
 
@@ -120,16 +119,17 @@ Opportunity Created in GoHighLevel
   - **Filter:** Tag contains "quiz-submission"
 
 - [ ] **Add Actions:**
-  1. Send patient confirmation email (template in blueprint)
-  2. Send patient confirmation SMS (template in blueprint)
-  3. Create task for coordinator ("Review and Contact")
-  4. Assign to team member (round-robin or specific person)
+  1. Send internal notification email to info@onco.bot (template in blueprint)
+  2. Send patient confirmation email (template in blueprint)
+  3. Send patient confirmation SMS (template in blueprint)
+  4. Create task for coordinator ("Review and Contact")
+  5. Assign to team member (round-robin or specific person)
 
 - [ ] **Test:**
   - Submit test quiz
+  - Verify internal notification arrives at info@onco.bot
   - Verify patient receives confirmation email + SMS
   - Verify coordinator receives task
-  - Verify internal notification still works (support@onco.bot)
 
 **Time Estimate:** 2-3 hours
 **Templates:** See `/docs/GHL_AUTOMATION_BLUEPRINT.md` Stage 1
@@ -216,13 +216,15 @@ Opportunity Created in GoHighLevel
 - `/lib/tracking/conversion-tracker.ts` - Conversion tracking
 
 **Email Services:**
-- Internal notifications only (support@onco.bot)
-- NO patient-facing emails in code
+- NO quiz-related emails in code (pure GoHighLevel)
+- Contact form auto-response uses EMAIL_FROM env var (noreply@trials.onco.bot)
 
 **GoHighLevel Integration:**
-- `/app/api/quiz/route.ts` lines 168-389 - Contact/opportunity sync
+- `/app/api/quiz/route.ts` - Contact/opportunity sync only (no emails)
 - Contact fields: email, phone, name, tags
 - Opportunity custom fields: cancer type, stage, biomarkers, etc.
+- Internal notifications: info@onco.bot (via GoHighLevel workflow)
+- Patient emails/SMS: All via GoHighLevel workflows
 
 ---
 
@@ -272,9 +274,9 @@ Opportunity Created in GoHighLevel
    - ✅ Contact in GoHighLevel (with tags)
    - ✅ Opportunity in GoHighLevel (with custom fields)
    - ✅ Database entry (PostgreSQL)
-   - ✅ Internal notification email (support@onco.bot)
 
 2. **GoHighLevel workflow triggers:**
+   - ✅ Internal notification email sent to info@onco.bot (within 10 seconds)
    - ✅ Patient confirmation email sent (within 10 seconds)
    - ✅ Patient confirmation SMS sent (within 10 seconds)
    - ✅ Coordinator task created
