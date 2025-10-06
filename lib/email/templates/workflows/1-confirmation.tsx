@@ -42,27 +42,29 @@ export const ConfirmationEmail = () => {
       <Text style={styles.sectionHeading}>Here's what happens next:</Text>
 
       <EmailSection variant="highlight" spacing="md">
-        <div style={styles.checklistItem}>
-          <span style={styles.checkmark}>✅</span>
-          <Text style={styles.checklistText}>
-            Our clinical trial coordinator will review your information within 24
-            hours
-          </Text>
-        </div>
+        <div style={styles.checklistContainer}>
+          <div style={styles.checklistItem}>
+            <span style={styles.checkmark}>✅</span>
+            <Text style={styles.checklistText}>
+              Our clinical trial coordinator will review your information within 24
+              hours
+            </Text>
+          </div>
 
-        <div style={styles.checklistItem}>
-          <span style={styles.checkmark}>✅</span>
-          <Text style={styles.checklistText}>
-            We'll match you with relevant {'{{custom_field.cancer_type}}'} clinical
-            trials near {'{{custom_field.zip_code}}'}
-          </Text>
-        </div>
+          <div style={styles.checklistItem}>
+            <span style={styles.checkmark}>✅</span>
+            <Text style={styles.checklistText}>
+              We'll match you with relevant {'{{custom_field.cancer_type}}'} clinical
+              trials near {'{{custom_field.zip_code}}'}
+            </Text>
+          </div>
 
-        <div style={styles.checklistItem}>
-          <span style={styles.checkmark}>✅</span>
-          <Text style={styles.checklistText}>
-            You'll receive a personalized email with your trial options
-          </Text>
+          <div style={styles.checklistItem}>
+            <span style={styles.checkmark}>✅</span>
+            <Text style={styles.checklistText}>
+              You'll receive a personalized email with your trial options
+            </Text>
+          </div>
         </div>
       </EmailSection>
 
@@ -130,6 +132,11 @@ const styles = {
   },
 
   // Checklist styles
+  checklistContainer: {
+    paddingTop: EMAIL_SPACING.xs,
+    paddingBottom: EMAIL_SPACING.xs,
+  },
+
   checklistItem: {
     display: 'flex',
     alignItems: 'flex-start',
