@@ -53,7 +53,7 @@ export const EmailLayout = ({
   showLogo = true,
 }: EmailLayoutProps) => {
   return (
-    <Html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+    <Html lang="en">
       <Head>
         {/* MSO-specific meta tags for Outlook compatibility */}
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -89,7 +89,7 @@ export const EmailLayout = ({
                   {showLogo && (
                     <div style={styles.logoContainer}>
                       {/* OncoBot Logo - 3x3 grid pattern */}
-                      <table style={styles.logoTable} cellPadding="0" cellSpacing="0">
+                      <table style={styles.logoTable} cellPadding={0} cellSpacing={0}>
                         <tbody>
                           <tr>
                             <td style={styles.logoCell}></td>
