@@ -75,17 +75,12 @@ export const EmailButton = ({
   };
 
   return (
-    <table align="center" width="100%" border="0" cellPadding="0" cellSpacing="0" role="presentation" style={{ margin: '30px 0' }}>
+    <table align="center" width="100%" border="0" cellPadding="0" cellSpacing="0" role="presentation" style={{ textAlign: 'center', margin: '30px 0' }}>
       <tbody>
         <tr>
           <td>
             <Button style={buttonStyle} href={href}>
-              {/* MSO conditional comment for better Outlook button rendering */}
-              <span dangerouslySetInnerHTML={{__html: '<!--[if mso]><i style="mso-font-width:500%;mso-text-raise:18" hidden>&#8202;&#8202;&#8202;</i><![endif]-->'}} />
-              <span style={{ maxWidth: '100%', display: 'inline-block', lineHeight: '120%', msoPaddingAlt: '0px', msoTextRaise: '9px' }}>
-                {children}
-              </span>
-              <span dangerouslySetInnerHTML={{__html: '<!--[if mso]><i style="mso-font-width:500%" hidden>&#8202;&#8202;&#8202;&#8203;</i><![endif]-->'}} />
+              {children}
             </Button>
           </td>
         </tr>

@@ -70,27 +70,7 @@ export const EmailLayout = ({
           table, td { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
           img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
           p { display: block; margin: 13px 0; }
-        `}} />
-
-        {/* MSO-specific Office settings */}
-        {`<!--[if mso]>
-        <xml>
-        <o:OfficeDocumentSettings>
-          <o:AllowPNG/>
-          <o:PixelsPerInch>96</o:PixelsPerInch>
-        </o:OfficeDocumentSettings>
-        </xml>
-        <![endif]-->`}
-
-        {/* MSO Outlook group fix for versions <= 11 */}
-        {`<!--[if lte mso 11]>
-        <style type="text/css">
           .mj-outlook-group-fix { width:100% !important; }
-        </style>
-        <![endif]-->`}
-
-        {/* Responsive media queries */}
-        <style type="text/css" dangerouslySetInnerHTML={{__html: `
           @media only screen and (max-width:480px) {
             table.mj-full-width-mobile { width: 100% !important; }
             td.mj-full-width-mobile { width: auto !important; }
