@@ -46,7 +46,7 @@ export const ExistingLeadsOutreachEmail = () => {
         options, or continue right here by email — whichever you prefer.
       </Text>
 
-      {/* CTA Section - clean minimal styling */}
+      {/* CTA button */}
       <Section style={styles.ctaContainer}>
         <EmailButton
           href="https://app.onco.bot/widget/bookings/matt-platta"
@@ -57,7 +57,10 @@ export const ExistingLeadsOutreachEmail = () => {
         </EmailButton>
       </Section>
 
-      <Text style={styles.orText}>or reply to this email</Text>
+      {/* Alternative option - regular body text */}
+      <Text style={styles.paragraph}>
+        Or, if you prefer, simply reply to this email and we&apos;ll go from there.
+      </Text>
 
       {/* Closing */}
       <Text style={styles.closing}>
@@ -98,15 +101,6 @@ const styles = {
   ctaContainer: {
     textAlign: 'center' as const,
     margin: `${EMAIL_SPACING.xl} 0 ${EMAIL_SPACING.md} 0`,
-  },
-
-  // "or" text - subtle, centered
-  orText: {
-    color: EMAIL_COLORS.textLight,
-    fontSize: EMAIL_TYPOGRAPHY.sizes.sm,
-    lineHeight: EMAIL_TYPOGRAPHY.lineHeights.normal,
-    textAlign: 'center' as const,
-    margin: `${EMAIL_SPACING.md} 0 ${EMAIL_SPACING.xl} 0`,
   },
 
   // Closing
