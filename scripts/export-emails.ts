@@ -22,6 +22,7 @@ import PatientResultsEmail from '../lib/email/templates/workflows/3-patient-resu
 import FollowUp1WeekEmail from '../lib/email/templates/workflows/4-followup-1week';
 import FollowUp1MonthEmail from '../lib/email/templates/workflows/5-followup-1month';
 import LongTermNurtureEmail from '../lib/email/templates/workflows/6-longterm-nurture';
+import ExistingLeadsOutreachEmail from '../lib/email/templates/workflows/existing-leads-outreach';
 
 /**
  * Template registry
@@ -69,6 +70,13 @@ const templates = [
     component: LongTermNurtureEmail,
     stage: 'Stage 5',
     description: 'Quarterly educational content',
+  },
+  {
+    id: 'existing-leads-outreach',
+    name: 'Existing Leads Outreach Email',
+    component: ExistingLeadsOutreachEmail,
+    stage: 'One-time Campaign',
+    description: 'Initial outreach to existing 15 leads with triage options',
   },
 ];
 
