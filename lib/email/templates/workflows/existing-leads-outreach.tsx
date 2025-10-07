@@ -30,10 +30,10 @@ export const ExistingLeadsOutreachEmail = () => {
       {/* Greeting */}
       <Heading style={styles.heading}>Hi {'{{contact.first_name}}'},</Heading>
 
-      {/* Opening paragraph - from TEMPLATE.md */}
+      {/* Opening paragraph - hardcoded lung cancer */}
       <Text style={styles.paragraph}>
         Thank you for completing our clinical trial eligibility quiz for{' '}
-        <strong>{'{{custom_field.cancer_type}}'}</strong>.
+        <strong>lung cancer</strong>.
       </Text>
 
       <Text style={styles.paragraph}>
@@ -43,7 +43,7 @@ export const ExistingLeadsOutreachEmail = () => {
 
       <Text style={styles.paragraph}>
         We can either set up a quick call to review your details and go over available
-        options, or continue right here by email — whichever you prefer.
+        options.
       </Text>
 
       {/* CTA button */}
@@ -59,7 +59,8 @@ export const ExistingLeadsOutreachEmail = () => {
 
       {/* Alternative option - regular body text */}
       <Text style={styles.paragraph}>
-        Or, if you prefer, simply reply to this email and we&apos;ll go from there.
+        Or simply reply to this email and we&apos;ll go from there — whichever you
+        prefer.
       </Text>
 
       {/* Closing */}
