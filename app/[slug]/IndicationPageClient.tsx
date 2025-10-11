@@ -6,7 +6,6 @@ import { ValueProposition } from './_components/ValueProposition';
 import { VideoTestimonials } from './_components/VideoTestimonials';
 import { QuizCTA } from './_components/QuizCTA';
 import { FAQ } from './_components/FAQ';
-import { ContactForm } from './ContactForm';
 import { useFunnelAnalytics } from '@/hooks/use-funnel-analytics';
 import type { AdHeadline, Indication, LandingPage } from '@/lib/db/schema';
 
@@ -77,25 +76,6 @@ export function IndicationPageClient({
           indication={indication.slug}
         />
       </Suspense>
-
-      {/* Contact Form Section */}
-      <section id="contact-form" className="py-12 sm:py-16 lg:py-20">
-        <div className="container max-w-4xl mx-auto px-4">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-              Get Your Personalized Trial Matches
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              Fill out this quick form and our team will contact you within 48 hours
-            </p>
-          </div>
-          <ContactForm
-            indication={indication}
-            adHeadline={adHeadline}
-            utmParams={utmParams}
-          />
-        </div>
-      </section>
 
       {/* FAQ Section */}
       <FAQ />
