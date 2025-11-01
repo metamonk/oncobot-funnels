@@ -146,7 +146,28 @@ export async function POST(request: NextRequest) {
       }
 
       // Prepare base contact data (for both create and update)
-      const baseContactData = {
+      // Build custom fields array only if env vars are set (fields must exist in GHL)
+      const contactCustomFields = [];
+      if (process.env.GHL_CONTACT_FIELD_LAST_QUIZ_DATE) {
+        contactCustomFields.push({
+          key: process.env.GHL_CONTACT_FIELD_LAST_QUIZ_DATE,
+          value: new Date().toISOString()
+        });
+      }
+      if (process.env.GHL_CONTACT_FIELD_PREFERRED_TIME) {
+        contactCustomFields.push({
+          key: process.env.GHL_CONTACT_FIELD_PREFERRED_TIME,
+          value: validatedData.preferredTime || ''
+        });
+      }
+      if (process.env.GHL_CONTACT_FIELD_TOTAL_SUBMISSIONS) {
+        contactCustomFields.push({
+          key: process.env.GHL_CONTACT_FIELD_TOTAL_SUBMISSIONS,
+          value: '1'
+        });
+      }
+
+      const baseContactData: any = {
         firstName,
         lastName,
         email: validatedData.email,
@@ -156,14 +177,13 @@ export async function POST(request: NextRequest) {
           'source:quiz',
           `updated:${new Date().toISOString().split('T')[0]}`
         ],
-        // Contact custom fields - must be an array for GoHighLevel API v2
-        customFields: [
-          { key: GHL_V2_CONFIG.customFields.contact.lastQuizDate, value: new Date().toISOString() },
-          { key: GHL_V2_CONFIG.customFields.contact.preferredTime, value: validatedData.preferredTime || '' },
-          { key: GHL_V2_CONFIG.customFields.contact.totalSubmissions, value: '1' } // Will be incremented for existing contacts
-        ],
         source: 'Quiz'
       };
+
+      // Only add customFields if we have any configured
+      if (contactCustomFields.length > 0) {
+        baseContactData.customFields = contactCustomFields;
+      }
 
       if (contactId) {
         // Update existing contact (WITHOUT locationId)
@@ -266,37 +286,66 @@ export async function POST(request: NextRequest) {
             stageId: GHL_V2_CONFIG.quizPipeline.stages.newLead
           });
 
+          // Build opportunity custom fields conditionally
+          const opportunityCustomFields = [];
+
+          // Medical data fields
+          if (process.env.GHL_OPP_FIELD_CANCER_TYPE) {
+            opportunityCustomFields.push({ key: process.env.GHL_OPP_FIELD_CANCER_TYPE, value: validatedData.cancerType });
+          }
+          if (process.env.GHL_OPP_FIELD_STAGE) {
+            opportunityCustomFields.push({ key: process.env.GHL_OPP_FIELD_STAGE, value: validatedData.stage });
+          }
+          if (process.env.GHL_OPP_FIELD_BIOMARKERS) {
+            opportunityCustomFields.push({ key: process.env.GHL_OPP_FIELD_BIOMARKERS, value: validatedData.biomarkers || '' });
+          }
+          if (process.env.GHL_OPP_FIELD_PRIOR_THERAPY) {
+            opportunityCustomFields.push({ key: process.env.GHL_OPP_FIELD_PRIOR_THERAPY, value: validatedData.priorTherapy || '' });
+          }
+          if (process.env.GHL_OPP_FIELD_FOR_WHOM) {
+            opportunityCustomFields.push({ key: process.env.GHL_OPP_FIELD_FOR_WHOM, value: validatedData.forWhom || 'self' });
+          }
+
+          // Location field
+          if (process.env.GHL_OPP_FIELD_ZIP_CODE) {
+            opportunityCustomFields.push({ key: process.env.GHL_OPP_FIELD_ZIP_CODE, value: validatedData.zipCode });
+          }
+
+          // UTM tracking fields
+          if (process.env.GHL_OPP_FIELD_UTM_SOURCE) {
+            opportunityCustomFields.push({ key: process.env.GHL_OPP_FIELD_UTM_SOURCE, value: validatedData.utmParams?.utm_source || 'organic' });
+          }
+          if (process.env.GHL_OPP_FIELD_UTM_MEDIUM) {
+            opportunityCustomFields.push({ key: process.env.GHL_OPP_FIELD_UTM_MEDIUM, value: validatedData.utmParams?.utm_medium || 'direct' });
+          }
+          if (process.env.GHL_OPP_FIELD_UTM_CAMPAIGN) {
+            opportunityCustomFields.push({ key: process.env.GHL_OPP_FIELD_UTM_CAMPAIGN, value: validatedData.utmParams?.utm_campaign || 'none' });
+          }
+
           // Create opportunity with quiz snapshot data
-          const opportunityData = {
+          const opportunityData: any = {
             locationId: GHL_V2_CONFIG.locationId,
             contactId: contactId,
             pipelineId: GHL_V2_CONFIG.quizPipeline.id,
             pipelineStageId: GHL_V2_CONFIG.quizPipeline.stages.newLead,
             name: `Quiz - ${validatedData.fullName} (${new Date().toLocaleDateString()})`,
-            status: 'open',
-
-            // Opportunity custom fields - must be an array for GoHighLevel API v2
-            // All medical data stored here in Health Profile section
-            customFields: [
-              // Health Profile data - exact same field names as database
-              { key: GHL_V2_CONFIG.customFields.opportunity.cancerType, value: validatedData.cancerType },
-              { key: GHL_V2_CONFIG.customFields.opportunity.stage, value: validatedData.stage },
-              { key: GHL_V2_CONFIG.customFields.opportunity.biomarkers, value: validatedData.biomarkers || '' },
-              { key: GHL_V2_CONFIG.customFields.opportunity.priorTherapy, value: validatedData.priorTherapy || '' },
-              { key: GHL_V2_CONFIG.customFields.opportunity.forWhom, value: validatedData.forWhom || 'self' },
-
-              // Location (Opportunity Details)
-              { key: GHL_V2_CONFIG.customFields.opportunity.zipCode, value: validatedData.zipCode },
-
-              // UTM tracking (Opportunity Details)
-              { key: GHL_V2_CONFIG.customFields.opportunity.utmSource, value: validatedData.utmParams?.utm_source || 'organic' },
-              { key: GHL_V2_CONFIG.customFields.opportunity.utmMedium, value: validatedData.utmParams?.utm_medium || 'direct' },
-              { key: GHL_V2_CONFIG.customFields.opportunity.utmCampaign, value: validatedData.utmParams?.utm_campaign || 'none' }
-            ],
-
-            // Note: Opportunities don't support tags in GoHighLevel API v2
-            // Tags are only for contacts - we store all metadata in custom fields instead
+            status: 'open'
           };
+
+          // Only add custom fields if we have any configured
+          if (opportunityCustomFields.length > 0) {
+            opportunityData.customFields = opportunityCustomFields;
+          } else {
+            // Fallback: Store medical data in notes if no custom fields configured
+            opportunityData.notes = `Medical Profile:\n` +
+              `Cancer Type: ${validatedData.cancerType}\n` +
+              `Stage: ${validatedData.stage}\n` +
+              `Biomarkers: ${validatedData.biomarkers || 'Not specified'}\n` +
+              `Prior Therapy: ${validatedData.priorTherapy || 'Not specified'}\n` +
+              `For Whom: ${validatedData.forWhom || 'self'}\n` +
+              `ZIP: ${validatedData.zipCode}\n` +
+              `UTM: ${validatedData.utmParams?.utm_source || 'organic'}/${validatedData.utmParams?.utm_medium || 'direct'}`;
+          }
 
           const opportunityResponse = await fetch(`${GHL_V2_CONFIG.apiBaseUrl}/opportunities/`, {
             method: 'POST',
