@@ -14,14 +14,14 @@ const quizSubmissionSchema = z.object({
   zipCode: z.string().min(5, 'Valid ZIP code is required'),
   forWhom: z.string().optional(),
   stage: z.string().min(1, 'Stage is required'),
-  biomarkers: z.string().optional(),
-  priorTherapy: z.string().optional(),
+  biomarkers: z.string().nullable().optional(),
+  priorTherapy: z.string().nullable().optional(),
 
   // Contact fields
   fullName: z.string().min(1, 'Full name is required'),
   email: z.string().email('Valid email is required'),
   phone: z.string().optional(),
-  preferredTime: z.string().optional(),
+  preferredTime: z.string().nullable().optional(),
   consent: z.boolean().optional(),
 
   // Tracking fields
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
         // Contact custom fields - must be an array for GoHighLevel API v2
         customFields: [
           { key: GHL_V2_CONFIG.customFields.contact.lastQuizDate, value: new Date().toISOString() },
-          { key: GHL_V2_CONFIG.customFields.contact.preferredTime, value: validatedData.preferredTime || 'Any time' },
+          { key: GHL_V2_CONFIG.customFields.contact.preferredTime, value: validatedData.preferredTime || '' },
           { key: GHL_V2_CONFIG.customFields.contact.totalSubmissions, value: '1' } // Will be incremented for existing contacts
         ],
         source: 'Quiz'
@@ -281,8 +281,8 @@ export async function POST(request: NextRequest) {
               // Health Profile data - exact same field names as database
               { key: GHL_V2_CONFIG.customFields.opportunity.cancerType, value: validatedData.cancerType },
               { key: GHL_V2_CONFIG.customFields.opportunity.stage, value: validatedData.stage },
-              { key: GHL_V2_CONFIG.customFields.opportunity.biomarkers, value: validatedData.biomarkers || 'Not tested' },
-              { key: GHL_V2_CONFIG.customFields.opportunity.priorTherapy, value: validatedData.priorTherapy || 'None' },
+              { key: GHL_V2_CONFIG.customFields.opportunity.biomarkers, value: validatedData.biomarkers || '' },
+              { key: GHL_V2_CONFIG.customFields.opportunity.priorTherapy, value: validatedData.priorTherapy || '' },
               { key: GHL_V2_CONFIG.customFields.opportunity.forWhom, value: validatedData.forWhom || 'self' },
 
               // Location (Opportunity Details)

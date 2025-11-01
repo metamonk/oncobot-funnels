@@ -44,15 +44,15 @@ interface QuizPageClientProps {
 interface QuizData {
   zipCode: string;
   condition: string;
-  cancerType?: string; // For 'other' indication
+  cancerType?: string;
   forWhom?: string;
   stage?: string;
-  biomarkers?: string;
-  priorTherapy?: string;
+  biomarkers?: string | null;
+  priorTherapy?: string | null;
   fullName: string;
   email: string;
   phone: string;
-  preferredTime?: string;
+  preferredTime?: string | null;
   consent: boolean;
 }
 
@@ -74,25 +74,29 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
   // Adjust total steps for 'other' indication (adds cancer type selection step)
   const totalSteps = indication.slug === 'other' ? 4 : 3;
 
+  // State for cancer type confirmation (Yes/No)
+  const [hasCancerTypeConfirmed, setHasCancerTypeConfirmed] = useState<'yes' | 'no' | ''>('');
+  const [showCancerTypeDropdown, setShowCancerTypeDropdown] = useState(indication.slug === 'other');
+
   const [quizData, setQuizData] = useState<Partial<QuizData>>({
     // Core fields
     condition: indication.slug,
-    cancerType: indication.slug === 'other' ? '' : indication.slug,
+    cancerType: '', // User must explicitly confirm/select
     zipCode: '',
 
     // Step 1 defaults
     forWhom: 'self',
 
-    // Step 2 defaults - will be set based on cancer type
+    // Step 2 defaults - null until user selects
     stage: '',
-    biomarkers: 'None/Unknown',
-    priorTherapy: 'no_prior_treatment',
+    biomarkers: null,
+    priorTherapy: null,
 
     // Step 3/4 defaults
     fullName: '',
     email: '',
     phone: '',
-    preferredTime: 'morning--8am-12pm-',
+    preferredTime: null,
     consent: false
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -138,18 +142,68 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Intentionally run once on mount
 
+  // Handle cancer type confirmation (Yes/No)
+  const handleCancerTypeConfirmation = (value: 'yes' | 'no') => {
+    setHasCancerTypeConfirmed(value);
+
+    if (value === 'yes') {
+      // User confirms they have the indicated cancer type
+      setQuizData({ ...quizData, cancerType: indication.slug });
+      setShowCancerTypeDropdown(false);
+    } else {
+      // User says no - show dropdown and clear cancer type
+      // Track mismatch intent
+      if (typeof window !== 'undefined' && (window as any).gtag) {
+        (window as any).gtag('event', 'quiz_indication_mismatch', {
+          event_category: 'Quiz',
+          event_label: indication.slug,
+          landing_page: indication.slug,
+          mismatch_type: 'declined_confirmation'
+        });
+      }
+      setQuizData({ ...quizData, cancerType: '' });
+      setShowCancerTypeDropdown(true);
+    }
+  };
+
+  // Handle cancer type selection from dropdown
+  const handleCancerTypeSelection = (selectedType: string) => {
+    setQuizData({ ...quizData, cancerType: selectedType });
+
+    // Track actual mismatch if they landed on a specific indication but selected different
+    if (indication.slug !== 'other' && selectedType !== indication.slug) {
+      if (typeof window !== 'undefined' && (window as any).gtag) {
+        (window as any).gtag('event', 'quiz_indication_mismatch', {
+          event_category: 'Quiz',
+          event_label: `${indication.slug} -> ${selectedType}`,
+          landing_page: indication.slug,
+          selected_cancer_type: selectedType,
+          mismatch_type: 'selected_different_type'
+        });
+      }
+      console.log(`📊 Mismatch tracked: Landed on ${indication.slug}, selected ${selectedType}`);
+    }
+  };
+
   const validateStep = () => {
     const newErrors: Record<string, string> = {};
 
     if (currentStep === 1) {
-      // Step 1: Location and Email
+      // Step 1: Cancer Type, Location and Email
+
+      // Validate cancer type - MANDATORY for all quizzes
+      if (!quizData.cancerType) {
+        if (indication.slug === 'other') {
+          newErrors.cancerType = 'Please select your cancer type';
+        } else {
+          newErrors.cancerType = 'Please confirm your cancer type';
+        }
+      }
+
       if (!quizData.zipCode || !/^\d{5}$/.test(quizData.zipCode)) {
         newErrors.zipCode = 'Please enter a valid 5-digit ZIP code';
       }
-      // For 'other' indication, validate cancer type selection
-      if (indication.slug === 'other' && !quizData.cancerType) {
-        newErrors.cancerType = 'Please select your cancer type';
-      }
+
       // Email is now required in Step 1
       if (!quizData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(quizData.email)) {
         newErrors.email = 'Please enter a valid email address';
@@ -377,15 +431,81 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
                 <div className="space-y-6">
                   <div>
                     <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
-                      <MapPin className="h-5 w-5 text-primary" />
-                      Let&apos;s Find Trials Near You
+                      <Activity className="h-5 w-5 text-primary" />
+                      Let&apos;s Find Your Matching Trials
                     </h2>
                     <p className="text-gray-600 text-sm">
-                      We&apos;ll match you with trials in your area
+                      First, let&apos;s confirm your cancer type
                     </p>
                   </div>
 
                   <div className="space-y-5">
+                    {/* Cancer Type Confirmation - FIRST FIELD */}
+                    <div>
+                      <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                        Cancer Type *
+                      </Label>
+
+                      {/* For specific indications: Show Yes/No confirmation */}
+                      {indication.slug !== 'other' && (
+                        <>
+                          <p className="text-sm text-gray-600 mb-3">
+                            Are you looking for {indication.name} clinical trials?
+                          </p>
+                          <RadioGroup
+                            value={hasCancerTypeConfirmed}
+                            onValueChange={(value) => handleCancerTypeConfirmation(value as 'yes' | 'no')}
+                            className="space-y-2.5"
+                          >
+                            <div className="flex items-center space-x-2.5">
+                              <RadioGroupItem value="yes" id="confirm-yes" className="text-primary" />
+                              <Label htmlFor="confirm-yes" className="text-sm font-normal text-gray-700 cursor-pointer">
+                                Yes, I have {indication.name}
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2.5">
+                              <RadioGroupItem value="no" id="confirm-no" className="text-primary" />
+                              <Label htmlFor="confirm-no" className="text-sm font-normal text-gray-700 cursor-pointer">
+                                No, I have a different cancer type
+                              </Label>
+                            </div>
+                          </RadioGroup>
+                        </>
+                      )}
+
+                      {/* Show dropdown for 'other' indication OR when user selects "No" */}
+                      {showCancerTypeDropdown && (
+                        <div className="mt-3">
+                          <Label htmlFor="cancerType" className="text-sm font-medium text-gray-700 mb-1.5 block">
+                            {indication.slug === 'other' ? 'Select your cancer type' : 'Which cancer type do you have?'}
+                          </Label>
+                          <Select
+                            value={quizData.cancerType}
+                            onValueChange={handleCancerTypeSelection}
+                          >
+                            <SelectTrigger
+                              id="cancerType"
+                              className={cn(
+                                "h-11 text-base",
+                                errors.cancerType ? 'border-red-500' : 'border-gray-300'
+                              )}
+                            >
+                              <SelectValue placeholder="Select your cancer type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {commonCancerTypes.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>
+                                  {type.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {errors.cancerType && <p className="text-sm text-red-500 mt-1">{errors.cancerType}</p>}
+                    </div>
+
                     <div>
                       <Label htmlFor="zipCode" className="text-sm font-medium text-gray-700 mb-1.5 block">
                         ZIP Code *
@@ -403,37 +523,6 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
                       />
                       {errors.zipCode && <p className="text-sm text-red-500 mt-1">{errors.zipCode}</p>}
                     </div>
-
-                    {/* For 'other' indication, show cancer type selection */}
-                    {indication.slug === 'other' && (
-                      <div>
-                        <Label htmlFor="cancerType" className="text-sm font-medium text-gray-700 mb-1.5 block">
-                          Cancer Type *
-                        </Label>
-                        <Select
-                          value={quizData.cancerType}
-                          onValueChange={(value) => setQuizData({ ...quizData, cancerType: value })}
-                        >
-                          <SelectTrigger
-                            id="cancerType"
-                            className={cn(
-                              "h-11 text-base",
-                              errors.cancerType ? 'border-red-500' : 'border-gray-300'
-                            )}
-                          >
-                            <SelectValue placeholder="Select your cancer type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {commonCancerTypes.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>
-                                {type.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {errors.cancerType && <p className="text-sm text-red-500 mt-1">{errors.cancerType}</p>}
-                      </div>
-                    )}
 
                     <div>
                       <Label htmlFor="email" className="text-sm font-medium text-gray-700 mb-1.5 block">
@@ -537,17 +626,17 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
 
                     <div>
                       <Label htmlFor="biomarkers" className="text-sm font-medium text-gray-700 mb-1.5 block">
-                        Known Biomarkers or Mutations
+                        Known Biomarkers or Mutations (Optional)
                       </Label>
                       <Select
-                        value={quizData.biomarkers}
+                        value={quizData.biomarkers ?? undefined}
                         onValueChange={(value) => setQuizData({ ...quizData, biomarkers: value })}
                       >
                         <SelectTrigger
                           id="biomarkers"
                           className="h-11 text-base border-gray-300 focus:border-primary focus:ring-primary"
                         >
-                          <SelectValue placeholder="Select biomarkers" />
+                          <SelectValue placeholder="Select if known, or skip" />
                         </SelectTrigger>
                         <SelectContent>
                           {cancerConfig.biomarkerOptions.map((biomarker) => (
@@ -558,23 +647,23 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-gray-500 mt-1.5">
-                        If you&apos;re not sure, select &quot;None/Unknown&quot;
+                        Leave blank if you haven&apos;t had biomarker testing
                       </p>
                     </div>
 
                     <div>
                       <Label htmlFor="priorTherapy" className="text-sm font-medium text-gray-700 mb-1.5 block">
-                        Previous Treatments
+                        Previous Treatments (Optional)
                       </Label>
                       <Select
-                        value={quizData.priorTherapy}
+                        value={quizData.priorTherapy ?? undefined}
                         onValueChange={(value) => setQuizData({ ...quizData, priorTherapy: value })}
                       >
                         <SelectTrigger
                           id="priorTherapy"
                           className="h-11 text-base border-gray-300 focus:border-primary focus:ring-primary"
                         >
-                          <SelectValue placeholder="Select previous treatments" />
+                          <SelectValue placeholder="Select if applicable, or skip" />
                         </SelectTrigger>
                         <SelectContent>
                           {treatmentOptions.map((option) => (
@@ -644,17 +733,17 @@ export function QuizPageClient({ indication, landingPage, utmParams }: QuizPageC
 
                     <div>
                       <Label htmlFor="preferredTime" className="text-sm font-medium text-gray-700 mb-1.5 block">
-                        Best Time to Contact
+                        Best Time to Contact (Optional)
                       </Label>
                       <Select
-                        value={quizData.preferredTime}
+                        value={quizData.preferredTime ?? undefined}
                         onValueChange={(value) => setQuizData({ ...quizData, preferredTime: value })}
                       >
                         <SelectTrigger
                           id="preferredTime"
                           className="h-11 text-base border-gray-300 focus:border-primary focus:ring-primary"
                         >
-                          <SelectValue placeholder="Select preferred time" />
+                          <SelectValue placeholder="Any time works" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="morning--8am-12pm-" className="text-base">Morning (8am-12pm)</SelectItem>

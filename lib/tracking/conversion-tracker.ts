@@ -21,8 +21,8 @@ interface ConversionData {
   indication?: string;
   cancerType?: string;
   stage?: string;
-  biomarkers?: string;
-  priorTherapy?: string;
+  biomarkers?: string | null;
+  priorTherapy?: string | null;
 }
 
 /**

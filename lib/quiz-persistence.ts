@@ -14,8 +14,9 @@ interface PartialQuizData {
   fullName?: string;
   forWhom?: string;
   stage?: string;
-  biomarkers?: string;
-  priorTherapy?: string;
+  biomarkers?: string | null;
+  priorTherapy?: string | null;
+  preferredTime?: string | null;
   currentStep?: number;
   lastUpdated?: string;
   sessionId?: string;

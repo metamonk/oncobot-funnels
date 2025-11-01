@@ -200,8 +200,8 @@ export interface PatientFunnelProperties {
   zipCode?: string;
   cancerType?: string;
   stage?: string;
-  biomarkers?: string;
-  priorTherapy?: string;
+  biomarkers?: string | null;
+  priorTherapy?: string | null;
   leadScore?: number;
   
   // Trial Properties
