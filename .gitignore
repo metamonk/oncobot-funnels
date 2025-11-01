@@ -19,6 +19,9 @@
 # misc
 .DS_Store
 *.pem
+.claude
+.cursor
+bmad
 
 # debug
 npm-debug.log*
