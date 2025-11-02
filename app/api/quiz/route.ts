@@ -218,8 +218,19 @@ export async function POST(request: NextRequest) {
 
           if (createResponse.ok) {
             const responseData = await createResponse.json();
+            logger.info('GHL contact creation response', {
+              fullResponse: JSON.stringify(responseData),
+              hasContact: !!responseData.contact,
+              contactId: responseData.contact?.id
+            });
             contactId = responseData.contact?.id;
-            logger.info('Created new contact in GoHighLevel', { contactId });
+
+            if (!contactId) {
+              logger.error('Contact created but no ID in response!', { responseData });
+              syncError = 'Contact created but no ID returned';
+            } else {
+              logger.info('Created new contact in GoHighLevel', { contactId });
+            }
           } else {
             const errorText = await createResponse.text();
             syncError = `Failed to create contact: ${createResponse.status}`;
@@ -262,6 +273,8 @@ export async function POST(request: NextRequest) {
         try {
           logger.info('Creating opportunity in pipeline', {
             contactId,
+            contactIdType: typeof contactId,
+            contactIdValue: JSON.stringify(contactId),
             pipelineId: GHL_V2_CONFIG.quizPipeline.id,
             stageId: GHL_V2_CONFIG.quizPipeline.stages.newLead
           });
@@ -298,6 +311,10 @@ export async function POST(request: NextRequest) {
             // Tags are only for contacts - we store all metadata in custom fields instead
           };
 
+          logger.info('Sending opportunity creation request', {
+            payload: JSON.stringify(opportunityData)
+          });
+
           const opportunityResponse = await fetch(`${GHL_V2_CONFIG.apiBaseUrl}/opportunities/`, {
             method: 'POST',
             headers: {
@@ -310,11 +327,18 @@ export async function POST(request: NextRequest) {
 
           if (opportunityResponse.ok) {
             const oppData = await opportunityResponse.json();
+            logger.info('GHL opportunity creation response', {
+              fullResponse: JSON.stringify(oppData),
+              hasOpportunity: !!oppData.opportunity,
+              opportunityId: oppData.opportunity?.id,
+              opportunityContactId: oppData.opportunity?.contactId
+            });
             opportunityId = oppData.opportunity?.id;
             syncedToCrm = true;
             logger.info('Successfully created opportunity in pipeline', {
               contactId,
-              opportunityId
+              opportunityId,
+              opportunityHasContact: !!oppData.opportunity?.contactId
             });
           } else {
             const oppErrorText = await opportunityResponse.text();
