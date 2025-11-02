@@ -221,9 +221,13 @@ export async function POST(request: NextRequest) {
             logger.info('GHL contact creation response', {
               fullResponse: JSON.stringify(responseData),
               hasContact: !!responseData.contact,
-              contactId: responseData.contact?.id
+              hasIdAtRoot: !!responseData.id,
+              contactId: responseData.contact?.id,
+              rootId: responseData.id
             });
-            contactId = responseData.contact?.id;
+
+            // Try both possible response structures
+            contactId = responseData.contact?.id || responseData.id;
 
             if (!contactId) {
               logger.error('Contact created but no ID in response!', { responseData });
