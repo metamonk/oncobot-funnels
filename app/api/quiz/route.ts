@@ -256,10 +256,48 @@ export async function POST(request: NextRequest) {
                    errorData.message?.includes('duplicate'))) {
                 contactId = errorData.meta.contactId;
                 isDuplicateError = true;
-                logger.info('✅ Extracted contact ID from duplicate error - will use existing contact', {
+                logger.info('✅ Extracted contact ID from duplicate error - will update existing contact', {
                   contactId,
                   matchingField: errorData.meta.matchingField
                 });
+
+                // UPDATE the existing contact with new quiz data
+                try {
+                  logger.info('Updating existing duplicate contact with latest quiz data', {
+                    contactId,
+                    firstName: baseContactData.firstName,
+                    lastName: baseContactData.lastName,
+                    email: baseContactData.email
+                  });
+
+                  const updateResponse = await fetch(
+                    `${GHL_V2_CONFIG.apiBaseUrl}/contacts/${contactId}`,
+                    {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${GHL_V2_CONFIG.apiKey}`,
+                        'Version': '2021-07-28'
+                      },
+                      body: JSON.stringify(baseContactData) // Don't include locationId
+                    }
+                  );
+
+                  if (updateResponse.ok) {
+                    logger.info('✅ Successfully updated duplicate contact with latest quiz data', { contactId });
+                  } else {
+                    const updateError = await updateResponse.text();
+                    logger.warn('⚠️ Failed to update duplicate contact, continuing with stale data', {
+                      contactId,
+                      error: updateError
+                    });
+                    // Don't fail - continue with opportunity creation
+                  }
+                } catch (updateError) {
+                  logger.error('Failed to update duplicate contact', updateError);
+                  // Don't fail - continue with opportunity creation
+                }
+
                 // Clear sync error since we successfully got the contact ID
                 syncError = undefined;
               } else {
