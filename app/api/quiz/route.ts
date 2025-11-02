@@ -237,25 +237,47 @@ export async function POST(request: NextRequest) {
             }
           } else {
             const errorText = await createResponse.text();
-            syncError = `Failed to create contact: ${createResponse.status}`;
-            logger.error('Failed to create contact in GoHighLevel', {
-              status: createResponse.status,
-              statusText: createResponse.statusText,
-              error: errorText
-            });
 
             // Try to extract contactId from error response if it's a duplicate error
+            let isDuplicateError = false;
             try {
               const errorData = JSON.parse(errorText);
-              // Check both old and new error formats
-              if (errorData.meta?.contactId) {
+              logger.info('Contact creation failed, parsing error response', {
+                status: createResponse.status,
+                errorData: errorData,
+                hasMeta: !!errorData.meta,
+                hasContactIdInMeta: !!errorData.meta?.contactId,
+                message: errorData.message
+              });
+
+              // Check both old and new error formats for duplicate contact
+              if (errorData.meta?.contactId &&
+                  (errorData.message?.includes('duplicated contacts') ||
+                   errorData.message?.includes('duplicate'))) {
                 contactId = errorData.meta.contactId;
-                logger.info('Extracted contact ID from duplicate error', { contactId });
-                // Clear sync error if we got the contact ID
+                isDuplicateError = true;
+                logger.info('✅ Extracted contact ID from duplicate error - will use existing contact', {
+                  contactId,
+                  matchingField: errorData.meta.matchingField
+                });
+                // Clear sync error since we successfully got the contact ID
                 syncError = undefined;
+              } else {
+                syncError = `Failed to create contact: ${createResponse.status}`;
+                logger.error('Failed to create contact in GoHighLevel (not a duplicate)', {
+                  status: createResponse.status,
+                  statusText: createResponse.statusText,
+                  error: errorText
+                });
               }
-            } catch (e) {
-              // Ignore parse errors
+            } catch (parseError) {
+              // Could not parse error response
+              syncError = `Failed to create contact: ${createResponse.status}`;
+              logger.error('Failed to create contact and could not parse error response', {
+                status: createResponse.status,
+                error: errorText,
+                parseError
+              });
             }
           }
         } catch (createError) {
@@ -268,6 +290,7 @@ export async function POST(request: NextRequest) {
       logger.info('Checking opportunity creation conditions', {
         hasContactId: !!contactId,
         contactId,
+        contactIdLength: contactId?.length,
         pipelineId: GHL_V2_CONFIG.quizPipeline.id,
         stageId: GHL_V2_CONFIG.quizPipeline.stages.newLead,
         hasPipelineConfig: !!GHL_V2_CONFIG.quizPipeline.id && !!GHL_V2_CONFIG.quizPipeline.stages.newLead
@@ -275,10 +298,12 @@ export async function POST(request: NextRequest) {
 
       if (contactId && GHL_V2_CONFIG.quizPipeline.id && GHL_V2_CONFIG.quizPipeline.stages.newLead) {
         try {
-          logger.info('Creating opportunity in pipeline', {
+          logger.info('📋 Creating opportunity in pipeline', {
             contactId,
             contactIdType: typeof contactId,
-            contactIdValue: JSON.stringify(contactId),
+            contactIdLength: contactId.length,
+            contactIdValue: contactId,
+            fullName: validatedData.fullName,
             pipelineId: GHL_V2_CONFIG.quizPipeline.id,
             stageId: GHL_V2_CONFIG.quizPipeline.stages.newLead
           });
@@ -315,8 +340,13 @@ export async function POST(request: NextRequest) {
             // Tags are only for contacts - we store all metadata in custom fields instead
           };
 
-          logger.info('Sending opportunity creation request', {
-            payload: JSON.stringify(opportunityData)
+          logger.info('📤 Sending opportunity creation request to GHL', {
+            contactId: opportunityData.contactId,
+            opportunityName: opportunityData.name,
+            pipelineId: opportunityData.pipelineId,
+            stageId: opportunityData.pipelineStageId,
+            locationId: opportunityData.locationId,
+            customFieldsCount: opportunityData.customFields?.length || 0
           });
 
           const opportunityResponse = await fetch(`${GHL_V2_CONFIG.apiBaseUrl}/opportunities/`, {
@@ -331,19 +361,33 @@ export async function POST(request: NextRequest) {
 
           if (opportunityResponse.ok) {
             const oppData = await opportunityResponse.json();
-            logger.info('GHL opportunity creation response', {
-              fullResponse: JSON.stringify(oppData),
-              hasOpportunity: !!oppData.opportunity,
-              opportunityId: oppData.opportunity?.id,
-              opportunityContactId: oppData.opportunity?.contactId
-            });
             opportunityId = oppData.opportunity?.id;
             syncedToCrm = true;
-            logger.info('Successfully created opportunity in pipeline', {
-              contactId,
+
+            const responseContactId = oppData.opportunity?.contactId || oppData.opportunity?.contact?.id;
+            const contactMatches = responseContactId === contactId;
+
+            logger.info('✅ GHL opportunity created successfully', {
               opportunityId,
-              opportunityHasContact: !!oppData.opportunity?.contactId
+              requestedContactId: contactId,
+              responseContactId: responseContactId,
+              contactMatches: contactMatches,
+              opportunityName: oppData.opportunity?.name,
+              hasContact: !!responseContactId
             });
+
+            if (!contactMatches && responseContactId) {
+              logger.warn('⚠️ Opportunity contactId mismatch!', {
+                sent: contactId,
+                received: responseContactId
+              });
+            } else if (!responseContactId) {
+              logger.error('❌ Opportunity created WITHOUT contact linkage!', {
+                sentContactId: contactId,
+                opportunityId,
+                fullResponse: JSON.stringify(oppData)
+              });
+            }
           } else {
             const oppErrorText = await opportunityResponse.text();
             syncError = `Failed to create opportunity: ${opportunityResponse.status}`;
